@@ -1,30 +1,30 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
-//добавить AccessControl
 import "./interfaces/ITreasury.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import "./interfaces/IERC20.sol";
+import "./interfaces/IUniswapFactory.sol";
 
-contract OneVsOneGame is Ownable {
+contract OneVsOneGameExactPrice is Ownable {
     enum Status {
         Created,
         Closed,
-        Prepared,
         Started,
         Finished,
         Refused
     }
-
+    //разделить игру на два контракта по режимам
     struct BetInfo {
+        address token0; // токены пары, можно выбрать ставку к стоимости токена0 к токену1 и наоборот
+        address token1;
         address initiator;
         uint48 startTime;
         uint48 endTime;
         address opponent;
-        bool isUpDown; //режим игры
-        bool willGoUp; //что выбрал инициатор игры
         uint256 betAmount;
         uint256 initiatorPrice;
         uint256 opponentPrice;
-        uint256 startingAssetPrice;
         uint256 finalAssetPrice;
         Status gameStatus;
     }
@@ -33,21 +33,21 @@ contract OneVsOneGame is Ownable {
     uint256 public totalBets;
     address public treasury;
 
-    constructor() Ownable(msg.sender){}
+    constructor() Ownable(msg.sender) {}
 
     function createBet(
         address opponent,
         uint48 startTime,
         uint48 endTime,
-        bool gameMode,
-        bool willGoUp,
         uint256 initiatorPrice,
-        uint256 betAmount
+        uint256 betAmount,
+        address token0,
+        address token1
     ) public {
         require(
             endTime - startTime >= 30 minutes,
             "Min bet duration must be 30 minutes"
-        ); 
+        );
         require(
             endTime - startTime <= 24 weeks,
             "Max bet duration must be 6 month"
@@ -61,32 +61,22 @@ contract OneVsOneGame is Ownable {
         newBet.initiatorPrice = initiatorPrice;
         newBet.betAmount = betAmount;
         newBet.opponent = opponent;
-        newBet.isUpDown = gameMode;
-        newBet.willGoUp = willGoUp;
-        newBet.gameStatus = gameMode ? Status.Created : Status.Prepared;
+        newBet.gameStatus = Status.Created;
+        newBet.token0 = token0;
+        newBet.token1 = token1;
         games[totalBets++] = newBet;
         //добавить event
     }
 
-    function setStartingPrice(uint256 betId, uint256 assetPrice) onlyOwner public {
-        BetInfo memory bet = games[betId];
-        require(bet.gameStatus == Status.Created, "Wrong status!");
-        bet.gameStatus = Status.Prepared;
-        bet.startingAssetPrice = assetPrice;
-        games[betId] = bet;
-    }
-
     function acceptBet(uint256 betId, uint256 opponentPrice) public {
         BetInfo memory bet = games[betId];
-        require(bet.gameStatus == Status.Prepared, "Wrong status!");
+        require(bet.gameStatus == Status.Created, "Wrong status!");
         require(
             bet.startTime + (bet.endTime - bet.startTime) / 3 >=
                 block.timestamp,
             "Time is up"
         );
-        if (bet.isUpDown) {
-            require(bet.initiatorPrice != opponentPrice, "Same asset prices");
-        }
+        require(bet.initiatorPrice != opponentPrice, "Same asset prices");
         //Если не приватная игра, то адрес будет 0
         if (bet.opponent != address(0)) {
             require(
@@ -114,7 +104,8 @@ contract OneVsOneGame is Ownable {
             bet.gameStatus == Status.Refused ||
                 (bet.startTime + (bet.endTime - bet.startTime) / 3 <
                     block.timestamp &&
-                    bet.gameStatus == Status.Prepared), "Wrong status!"
+                    bet.gameStatus == Status.Created),
+            "Wrong status!"
         );
         ITreasury(treasury).refund(bet.betAmount, bet.initiator);
         games[betId].gameStatus = Status.Closed;
@@ -122,21 +113,12 @@ contract OneVsOneGame is Ownable {
     }
 
     //only owner
-    function endGame(uint256 betId, uint256 finalPrice) onlyOwner public {
+    function endGame(uint256 betId, address uniFactory) public onlyOwner {
         BetInfo memory bet = games[betId];
+        //Можно сделать чтобы токены передавались только бэком, а пару хранить в структуре
+        uint256 finalPrice = getTokenPrice(bet.token0, bet.token1, uniFactory);
         require(bet.gameStatus == Status.Started, "Wrong status!");
         require(block.timestamp >= bet.endTime, "Too early to finish");
-        if (bet.isUpDown) {
-            if (
-                bet.willGoUp
-                    ? bet.startingAssetPrice < finalPrice
-                    : bet.startingAssetPrice > finalPrice
-            ) {
-                ITreasury(treasury).distribute(bet.betAmount, bet.initiator);
-            } else {
-                ITreasury(treasury).distribute(bet.betAmount, bet.opponent);
-            }
-        } else {
             uint256 diff1 = bet.initiatorPrice > finalPrice
                 ? bet.initiatorPrice - finalPrice
                 : finalPrice - bet.initiatorPrice;
@@ -149,13 +131,28 @@ contract OneVsOneGame is Ownable {
             } else {
                 ITreasury(treasury).distribute(bet.betAmount, bet.opponent);
             }
-        }
         bet.finalAssetPrice = finalPrice;
         bet.gameStatus = Status.Finished;
         games[betId] = bet;
     }
 
-    function setTreasury(address newTreasury) onlyOwner public {
+    function getTokenPrice(
+        address token0,
+        address token1,
+        address uniFactory
+    ) public view returns (uint256) {
+        IUniswapV2Pair pair = IUniswapV2Pair(IUniswapFactory(uniFactory).getPair(token0,token1));
+        (uint256 reserve0, uint256 reserve1, ) = pair.getReserves();
+        if (token0 == pair.token1()) {
+            uint256 amount = reserve0 * (10 ** IERC20(pair.token1()).decimals());
+            return ((amount) / reserve1); // return amount of token0 needed to buy token1
+        } else if (token0 == pair.token0()) {
+            uint256 amount = reserve1 * (10 ** IERC20(pair.token0()).decimals());
+            return ((amount) / reserve0); // return amount of token1 needed to buy token0
+        }
+    }
+
+    function setTreasury(address newTreasury) public onlyOwner {
         treasury = newTreasury;
     }
 

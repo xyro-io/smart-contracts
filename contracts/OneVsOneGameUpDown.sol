@@ -29,110 +29,122 @@ contract OneVsOneGameUpDown is Ownable {
         Status gameStatus;
     }
 
-    mapping(uint256 => BetInfo) public games;
-    uint256 public totalBets;
+    BetInfo public game;
     address public treasury;
 
-    constructor() Ownable(msg.sender) {}
-
-    function createBet(
+    constructor(
         address opponent,
         uint48 startTime,
         uint48 endTime,
         bool willGoUp,
         uint256 betAmount,
+        address initiator,
         address uniFactory,
         address token0,
         address token1
-    ) public {
-        require(
-            endTime - startTime >= 30 minutes,
-            "Min bet duration must be 30 minutes"
-        );
-        require(
-            endTime - startTime <= 24 weeks,
-            "Max bet duration must be 6 month"
-        );
-        require(betAmount >= 10000000000000000000, "Wrong bet amount");
-        BetInfo memory newBet;
-        newBet.initiator = msg.sender;
-        newBet.startTime = startTime;
-        newBet.endTime = endTime;
-        ITreasury(treasury).deposit(betAmount, msg.sender);
-        newBet.betAmount = betAmount;
-        newBet.opponent = opponent;
-        newBet.willGoUp = willGoUp;
-        newBet.token0 = token0;
-        newBet.token1 = token1;
-        newBet.gameStatus = Status.Created;
-        newBet.startingAssetPrice = getTokenPrice(token0, token1, uniFactory);
-        games[totalBets++] = newBet;
-        //добавить event
+    ) Ownable(msg.sender) {
+        game.initiator = initiator;
+        game.startTime = startTime;
+        game.endTime = endTime;
+        // ITreasury(treasury).deposit(betAmount, initiator);
+        game.betAmount = betAmount;
+        game.opponent = opponent;
+        game.willGoUp = willGoUp;
+        game.token0 = token0;
+        game.token1 = token1;
+        game.gameStatus = Status.Created;
+        game.startingAssetPrice = getTokenPrice(token0, token1, uniFactory);
     }
 
-    function acceptBet(uint256 betId) public {
-        BetInfo memory bet = games[betId];
-        require(bet.gameStatus == Status.Created, "Wrong status!");
+    // function createBet(
+    //     address opponent,
+    //     uint48 startTime,
+    //     uint48 endTime,
+    //     bool willGoUp,
+    //     uint256 betAmount,
+    //     address uniFactory,
+    //     address token0,
+    //     address token1
+    // ) public {
+    //     require(
+    //         endTime - startTime >= 30 minutes,
+    //         "Min game duration must be 30 minutes"
+    //     );
+    //     require(
+    //         endTime - startTime <= 24 weeks,
+    //         "Max game duration must be 6 month"
+    //     );
+    //     require(betAmount >= 10000000000000000000, "Wrong game amount");
+    //     BetInfo memory newBet;
+    //     newBet.initiator = msg.sender;
+    //     newBet.startTime = startTime;
+    //     newBet.endTime = endTime;
+    //     ITreasury(treasury).deposit(betAmount, msg.sender);
+    //     newBet.betAmount = betAmount;
+    //     newBet.opponent = opponent;
+    //     newBet.willGoUp = willGoUp;
+    //     newBet.token0 = token0;
+    //     newBet.token1 = token1;
+    //     newBet.gameStatus = Status.Created;
+    //     newBet.startingAssetPrice = getTokenPrice(token0, token1, uniFactory);
+    //     //добавить event
+    // }
+
+    function acceptBet() public {
+        require(game.gameStatus == Status.Created, "Wrong status!");
         require(
-            bet.startTime + (bet.endTime - bet.startTime) / 3 >=
+            game.startTime + (game.endTime - game.startTime) / 3 >=
                 block.timestamp,
             "Time is up"
         );
         //Если не приватная игра, то адрес будет 0
-        if (bet.opponent != address(0)) {
+        if (game.opponent != address(0)) {
             require(
-                msg.sender == bet.opponent,
+                msg.sender == game.opponent,
                 "Only certain account can accept"
             );
         } else {
-            bet.opponent == msg.sender;
+            game.opponent == msg.sender;
         }
-        ITreasury(treasury).deposit(bet.betAmount, msg.sender);
-        bet.gameStatus = Status.Started;
-        games[betId] = bet;
+        ITreasury(treasury).deposit(game.betAmount, msg.sender);
+        game.gameStatus = Status.Started;
     }
 
-    function refuseBet(uint256 betId) public {
-        BetInfo memory bet = games[betId];
-        require(bet.gameStatus == Status.Created, "Wrong status!");
-        require(msg.sender == bet.opponent, "Only opponent can refuse");
-        bet.gameStatus = Status.Refused;
-        games[betId] = bet;
+    function refuseBet() public {
+        require(game.gameStatus == Status.Created, "Wrong status!");
+        require(msg.sender == game.opponent, "Only opponent can refuse");
+        game.gameStatus = Status.Refused;
     }
 
-    function closeBet(uint256 betId) public {
-        BetInfo memory bet = games[betId];
-        require(bet.initiator == msg.sender, "Wrong sender");
+    function closeBet() public {
+        require(game.initiator == msg.sender, "Wrong sender");
         require(
-            bet.gameStatus == Status.Refused ||
-                (bet.startTime + (bet.endTime - bet.startTime) / 3 <
+            game.gameStatus == Status.Refused ||
+                (game.startTime + (game.endTime - game.startTime) / 3 <
                     block.timestamp &&
-                    bet.gameStatus == Status.Created),
+                    game.gameStatus == Status.Created),
             "Wrong status!"
         );
-        ITreasury(treasury).refund(bet.betAmount, bet.initiator);
-        games[betId].gameStatus = Status.Closed;
-        games[betId] = bet;
+        ITreasury(treasury).refund(game.betAmount, game.initiator);
+        game.gameStatus = Status.Closed;
     }
 
     //only owner
-    function endGame(uint256 betId, address uniFactory) public onlyOwner {
-        BetInfo memory bet = games[betId];
-        uint256 finalPrice = getTokenPrice(bet.token0, bet.token1, uniFactory);
-        require(bet.gameStatus == Status.Started, "Wrong status!");
-        require(block.timestamp >= bet.endTime, "Too early to finish");
+    function endGame(address uniFactory) public onlyOwner {
+        uint256 finalPrice = getTokenPrice(game.token0, game.token1, uniFactory);
+        require(game.gameStatus == Status.Started, "Wrong status!");
+        require(block.timestamp >= game.endTime, "Too early to finish");
         if (
-            bet.willGoUp
-                ? bet.startingAssetPrice < finalPrice
-                : bet.startingAssetPrice > finalPrice
+            game.willGoUp
+                ? game.startingAssetPrice < finalPrice
+                : game.startingAssetPrice > finalPrice
         ) {
-            ITreasury(treasury).distribute(bet.betAmount, bet.initiator);
+            ITreasury(treasury).distribute(game.betAmount, game.initiator);
         } else {
-            ITreasury(treasury).distribute(bet.betAmount, bet.opponent);
+            ITreasury(treasury).distribute(game.betAmount, game.opponent);
         }
-        bet.finalAssetPrice = finalPrice;
-        bet.gameStatus = Status.Finished;
-        games[betId] = bet;
+        game.finalAssetPrice = finalPrice;
+        game.gameStatus = Status.Finished;
     }
 
     function getTokenPrice(
@@ -147,12 +159,12 @@ contract OneVsOneGameUpDown is Ownable {
         if (token0 == pair.token1()) {
             uint256 amount = reserve0 *
                 (10 ** IERC20(pair.token1()).decimals());
-                finalPrice = amount / reserve1;
+            finalPrice = amount / reserve1;
             return finalPrice; // return amount of token0 needed to buy token1
         } else if (token0 == pair.token0()) {
             uint256 amount = reserve1 *
                 (10 ** IERC20(pair.token0()).decimals());
-                finalPrice = amount / reserve1;
+            finalPrice = amount / reserve1;
             return finalPrice; // return amount of token1 needed to buy token0
         }
     }

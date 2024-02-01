@@ -1,6 +1,7 @@
 require("@nomicfoundation/hardhat-toolbox");
 require("hardhat-contract-sizer");
 require("hardhat-dependency-compiler");
+require("hardhat-gas-reporter");
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -52,5 +53,14 @@ module.exports = {
         },
       },
     ],
+  },
+  gasReporter: {
+    enabled: true,
+    currency: "USD",
+    gasPrice: 25,
+    showTimeSpent: true,
+    token: "ETH",
+    gasPriceApi: "https://api.bscscan.com/api?module=proxy&action=eth_gasPrice",
+    coinmarketcap: "d64e6644-6472-4b53-8375-5ae706aec3eb",
   },
 };

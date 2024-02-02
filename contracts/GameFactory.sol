@@ -26,10 +26,7 @@ contract GameFactory is Ownable {
         uint48 startTime,
         uint48 endTime,
         bool willGoUp,
-        uint256 betAmount,
-        address uniFactory,
-        address token0,
-        address token1
+        uint256 betAmount
     ) public returns (address newGame) {
         require(
             endTime - startTime >= 30 minutes,
@@ -42,7 +39,7 @@ contract GameFactory is Ownable {
         require(betAmount >= 10000000000000000000, "Wrong bet amount");
         newGame = Create2.deploy(
             0,
-            keccak256(abi.encodePacked(startTime, token0)),
+            keccak256(abi.encodePacked(startTime, betAmount)),
             abi.encodePacked(
                 type(OneVsOneGameUpDown).creationCode,
                 abi.encode(
@@ -51,10 +48,7 @@ contract GameFactory is Ownable {
                     endTime,
                     willGoUp,
                     betAmount,
-                    msg.sender,
-                    uniFactory,
-                    token0,
-                    token1
+                    msg.sender
                 )
             )
         );
@@ -69,9 +63,7 @@ contract GameFactory is Ownable {
         uint48 startTime,
         uint48 endTime,
         uint256 initiatorPrice,
-        uint256 betAmount,
-        address token0,
-        address token1
+        uint256 betAmount
     ) public returns (address newGame) {
         require(
             endTime - startTime >= 30 minutes,
@@ -84,7 +76,7 @@ contract GameFactory is Ownable {
         require(betAmount >= 10000000000000000000, "Wrong bet amount");
         newGame = Create2.deploy(
             0,
-            keccak256(abi.encodePacked(startTime, token0)),
+            keccak256(abi.encodePacked(startTime, initiatorPrice)),
             abi.encodePacked(
                 type(OneVsOneGameExactPrice).creationCode,
                 abi.encode(
@@ -93,9 +85,7 @@ contract GameFactory is Ownable {
                     endTime,
                     initiatorPrice,
                     betAmount,
-                    msg.sender,
-                    token0,
-                    token1
+                    msg.sender
                 )
             )
         );

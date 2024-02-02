@@ -8,46 +8,15 @@ describe("ExactPriceModeUniswap", () => {
   before(async () => {
     [owner, opponent] = await ethers.getSigners();
 
-    let factory = await ethers.getContractFactory("UniswapV2Factory");
-    UniFactory = await factory.deploy(owner.address);
-    factory = await ethers.getContractFactory("UniswapV2Router02");
-    UniRouter = await factory.deploy(UniFactory.address, UniFactory.address);
-    factory = await ethers.getContractFactory("MockToken");
+    let factory = await ethers.getContractFactory("MockToken");
     USDT = await factory.deploy(parse18("10000000000000"));
-    factory = await ethers.getContractFactory("MockToken");
-    ETH = await factory.deploy(parse18("10000000000000"));
     factory = await ethers.getContractFactory("Treasury");
     Treasury = await factory.deploy(USDT.address);
     factory = await ethers.getContractFactory("GameFactory");
     GameFactory = await factory.deploy(Treasury.address);
-
+    assetPrice = parse18("2310");
     await USDT.mint(opponent.address, parse18("10000000"));
     await Treasury.setFee(100);
-    await UniFactory.createPair(USDT.address, ETH.address);
-    await USDT.approve(UniRouter.address, ethers.constants.MaxUint256);
-    await ETH.approve(UniRouter.address, ethers.constants.MaxUint256);
-    await UniRouter.addLiquidity(
-      USDT.address,
-      ETH.address,
-      parse18("23080000"),
-      parse18("10000"),
-      parse18("23080000"),
-      parse18("10000"),
-      owner.address,
-      ethers.constants.MaxUint256
-    );
-    factory = await ethers.getContractFactory("UniswapV2Pair");
-    Pair = await factory.attach(
-      await UniFactory.getPair(USDT.address, ETH.address)
-    );
-    reserves = await Pair.getReserves();
-    // console.log(
-    //   (await Game.getTokenPrice(
-    //     ETH.address,
-    //     USDT.address,
-    //     UniFactory.address
-    //   )) / Math.pow(10, 18)
-    // );
   });
 
   it("should create updown bet", async function () {
@@ -57,10 +26,7 @@ describe("ExactPriceModeUniswap", () => {
       await helpers.time.latest(),
       (await helpers.time.latest()) + 2700,
       false,
-      parse18("100"),
-      UniFactory.address,
-      USDT.address,
-      ETH.address
+      parse18("100")
     );
     factory = await ethers.getContractFactory("OneVsOneGameUpDown");
     Game = await factory.attach(await GameFactory.games(0));
@@ -73,6 +39,12 @@ describe("ExactPriceModeUniswap", () => {
     expect(bet.gameStatus).to.equal(0);
   });
 
+  it("should set price", async function () {
+    await Game.setStartingPrice(assetPrice);
+    let bet = await Game.game();
+    expect(bet.gameStatus).to.equal(1);
+  });
+
   it("should accept updown mode bet", async function () {
     await USDT.connect(opponent).approve(
       Treasury.address,
@@ -80,21 +52,13 @@ describe("ExactPriceModeUniswap", () => {
     );
     await Game.connect(opponent).acceptBet();
     let bet = await Game.game();
-    expect(bet.gameStatus).to.equal(2);
+    expect(bet.gameStatus).to.equal(3);
   });
 
   it("should end updown game", async function () {
-    //price change
-    await UniRouter.swapExactTokensForTokens(
-      parse18("200"),
-      0,
-      [ETH.address, USDT.address],
-      owner.address,
-      ethers.constants.MaxUint256
-    );
     oldBalance = await USDT.balanceOf(opponent.address);
     await helpers.time.increase(2700);
-    await Game.endGame(UniFactory.address);
+    await Game.endGame(assetPrice.div(100).mul(103));
     newBalance = await USDT.balanceOf(opponent.address);
     expect(newBalance).to.be.above(oldBalance);
   });

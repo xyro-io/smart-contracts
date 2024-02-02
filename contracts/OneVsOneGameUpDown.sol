@@ -2,13 +2,12 @@
 pragma solidity ^0.8.9;
 import "./interfaces/ITreasury.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "./interfaces/IERC20.sol";
-import "./interfaces/IUniswapFactory.sol";
 
 contract OneVsOneGameUpDown is Ownable {
     enum Status {
         Created,
+        Prepared,
         Closed,
         Started,
         Finished,
@@ -16,8 +15,6 @@ contract OneVsOneGameUpDown is Ownable {
     }
     //разделить игру на два контракта по режимам
     struct BetInfo {
-        address token0; // токены пары, можно выбрать ставку к стоимости токена0 к токену1 и наоборот
-        address token1;
         address initiator;
         uint48 startTime;
         uint48 endTime;
@@ -38,10 +35,7 @@ contract OneVsOneGameUpDown is Ownable {
         uint48 endTime,
         bool willGoUp,
         uint256 betAmount,
-        address initiator,
-        address uniFactory,
-        address token0,
-        address token1
+        address initiator
     ) Ownable(msg.sender) {
         game.initiator = initiator;
         game.startTime = startTime;
@@ -49,14 +43,17 @@ contract OneVsOneGameUpDown is Ownable {
         game.betAmount = betAmount;
         game.opponent = opponent;
         game.willGoUp = willGoUp;
-        game.token0 = token0;
-        game.token1 = token1;
         game.gameStatus = Status.Created;
-        game.startingAssetPrice = getTokenPrice(token0, token1, uniFactory);
+    }
+
+    function setStartingPrice(uint256 assetPrice) onlyOwner public {
+        require(game.gameStatus == Status.Created, "Wrong status!");
+        game.gameStatus = Status.Prepared;
+        game.startingAssetPrice = assetPrice;
     }
 
     function acceptBet() public {
-        require(game.gameStatus == Status.Created, "Wrong status!");
+        require(game.gameStatus == Status.Prepared, "Wrong status!");
         require(
             game.startTime + (game.endTime - game.startTime) / 3 >=
                 block.timestamp,
@@ -76,7 +73,7 @@ contract OneVsOneGameUpDown is Ownable {
     }
 
     function refuseBet() public {
-        require(game.gameStatus == Status.Created, "Wrong status!");
+        require(game.gameStatus == Status.Prepared, "Wrong status!");
         require(msg.sender == game.opponent, "Only opponent can refuse");
         game.gameStatus = Status.Refused;
     }
@@ -87,7 +84,7 @@ contract OneVsOneGameUpDown is Ownable {
             game.gameStatus == Status.Refused ||
                 (game.startTime + (game.endTime - game.startTime) / 3 <
                     block.timestamp &&
-                    game.gameStatus == Status.Created),
+                    game.gameStatus == Status.Prepared),
             "Wrong status!"
         );
         ITreasury(treasury).refund(game.betAmount, game.initiator);
@@ -95,8 +92,7 @@ contract OneVsOneGameUpDown is Ownable {
     }
 
     //only owner
-    function endGame(address uniFactory) public onlyOwner {
-        uint256 finalPrice = getTokenPrice(game.token0, game.token1, uniFactory);
+    function endGame(uint256 finalPrice) public onlyOwner {
         require(game.gameStatus == Status.Started, "Wrong status!");
         require(block.timestamp >= game.endTime, "Too early to finish");
         if (
@@ -110,28 +106,6 @@ contract OneVsOneGameUpDown is Ownable {
         }
         game.finalAssetPrice = finalPrice;
         game.gameStatus = Status.Finished;
-    }
-
-    function getTokenPrice(
-        address token0,
-        address token1,
-        address uniFactory
-    ) public view returns (uint256 finalPrice) {
-        IUniswapV2Pair pair = IUniswapV2Pair(
-            IUniswapFactory(uniFactory).getPair(token0, token1)
-        );
-        (uint256 reserve0, uint256 reserve1, ) = pair.getReserves();
-        if (token0 == pair.token1()) {
-            uint256 amount = reserve0 *
-                (10 ** IERC20(pair.token1()).decimals());
-            finalPrice = amount / reserve1;
-            return finalPrice; // return amount of token0 needed to buy token1
-        } else if (token0 == pair.token0()) {
-            uint256 amount = reserve1 *
-                (10 ** IERC20(pair.token0()).decimals());
-            finalPrice = amount / reserve1;
-            return finalPrice; // return amount of token1 needed to buy token0
-        }
     }
 
     function setTreasury(address newTreasury) public onlyOwner {

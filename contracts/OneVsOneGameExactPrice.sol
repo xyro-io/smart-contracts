@@ -2,9 +2,7 @@
 pragma solidity ^0.8.9;
 import "./interfaces/ITreasury.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "./interfaces/IERC20.sol";
-import "./interfaces/IUniswapFactory.sol";
 
 contract OneVsOneGameExactPrice is Ownable {
     enum Status {
@@ -15,8 +13,6 @@ contract OneVsOneGameExactPrice is Ownable {
         Refused
     }
     struct BetInfo {
-        address token0; // токены пары, можно выбрать ставку к стоимости токена0 к токену1 и наоборот
-        address token1;
         address initiator;
         uint48 startTime;
         uint48 endTime;
@@ -37,9 +33,7 @@ contract OneVsOneGameExactPrice is Ownable {
         uint48 endTime,
         uint256 initiatorPrice,
         uint256 betAmount,
-        address initiator,
-        address token0,
-        address token1
+        address initiator
     ) Ownable(msg.sender) {
         game.initiator = initiator;
         game.startTime = startTime;
@@ -48,8 +42,6 @@ contract OneVsOneGameExactPrice is Ownable {
         game.betAmount = betAmount;
         game.opponent = opponent;
         game.gameStatus = Status.Created;
-        game.token0 = token0;
-        game.token1 = token1;
     }
 
     function acceptBet(uint256 opponentPrice) public {
@@ -92,13 +84,7 @@ contract OneVsOneGameExactPrice is Ownable {
     }
 
     //only owner
-    function endGame(address uniFactory) public onlyOwner {
-        //Можно сделать чтобы токены передавались только бэком, а пару хранить в структуре
-        uint256 finalPrice = getTokenPrice(
-            game.token0,
-            game.token1,
-            uniFactory
-        );
+    function endGame(uint256 finalPrice) public onlyOwner {
         require(game.gameStatus == Status.Started, "Wrong status!");
         require(block.timestamp >= game.endTime, "Too early to finish");
         uint256 diff1 = game.initiatorPrice > finalPrice
@@ -115,26 +101,6 @@ contract OneVsOneGameExactPrice is Ownable {
         }
         game.finalAssetPrice = finalPrice;
         game.gameStatus = Status.Finished;
-    }
-
-    function getTokenPrice(
-        address token0,
-        address token1,
-        address uniFactory
-    ) public view returns (uint256) {
-        IUniswapV2Pair pair = IUniswapV2Pair(
-            IUniswapFactory(uniFactory).getPair(token0, token1)
-        );
-        (uint256 reserve0, uint256 reserve1, ) = pair.getReserves();
-        if (token0 == pair.token1()) {
-            uint256 amount = reserve0 *
-                (10 ** IERC20(pair.token1()).decimals());
-            return ((amount) / reserve1); // return amount of token0 needed to buy token1
-        } else if (token0 == pair.token0()) {
-            uint256 amount = reserve1 *
-                (10 ** IERC20(pair.token0()).decimals());
-            return ((amount) / reserve0); // return amount of token1 needed to buy token0
-        }
     }
 
     function setTreasury(address newTreasury) public onlyOwner {

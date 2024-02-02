@@ -3,7 +3,6 @@ require("hardhat-contract-sizer");
 require("hardhat-dependency-compiler");
 require("hardhat-gas-reporter");
 
-/** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: {
     compilers: [

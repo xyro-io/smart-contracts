@@ -46,7 +46,6 @@ contract OneVsOneGameUpDown is Ownable {
         game.initiator = initiator;
         game.startTime = startTime;
         game.endTime = endTime;
-        // ITreasury(treasury).deposit(betAmount, initiator);
         game.betAmount = betAmount;
         game.opponent = opponent;
         game.willGoUp = willGoUp;
@@ -55,40 +54,6 @@ contract OneVsOneGameUpDown is Ownable {
         game.gameStatus = Status.Created;
         game.startingAssetPrice = getTokenPrice(token0, token1, uniFactory);
     }
-
-    // function createBet(
-    //     address opponent,
-    //     uint48 startTime,
-    //     uint48 endTime,
-    //     bool willGoUp,
-    //     uint256 betAmount,
-    //     address uniFactory,
-    //     address token0,
-    //     address token1
-    // ) public {
-    //     require(
-    //         endTime - startTime >= 30 minutes,
-    //         "Min game duration must be 30 minutes"
-    //     );
-    //     require(
-    //         endTime - startTime <= 24 weeks,
-    //         "Max game duration must be 6 month"
-    //     );
-    //     require(betAmount >= 10000000000000000000, "Wrong game amount");
-    //     BetInfo memory newBet;
-    //     newBet.initiator = msg.sender;
-    //     newBet.startTime = startTime;
-    //     newBet.endTime = endTime;
-    //     ITreasury(treasury).deposit(betAmount, msg.sender);
-    //     newBet.betAmount = betAmount;
-    //     newBet.opponent = opponent;
-    //     newBet.willGoUp = willGoUp;
-    //     newBet.token0 = token0;
-    //     newBet.token1 = token1;
-    //     newBet.gameStatus = Status.Created;
-    //     newBet.startingAssetPrice = getTokenPrice(token0, token1, uniFactory);
-    //     //добавить event
-    // }
 
     function acceptBet() public {
         require(game.gameStatus == Status.Created, "Wrong status!");

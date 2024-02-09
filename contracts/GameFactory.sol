@@ -2,8 +2,7 @@
 pragma solidity ^0.8.9;
 import "./interfaces/ITreasury.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./OneVsOneGameUpDown.sol";
-import "./OneVsOneGameExactPrice.sol";
+import "./SetupGame.sol";
 import "@openzeppelin/contracts/utils/Create2.sol";
 
 interface IGame {
@@ -21,75 +20,41 @@ contract GameFactory is Ownable {
         treasury = newTreasury;
     }
 
-    function createUpDownGame(
-        address opponent,
+    function createSetupGame(
         uint48 startTime,
         uint48 endTime,
-        bool willGoUp,
-        uint256 betAmount
+        uint256 takeProfitPrice,
+        uint256 stopLossPrice,
+        uint256 amount,
+        bool isStopLoss
     ) public returns (address newGame) {
         require(
-            endTime - startTime >= 30 minutes,
-            "Min bet duration must be 30 minutes"
+            endTime - startTime >= 15 minutes,
+            "Min game duration must be 15 minutes"
         );
         require(
-            endTime - startTime <= 24 weeks,
-            "Max bet duration must be 6 month"
+            endTime - startTime <= 24 hours,
+            "Max game duration must be 24 hours"
         );
-        require(betAmount >= 10000000000000000000, "Wrong bet amount");
+        if(amount != 0) {
+            ITreasury(treasury).deposit(amount, msg.sender);
+        }
         newGame = Create2.deploy(
             0,
-            keccak256(abi.encodePacked(startTime, betAmount)),
+            keccak256(abi.encodePacked(startTime, takeProfitPrice)),
             abi.encodePacked(
-                type(OneVsOneGameUpDown).creationCode,
+                type(SetupGame).creationCode,
                 abi.encode(
-                    opponent,
+                    isStopLoss,
                     startTime,
                     endTime,
-                    willGoUp,
-                    betAmount,
-                    msg.sender
+                    takeProfitPrice,
+                    stopLossPrice,
+                    msg.sender,
+                    amount
                 )
             )
         );
-        ITreasury(treasury).deposit(betAmount, msg.sender);
-        IGame(newGame).setTreasury(treasury);
-        IGame(newGame).transferOwnership(owner());
-        games[betId++] = newGame;
-    }
-
-    function createExactPriceGame(
-        address opponent,
-        uint48 startTime,
-        uint48 endTime,
-        uint256 initiatorPrice,
-        uint256 betAmount
-    ) public returns (address newGame) {
-        require(
-            endTime - startTime >= 30 minutes,
-            "Min bet duration must be 30 minutes"
-        );
-        require(
-            endTime - startTime <= 24 weeks,
-            "Max bet duration must be 6 month"
-        );
-        require(betAmount >= 10000000000000000000, "Wrong bet amount");
-        newGame = Create2.deploy(
-            0,
-            keccak256(abi.encodePacked(startTime, initiatorPrice)),
-            abi.encodePacked(
-                type(OneVsOneGameExactPrice).creationCode,
-                abi.encode(
-                    opponent,
-                    startTime,
-                    endTime,
-                    initiatorPrice,
-                    betAmount,
-                    msg.sender
-                )
-            )
-        );
-        ITreasury(treasury).deposit(betAmount, msg.sender);
         IGame(newGame).setTreasury(treasury);
         IGame(newGame).transferOwnership(owner());
         games[betId++] = newGame;

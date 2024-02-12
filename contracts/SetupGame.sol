@@ -27,10 +27,8 @@ contract SetupGame is Ownable {
         Status gameStatus;
     }
 
-    uint256 bettersSL;
-    uint256 bettersTP;
-    mapping(uint256 => address) public teamSL;
-    mapping(uint256 => address) public teamTP;
+    address[] public teamSL;
+    address[] public teamTP;
     mapping(address => uint256) public betAmounts;
 
     BetInfo public game;
@@ -55,10 +53,10 @@ contract SetupGame is Ownable {
         if (amount != 0) {
             betAmounts[msg.sender] = amount;
             if (isStopLoss) {
-                teamSL[bettersSL++] = msg.sender;
+                teamSL.push(msg.sender);
                 game.totalBetsSL = amount;
             } else {
-                teamTP[bettersTP++] = msg.sender;
+                teamTP.push(msg.sender);
                 game.totalBetsTP = amount;
             }
         }
@@ -82,10 +80,10 @@ contract SetupGame is Ownable {
         ITreasury(treasury).deposit(amount, msg.sender);
         betAmounts[msg.sender] = amount;
         if (isStopLoss) {
-            teamSL[bettersSL++] = msg.sender;
+            teamSL.push(msg.sender);
             game.totalBetsSL += amount;
         } else {
-            teamTP[bettersTP++] = msg.sender;
+            teamTP.push(msg.sender);
             game.totalBetsTP += amount;
         }
     }
@@ -98,10 +96,10 @@ contract SetupGame is Ownable {
                 game.gameStatus == Status.Created),
             "Wrong status!"
         );
-        for (uint i; i < bettersSL; i++) {
+        for (uint i; i < teamSL.length; i++) {
             ITreasury(treasury).refund(betAmounts[teamSL[i]], teamSL[i]);
         }
-        for (uint i; i < bettersTP; i++) {
+        for (uint i; i < teamTP.length; i++) {
             ITreasury(treasury).refund(betAmounts[teamTP[i]], teamTP[i]);
         }
 
@@ -121,7 +119,7 @@ contract SetupGame is Ownable {
                     game.initiator
                 );
 
-                for (uint i; i < bettersSL; i++) {
+                for (uint i; i < teamSL.length; i++) {
                     //Не читать с стораджа
                     ITreasury(treasury).distributeWithoutFee(
                         finalRate,
@@ -135,7 +133,7 @@ contract SetupGame is Ownable {
                     game.totalBetsTP,
                     game.initiator
                 );
-                for (uint i; i < bettersTP; i++) {
+                for (uint i; i < teamTP.length; i++) {
                     ITreasury(treasury).distributeWithoutFee(
                         finalRate,
                         teamTP[i],
@@ -151,7 +149,7 @@ contract SetupGame is Ownable {
                     game.totalBetsTP,
                     game.initiator
                 );
-                for (uint i; i < bettersTP; i++) {
+                for (uint i; i < teamTP.length; i++) {
                     ITreasury(treasury).distributeWithoutFee(
                         finalRate,
                         teamTP[i],
@@ -165,7 +163,7 @@ contract SetupGame is Ownable {
                     game.totalBetsSL,
                     game.initiator
                 );
-                for (uint i; i < bettersSL; i++) {
+                for (uint i; i < teamSL.length; i++) {
                     ITreasury(treasury).distributeWithoutFee(
                         finalRate,
                         teamSL[i],

@@ -2,6 +2,7 @@ require("@nomicfoundation/hardhat-toolbox");
 require("hardhat-contract-sizer");
 require("hardhat-dependency-compiler");
 require("hardhat-gas-reporter");
+require("hardhat-contract-sizer");
 
 module.exports = {
   solidity: {
@@ -61,5 +62,8 @@ module.exports = {
     token: "ETH",
     gasPriceApi: "https://api.bscscan.com/api?module=proxy&action=eth_gasPrice",
     coinmarketcap: "d64e6644-6472-4b53-8375-5ae706aec3eb",
+  },
+  contractSizer: {
+    uint: "B",
   },
 };

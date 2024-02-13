@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
 import "hardhat/console.sol";
+
 contract Treasury is AccessControlEnumerable {
     address approvedToken;
     address xyroToken;
@@ -68,16 +69,36 @@ contract Treasury is AccessControlEnumerable {
         SafeERC20.safeTransfer(IERC20(approvedToken), msg.sender, amount);
     }
 
+    function increaseFee(uint256 amount) public {
+        collectedFee += amount;
+    }
+
+    function distributeBullseye(
+        uint256 amount,
+        address winner,
+        uint256 initialBet
+    ) public {
+        require(hasRole(DISTRIBUTOR_ROLE, msg.sender), "Invalid role");
+        IERC20(approvedToken).approve(winner, amount);
+        SafeERC20.safeTransfer(IERC20(approvedToken), winner, amount);
+        if (getCashbackAmount(winner, initialBet) != 0) {
+            IERC20(xyroToken).mint(
+                winner,
+                getCashbackAmount(winner, initialBet)
+            );
+        }
+    }
+
     function distributeWithoutFee(
         uint256 rate,
         address winner,
         uint256 initialBet
     ) public {
         require(hasRole(DISTRIBUTOR_ROLE, msg.sender), "Invalid role");
-        uint256 withdrawnFees = (initialBet* fee) / FEE_DENOMINATOR;
-        uint256 wonAmount = (initialBet-withdrawnFees) +
-                            ((initialBet-withdrawnFees) * rate) /
-                            FEE_DENOMINATOR;
+        uint256 withdrawnFees = (initialBet * fee) / FEE_DENOMINATOR;
+        uint256 wonAmount = (initialBet - withdrawnFees) +
+            ((initialBet - withdrawnFees) * rate) /
+            FEE_DENOMINATOR;
         IERC20(approvedToken).approve(winner, wonAmount);
         SafeERC20.safeTransfer(IERC20(approvedToken), winner, wonAmount);
         if (getCashbackAmount(winner, initialBet) != 0) {
@@ -95,11 +116,11 @@ contract Treasury is AccessControlEnumerable {
     ) public returns (uint256 rate) {
         uint256 withdrawnFee = (lostTeamBets * fee) / FEE_DENOMINATOR;
         collectedFee += withdrawnFee;
-        console.log("fee", withdrawnFee / 10**18);
+        console.log("fee", withdrawnFee / 10 ** 18);
 
         uint256 feeToInitiator = ((lostTeamBets + wonTeamBets) * fee) /
             FEE_DENOMINATOR;
-        console.log("1% fee from 400", feeToInitiator/ 10**18);
+        console.log("1% fee from 400", feeToInitiator / 10 ** 18);
         //стоит ли перенести в отдельную выплату?
         SafeERC20.safeTransfer(
             IERC20(approvedToken),
@@ -107,11 +128,11 @@ contract Treasury is AccessControlEnumerable {
             feeToInitiator
         );
         console.log((lostTeamBets - withdrawnFee * 2) * FEE_DENOMINATOR);
-        console.log((wonTeamBets - (wonTeamBets * fee / FEE_DENOMINATOR)));
+        console.log((wonTeamBets - ((wonTeamBets * fee) / FEE_DENOMINATOR)));
         //collect dust
         rate =
             ((lostTeamBets - withdrawnFee * 2) * FEE_DENOMINATOR) /
-            (wonTeamBets - (wonTeamBets * fee / FEE_DENOMINATOR));
+            (wonTeamBets - ((wonTeamBets * fee) / FEE_DENOMINATOR));
     }
 
     function getCashbackAmount(

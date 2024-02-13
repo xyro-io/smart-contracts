@@ -1,18 +1,21 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
-import "./interfaces/ITreasury.sol";
+import "../interfaces/ITreasury.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./interfaces/IERC20.sol";
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import "../interfaces/IUniswapFactory.sol";
+import "../interfaces/IERC20.sol";
 
-contract SetupGame is Ownable {
+contract SetupGameUni is Ownable {
     enum Status {
         Created,
         Closed,
-        Started,
         Finished
     }
 
     struct BetInfo {
+        address token0;
+        address token1;
         address initiator;
         uint48 startTime;
         uint48 endTime;
@@ -26,8 +29,10 @@ contract SetupGame is Ownable {
         Status gameStatus;
     }
 
-    address[] public teamSL;
-    address[] public teamTP;
+    uint256 bettersSL;
+    uint256 bettersTP;
+    mapping(uint256 => address) public teamSL;
+    mapping(uint256 => address) public teamTP;
     mapping(address => uint256) public betAmounts;
 
     BetInfo public game;
@@ -40,7 +45,10 @@ contract SetupGame is Ownable {
         uint256 takeProfitPrice,
         uint256 stopLossPrice,
         address initiator,
-        uint256 amount
+        uint256 amount,
+        address uniFactory,
+        address token0,
+        address token1
     ) Ownable(msg.sender) {
         game.isStopLoss = isStopLoss;
         game.initiator = initiator;
@@ -49,27 +57,24 @@ contract SetupGame is Ownable {
         game.stopLossPrice = stopLossPrice;
         game.takeProfitPrice = takeProfitPrice;
         game.gameStatus = Status.Created;
+        game.token0 = token0;
+        game.token1 = token1;
+        game.startingAssetPrice = getTokenPrice(token0, token1, uniFactory);
         if (amount != 0) {
             betAmounts[msg.sender] = amount;
             if (isStopLoss) {
-                teamSL.push(msg.sender);
+                teamSL[bettersSL++] = msg.sender;
                 game.totalBetsSL = amount;
             } else {
-                teamTP.push(msg.sender);
+                teamTP[bettersTP++] = msg.sender;
                 game.totalBetsTP = amount;
             }
         }
     }
 
-    function setStartingPrice(uint256 assetPrice) public onlyOwner {
-        require(game.gameStatus == Status.Created, "Wrong status!");
-        game.gameStatus = Status.Started;
-        game.startingAssetPrice = assetPrice;
-    }
-
     function bet(bool isStopLoss, uint256 amount) public {
         //reentrancy
-        require(game.gameStatus == Status.Started, "Wrong status!");
+        require(game.gameStatus == Status.Created, "Wrong status!");
         require(
             game.startTime + (game.endTime - game.startTime) / 3 >
                 block.timestamp,
@@ -79,10 +84,10 @@ contract SetupGame is Ownable {
         ITreasury(treasury).deposit(amount, msg.sender);
         betAmounts[msg.sender] = amount;
         if (isStopLoss) {
-            teamSL.push(msg.sender);
+            teamSL[bettersSL++] = msg.sender;
             game.totalBetsSL += amount;
         } else {
-            teamTP.push(msg.sender);
+            teamTP[bettersTP++] = msg.sender;
             game.totalBetsTP += amount;
         }
     }
@@ -92,13 +97,13 @@ contract SetupGame is Ownable {
         require(
             (game.startTime + (game.endTime - game.startTime) / 3 <
                 block.timestamp &&
-                game.gameStatus == Status.Created),
+                (bettersSL == 0 || bettersTP == 0)),
             "Wrong status!"
         );
-        for (uint i; i < teamSL.length; i++) {
+        for (uint i; i < bettersSL; i++) {
             ITreasury(treasury).refund(betAmounts[teamSL[i]], teamSL[i]);
         }
-        for (uint i; i < teamTP.length; i++) {
+        for (uint i; i < bettersTP; i++) {
             ITreasury(treasury).refund(betAmounts[teamTP[i]], teamTP[i]);
         }
 
@@ -106,9 +111,10 @@ contract SetupGame is Ownable {
     }
 
     //only owner
-    function endGame(uint256 finalPrice) public onlyOwner {
-        require(game.gameStatus == Status.Started, "Wrong status!");
+    function endGame(address uniFactory) public onlyOwner {
+        require(game.gameStatus == Status.Created, "Wrong status!");
         require(block.timestamp >= game.endTime, "Too early to finish");
+        uint256 finalPrice = getTokenPrice(game.token0, game.token1, uniFactory);
         if (game.isStopLoss) {
             if (finalPrice <= game.stopLossPrice) {
                 //sl team wins
@@ -118,7 +124,7 @@ contract SetupGame is Ownable {
                     game.initiator
                 );
 
-                for (uint i; i < teamSL.length; i++) {
+                for (uint i; i < bettersSL; i++) {
                     //Не читать с стораджа
                     ITreasury(treasury).distributeWithoutFee(
                         finalRate,
@@ -132,7 +138,7 @@ contract SetupGame is Ownable {
                     game.totalBetsTP,
                     game.initiator
                 );
-                for (uint i; i < teamTP.length; i++) {
+                for (uint i; i < bettersTP; i++) {
                     ITreasury(treasury).distributeWithoutFee(
                         finalRate,
                         teamTP[i],
@@ -148,7 +154,7 @@ contract SetupGame is Ownable {
                     game.totalBetsTP,
                     game.initiator
                 );
-                for (uint i; i < teamTP.length; i++) {
+                for (uint i; i < bettersTP; i++) {
                     ITreasury(treasury).distributeWithoutFee(
                         finalRate,
                         teamTP[i],
@@ -162,7 +168,7 @@ contract SetupGame is Ownable {
                     game.totalBetsSL,
                     game.initiator
                 );
-                for (uint i; i < teamSL.length; i++) {
+                for (uint i; i < bettersSL; i++) {
                     ITreasury(treasury).distributeWithoutFee(
                         finalRate,
                         teamSL[i],
@@ -173,6 +179,28 @@ contract SetupGame is Ownable {
         }
         game.finalAssetPrice = finalPrice;
         game.gameStatus = Status.Finished;
+    }
+
+    function getTokenPrice(
+        address token0,
+        address token1,
+        address uniFactory
+    ) public view returns (uint256 finalPrice) {
+        IUniswapV2Pair pair = IUniswapV2Pair(
+            IUniswapFactory(uniFactory).getPair(token0, token1)
+        );
+        (uint112 reserve0, uint112 reserve1, ) = pair.getReserves();
+        if (token0 == pair.token1()) {
+            uint256 amount = reserve0 *
+                (10 ** IERC20(pair.token1()).decimals());
+            finalPrice = amount / reserve1;
+            return finalPrice; // return amount of token0 needed to buy token1
+        } else if (token0 == pair.token0()) {
+            uint256 amount = reserve1 *
+                (10 ** IERC20(pair.token0()).decimals());
+            finalPrice = amount / reserve1;
+            return finalPrice; // return amount of token1 needed to buy token0
+        }
     }
 
     function setTreasury(address newTreasury) public onlyOwner {

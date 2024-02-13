@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
-import "./interfaces/ITreasury.sol";
+import "../interfaces/ITreasury.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./interfaces/IERC20.sol";
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import "../interfaces/IUniswapFactory.sol";
+import "../interfaces/IERC20.sol";
 
-contract BullseyeGame is Ownable {
+contract BullseyeGameUni is Ownable {
     event BullseyeBet(address player, uint256 assetPrice, uint256 betAmount);
     event BullseyeEnd(address[3] topPlayers, uint256[3] wonAmount);
 
     struct BetInfo {
+        address token0;
+        address token1;
         uint48 startTime;
         uint48 endTime;
         uint256 betAmount;
@@ -25,11 +29,15 @@ contract BullseyeGame is Ownable {
     function startGame(
         uint48 startTime,
         uint48 endTime,
-        uint256 betAmount
+        uint256 betAmount,
+        address token0,
+        address token1
     ) public onlyOwner {
         game.startTime = startTime;
         game.endTime = endTime;
         game.betAmount = betAmount;
+        game.token0 = token0;
+        game.token1 = token1;
     }
 
     function bet(uint256 assetPrice) public {
@@ -47,9 +55,10 @@ contract BullseyeGame is Ownable {
     }
 
     //only owner
-    function endGame(uint256 finalPrice) public onlyOwner {
+    function endGame(address uniFactory) public onlyOwner {
         require(game.players.length > 0, "Can't end");
         require(block.timestamp >= game.endTime, "Too early to finish");
+        uint256 finalPrice = getTokenPrice(game.token0, game.token1, uniFactory);
         address[3] memory topPlayers;
         uint256[3] memory closestDiff = [
             type(uint256).max,
@@ -123,6 +132,28 @@ contract BullseyeGame is Ownable {
         }
         emit BullseyeEnd(topPlayers, wonAmount);
         delete game;
+    }
+
+    function getTokenPrice(
+        address token0,
+        address token1,
+        address uniFactory
+    ) public view returns (uint256 finalPrice) {
+        IUniswapV2Pair pair = IUniswapV2Pair(
+            IUniswapFactory(uniFactory).getPair(token0, token1)
+        );
+        (uint112 reserve0, uint112 reserve1, ) = pair.getReserves();
+        if (token0 == pair.token1()) {
+            uint256 amount = reserve0 *
+                (10 ** IERC20(pair.token1()).decimals());
+            finalPrice = amount / reserve1;
+            return finalPrice; // return amount of token0 needed to buy token1
+        } else if (token0 == pair.token0()) {
+            uint256 amount = reserve1 *
+                (10 ** IERC20(pair.token0()).decimals());
+            finalPrice = amount / reserve1;
+            return finalPrice; // return amount of token1 needed to buy token0
+        }
     }
 
     function setTreasury(address newTreasury) public onlyOwner {

@@ -7,8 +7,6 @@ const parse6 = (ether) => ethers.utils.parseUnits(ether, 6);
 describe("OneVsOneGame", () => {
   before(async () => {
     [owner, opponent] = await ethers.getSigners();
-    console.log("Owner - ", owner.address);
-    console.log("Other - ", opponent.address);
     assetPrice = 172100685487713;
     //deploying
     let factory = await ethers.getContractFactory("OneVsOneGame");
@@ -37,7 +35,6 @@ describe("OneVsOneGame", () => {
       parse18("100")
     );
     let bet = await Game.games(0);
-    console.log(bet);
     expect(bet.initiator).to.equal(owner.address);
     expect(bet.gameStatus).to.equal(2);
   });

@@ -58,7 +58,11 @@ contract BullseyeGameUni is Ownable {
     function endGame(address uniFactory) public onlyOwner {
         require(game.players.length > 0, "Can't end");
         require(block.timestamp >= game.endTime, "Too early to finish");
-        uint256 finalPrice = getTokenPrice(game.token0, game.token1, uniFactory);
+        uint256 finalPrice = getTokenPrice(
+            game.token0,
+            game.token1,
+            uniFactory
+        );
         address[3] memory topPlayers;
         uint256[3] memory closestDiff = [
             type(uint256).max,
@@ -96,40 +100,26 @@ contract BullseyeGameUni is Ownable {
                 }
             }
         }
-        //нужен ли тут цикл?
-        uint256[3] memory wonAmount;
+        uint256 totalBets = game.betAmount * game.players.length;
+        uint256[3] memory wonAmount = [
+            closestDiff[0] == 0
+                ? (totalBets * 5000) / 10000
+                : (totalBets * 2500) / 10000,
+            (totalBets * 1500) / 10000,
+            (totalBets * 1000) / 10000
+        ];
         for (uint256 i = 0; i < 3; i++) {
-            if (closestDiff[i] == 0 && i == 0) {
+            if (topPlayers[i] != address(0)) {
                 ITreasury(treasury).distributeBullseye(
-                    ((game.betAmount * game.players.length) * 5000) / 10000,
+                    wonAmount[i],
                     topPlayers[i],
                     game.betAmount
                 );
-                wonAmount[0] = ((game.betAmount * game.players.length) * 5000) / 10000;
-            } else if (i == 0) {
-                ITreasury(treasury).distributeBullseye(
-                    ((game.betAmount * game.players.length) * 2500) / 10000,
-                    topPlayers[i],
-                    game.betAmount
-                );
-                wonAmount[0] = ((game.betAmount * game.players.length) * 2500) / 10000;
-            } else if (topPlayers[i] != address(0) && i == 1) {
-                ITreasury(treasury).distributeBullseye(
-                    ((game.betAmount * game.players.length) * 1500) / 10000,
-                    topPlayers[i],
-                    game.betAmount
-                );
-                wonAmount[i] = ((game.betAmount * game.players.length) * 1500) / 10000;
-            } else if (topPlayers[i] != address(0) && i == 2) {
-                ITreasury(treasury).distributeBullseye(
-                    ((game.betAmount * game.players.length) * 1000) / 10000,
-                    topPlayers[i],
-                    game.betAmount
-                );
-                wonAmount[i] = ((game.betAmount * game.players.length) * 1000) / 10000;
+                totalBets -= wonAmount[i];
             }
-            //нужен подсчет сколько фи осталось нам после игры
         }
+        ITreasury(treasury).increaseFee(totalBets);
+
         emit BullseyeEnd(topPlayers, wonAmount);
         delete game;
     }

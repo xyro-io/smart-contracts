@@ -39,7 +39,6 @@ describe("Setup Game", () => {
       await GameFactory.games(0)
     );
     let bet = await Game.game();
-    console.log(bet.initiator);
     expect(bet.initiator).to.equal(owner.address);
     expect(bet.gameStatus).to.equal(0);
   });
@@ -66,7 +65,6 @@ describe("Setup Game", () => {
 
   it("should end setup game", async function () {
     oldBalance = await USDT.balanceOf(bob.address);
-    console.log(oldBalance / Math.pow(10, 18));
     await helpers.time.increase(2700);
     await Game.endGame(assetPrice.div(100).mul(95));
     newBalance = await USDT.balanceOf(bob.address);
@@ -115,7 +113,6 @@ describe("Setup Game", () => {
 
   it("should end setup game", async function () {
     oldBalance = await USDT.balanceOf(alice.address);
-    console.log(oldBalance / Math.pow(10, 18));
     await helpers.time.increase(2700);
     await Game.endGame(assetPrice.div(100).mul(120));
     newBalance = await USDT.balanceOf(alice.address);

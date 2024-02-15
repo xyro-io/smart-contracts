@@ -5,6 +5,11 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/IERC20.sol";
 
 contract OneVsOneGameExactPrice is Ownable {
+    event ExactPriceAccepted(address gameAddress, address opponent, uint256 opponentPrice);
+    event ExactPriceRefused(address gameAddress);
+    event ExactPriceClosed(address gameAddress, address initiator);
+    event ExactPriceEnd(address gameAddress, address winner);
+
     enum Status {
         Created,
         Closed,
@@ -68,6 +73,7 @@ contract OneVsOneGameExactPrice is Ownable {
         game.opponentPrice = opponentPrice;
         ITreasury(treasury).deposit(game.betAmount, msg.sender);
         game.gameStatus = Status.Started;
+        emit ExactPriceAccepted(address(this), msg.sender, opponentPrice);
     }
 
     function closeBet() public {
@@ -81,6 +87,7 @@ contract OneVsOneGameExactPrice is Ownable {
         );
         ITreasury(treasury).refund(game.betAmount, game.initiator);
         game.gameStatus = Status.Closed;
+        emit ExactPriceClosed(address(this), game.initiator);
     }
 
     //only owner
@@ -96,8 +103,10 @@ contract OneVsOneGameExactPrice is Ownable {
 
         if (diff1 < diff2) {
             ITreasury(treasury).distribute(game.betAmount, game.initiator, game.betAmount);
+            emit ExactPriceEnd(address(this), game.initiator);
         } else {
             ITreasury(treasury).distribute(game.betAmount, game.opponent, game.betAmount);
+            emit ExactPriceEnd(address(this), game.opponent);
         }
         game.finalAssetPrice = finalPrice;
         game.gameStatus = Status.Finished;

@@ -5,6 +5,10 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/IERC20.sol";
 
 contract SetupGame is Ownable {
+    event SetupBet(bool isStopLoss, uint256 amount, address player);
+    event SetupClosed(address gameAdress, address initiator);
+    event SetupEnd(bool takeProfitWon, uint256 totalBetsTP, uint256 totalBetsSL);
+
     enum Status {
         Created,
         Closed,
@@ -85,6 +89,7 @@ contract SetupGame is Ownable {
             teamTP.push(msg.sender);
             game.totalBetsTP += amount;
         }
+        emit SetupBet(isStopLoss, amount, msg.sender);
     }
 
     function closeBet() public {
@@ -103,12 +108,14 @@ contract SetupGame is Ownable {
         }
 
         game.gameStatus = Status.Closed;
+        emit SetupClosed(address(this), game.initiator);
     }
 
     //only owner
     function endGame(uint256 finalPrice) public onlyOwner {
         require(game.gameStatus == Status.Started, "Wrong status!");
         require(block.timestamp >= game.endTime, "Too early to finish");
+        bool takeProfitWon;
         if (game.isStopLoss) {
             if (finalPrice <= game.stopLossPrice) {
                 //sl team wins
@@ -139,6 +146,7 @@ contract SetupGame is Ownable {
                         betAmounts[teamTP[i]]
                     );
                 }
+                takeProfitWon=true;
             }
         } else {
             if (finalPrice >= game.takeProfitPrice) {
@@ -155,6 +163,7 @@ contract SetupGame is Ownable {
                         betAmounts[teamTP[i]]
                     );
                 }
+                takeProfitWon=true;
             } else {
                 //sl team wins
                 uint256 finalRate = ITreasury(treasury).calculateSetupRate(
@@ -173,6 +182,7 @@ contract SetupGame is Ownable {
         }
         game.finalAssetPrice = finalPrice;
         game.gameStatus = Status.Finished;
+        emit SetupEnd(takeProfitWon, game.totalBetsTP, game.totalBetsSL);
     }
 
     function setTreasury(address newTreasury) public onlyOwner {

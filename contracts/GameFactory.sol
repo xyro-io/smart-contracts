@@ -14,6 +14,10 @@ interface IGame {
 }
 
 contract GameFactory is Ownable {
+    event SetupCreated(uint48 startTime, uint48 endTime, uint256 takeProfitPrice, uint256 stopLossPrice, uint256 betAmount, bool isStopLoss, address creator);
+    event UpDownCreated(address opponent, uint48 startTime, uint48 endTime, bool willGoUp, uint256 betAmount, address creator);
+    event ExactPriceCreated(address opponent, uint48 startTime, uint48 endTime, uint256 initiatorPrice, uint256 betAmount, address creator);
+
     address public treasury;
     uint256 betId;
     mapping(uint256 => address) public games;
@@ -27,7 +31,7 @@ contract GameFactory is Ownable {
         uint48 endTime,
         uint256 takeProfitPrice,
         uint256 stopLossPrice,
-        uint256 amount,
+        uint256 betAmount,
         bool isStopLoss
     ) public returns (address newGame) {
         require(
@@ -38,8 +42,8 @@ contract GameFactory is Ownable {
             endTime - startTime <= 24 hours,
             "Max game duration must be 24 hours"
         );
-        if(amount != 0) {
-            ITreasury(treasury).deposit(amount, msg.sender);
+        if(betAmount != 0) {
+            ITreasury(treasury).deposit(betAmount, msg.sender);
         }
         newGame = Create2.deploy(
             0,
@@ -53,10 +57,11 @@ contract GameFactory is Ownable {
                     takeProfitPrice,
                     stopLossPrice,
                     msg.sender,
-                    amount
+                    betAmount
                 )
             )
         );
+        emit SetupCreated(startTime, endTime, takeProfitPrice, stopLossPrice, betAmount, isStopLoss, msg.sender);
         IGame(newGame).setTreasury(treasury);
         IGame(newGame).transferOwnership(owner());
         games[betId++] = newGame;
@@ -93,6 +98,7 @@ contract GameFactory is Ownable {
                 )
             )
         );
+        emit UpDownCreated(opponent, startTime, endTime, willGoUp, betAmount, msg.sender);
         ITreasury(treasury).deposit(betAmount, msg.sender);
         IGame(newGame).setTreasury(treasury);
         IGame(newGame).transferOwnership(owner());
@@ -130,6 +136,7 @@ contract GameFactory is Ownable {
                 )
             )
         );
+        emit ExactPriceCreated(opponent, startTime, endTime, initiatorPrice, betAmount, msg.sender);
         ITreasury(treasury).deposit(betAmount, msg.sender);
         IGame(newGame).setTreasury(treasury);
         IGame(newGame).transferOwnership(owner());

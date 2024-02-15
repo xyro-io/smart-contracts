@@ -5,6 +5,11 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/IERC20.sol";
 
 contract OneVsOneGameUpDown is Ownable {
+    event UpDownAccepted(address gameAddress, address opponent);
+    event UpDownRefused(address gameAddress);
+    event UpDownClosed(address gameAddress, address initiator);
+    event UpDownEnd(address gameAddress, address winner);
+
     enum Status {
         Created,
         Prepared,
@@ -13,7 +18,7 @@ contract OneVsOneGameUpDown is Ownable {
         Finished,
         Refused
     }
-    //разделить игру на два контракта по режимам
+
     struct BetInfo {
         address initiator;
         uint48 startTime;
@@ -70,12 +75,14 @@ contract OneVsOneGameUpDown is Ownable {
         }
         ITreasury(treasury).deposit(game.betAmount, msg.sender);
         game.gameStatus = Status.Started;
+        emit UpDownAccepted(address(this), msg.sender);
     }
 
     function refuseBet() public {
         require(game.gameStatus == Status.Prepared, "Wrong status!");
         require(msg.sender == game.opponent, "Only opponent can refuse");
         game.gameStatus = Status.Refused;
+        emit UpDownRefused(address(this));
     }
 
     function closeBet() public {
@@ -89,6 +96,7 @@ contract OneVsOneGameUpDown is Ownable {
         );
         ITreasury(treasury).refund(game.betAmount, game.initiator);
         game.gameStatus = Status.Closed;
+        emit UpDownClosed(address(this), game.initiator);
     }
 
     //only owner
@@ -101,8 +109,10 @@ contract OneVsOneGameUpDown is Ownable {
                 : game.startingAssetPrice > finalPrice
         ) {
             ITreasury(treasury).distribute(game.betAmount, game.initiator, game.betAmount);
+            emit UpDownEnd(address(this), game.initiator);
         } else {
             ITreasury(treasury).distribute(game.betAmount, game.opponent, game.betAmount);
+            emit UpDownEnd(address(this), game.opponent);
         }
         game.finalAssetPrice = finalPrice;
         game.gameStatus = Status.Finished;

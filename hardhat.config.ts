@@ -1,10 +1,19 @@
-require("@nomicfoundation/hardhat-toolbox");
-require("hardhat-contract-sizer");
-require("hardhat-dependency-compiler");
-require("hardhat-gas-reporter");
-require("hardhat-contract-sizer");
+import { HardhatUserConfig } from "hardhat/config";
+import "hardhat-contract-sizer";
+import "hardhat-dependency-compiler";
+import "hardhat-gas-reporter";
+import "hardhat-contract-sizer";
+import "@nomicfoundation/hardhat-ethers";
 
-module.exports = {
+const config: HardhatUserConfig = {
+  networks: {
+    mumbai: {
+      url: "https://polygon-mumbai.blockpi.network/v1/rpc/public",
+      accounts: [
+        "4e4057af8c1e669a4a912b96b598c8ce1728454fdb9b6e961b522c23d0c7b513",
+      ],
+    },
+  },
   solidity: {
     compilers: [
       {
@@ -63,7 +72,5 @@ module.exports = {
     gasPriceApi: "https://api.bscscan.com/api?module=proxy&action=eth_gasPrice",
     coinmarketcap: "d64e6644-6472-4b53-8375-5ae706aec3eb",
   },
-  contractSizer: {
-    uint: "B",
-  },
 };
+export default config;

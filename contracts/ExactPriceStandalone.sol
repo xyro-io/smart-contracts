@@ -19,12 +19,30 @@ contract ExactPriceStandalone is Ownable {
         uint256 opponentPrice
     );
     event ExactPriceRefused(uint256 betId);
-    event ExactPriceClosed(uint256 betId, address initiator);
-    event ExactPriceEnd(uint256 betId, address winner);
+    event ExactPriceCancelled(
+        uint256 betId,
+        address initiator,
+        uint256 betAmount,
+        uint48 startTime,
+        uint48 endTime,
+        Status gameStatus
+    );
+    event ExactPriceFinalized(
+        uint256 betId,
+        address winner,
+        address loser,
+        uint256 winnerGuessPrice,
+        uint256 loserAssetPrice,
+        uint256 betAmount,
+        uint256 finalAssetPrice,
+        uint48 startTime,
+        uint48 endTime,
+        Status gameStatus
+    );
 
     enum Status {
         Created,
-        Closed,
+        Cancelled,
         Started,
         Finished,
         Refused
@@ -62,7 +80,7 @@ contract ExactPriceStandalone is Ownable {
             _endTime - _startTime <= 24 weeks,
             "Max bet duration must be 6 month"
         );
-        require(_betAmount >= 10000000000000000000, "Wrong bet amount");
+        require(_betAmount >= 1e19, "Wrong bet amount");
         BetInfo memory newBet;
         newBet.initiator = msg.sender;
         newBet.startTime = _startTime;
@@ -89,10 +107,10 @@ contract ExactPriceStandalone is Ownable {
         require(
             bet.startTime + (bet.endTime - bet.startTime) / 3 >=
                 block.timestamp,
-            "Time is up"
+            "Game is closed for bets"
         );
         require(bet.initiatorPrice != _opponentPrice, "Same asset prices");
-        //Если не приватная игра, то адрес будет 0
+        //If game is not private address should be 0
         if (bet.opponent != address(0)) {
             require(
                 msg.sender == bet.opponent,
@@ -124,9 +142,16 @@ contract ExactPriceStandalone is Ownable {
             "Wrong status!"
         );
         ITreasury(treasury).refund(bet.betAmount, bet.initiator);
-        games[betId].gameStatus = Status.Closed;
+        games[betId].gameStatus = Status.Cancelled;
         games[betId] = bet;
-        emit ExactPriceClosed(betId, bet.initiator);
+        emit ExactPriceCancelled(
+            betId,
+            bet.initiator,
+            bet.betAmount,
+            bet.startTime,
+            bet.endTime,
+            Status.Cancelled
+        );
     }
 
     function refuseBet(uint256 betId) public {
@@ -138,18 +163,19 @@ contract ExactPriceStandalone is Ownable {
         emit ExactPriceRefused(betId);
     }
 
-    //only owner
-    function endGame(uint256 betId, uint256 finalPrice) public onlyOwner {
+    function finalizeGame(
+        uint256 betId,
+        uint256 finalAssetPrice
+    ) public onlyOwner {
         BetInfo memory bet = games[betId];
-        //Можно сделать чтобы токены передавались только бэком, а пару хранить в структуре
         require(bet.gameStatus == Status.Started, "Wrong status!");
         require(block.timestamp >= bet.endTime, "Too early to finish");
-        uint256 diff1 = bet.initiatorPrice > finalPrice
-            ? bet.initiatorPrice - finalPrice
-            : finalPrice - bet.initiatorPrice;
-        uint256 diff2 = bet.opponentPrice > finalPrice
-            ? bet.opponentPrice - finalPrice
-            : finalPrice - bet.opponentPrice;
+        uint256 diff1 = bet.initiatorPrice > finalAssetPrice
+            ? bet.initiatorPrice - finalAssetPrice
+            : finalAssetPrice - bet.initiatorPrice;
+        uint256 diff2 = bet.opponentPrice > finalAssetPrice
+            ? bet.opponentPrice - finalAssetPrice
+            : finalAssetPrice - bet.opponentPrice;
 
         if (diff1 < diff2) {
             ITreasury(treasury).distribute(
@@ -157,16 +183,38 @@ contract ExactPriceStandalone is Ownable {
                 bet.initiator,
                 bet.betAmount
             );
-            emit ExactPriceEnd(betId, bet.initiator);
+            emit ExactPriceFinalized(
+                betId,
+                bet.initiator,
+                bet.opponent,
+                bet.initiatorPrice,
+                bet.opponentPrice,
+                bet.betAmount,
+                finalAssetPrice,
+                bet.startTime,
+                bet.endTime,
+                Status.Finished
+            );
         } else {
             ITreasury(treasury).distribute(
                 bet.betAmount,
                 bet.opponent,
                 bet.betAmount
             );
-            emit ExactPriceEnd(betId, bet.opponent);
+            emit ExactPriceFinalized(
+                betId,
+                bet.opponent,
+                bet.initiator,
+                bet.opponentPrice,
+                bet.initiatorPrice,
+                bet.betAmount,
+                finalAssetPrice,
+                bet.startTime,
+                bet.endTime,
+                Status.Finished
+            );
         }
-        bet.finalAssetPrice = finalPrice;
+        bet.finalAssetPrice = finalAssetPrice;
         bet.gameStatus = Status.Finished;
         games[betId] = bet;
     }

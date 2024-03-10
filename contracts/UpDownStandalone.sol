@@ -13,15 +13,37 @@ contract UpDownStandalone is Ownable {
         uint256 betAmount,
         address initiator
     );
-    event UpDownAccepted(uint256 betId, address opponent);
+    event UpDownAccepted(
+        uint256 betId,
+        address opponent,
+        bool willGoUp,
+        uint256 betAmount
+    );
     event UpDownRefused(uint256 betId);
-    event UpDownClosed(uint256 betId, address initiator);
-    event UpDownEnd(uint256 betId, address winner);
+    event UpDownCancelled(
+        uint256 betId,
+        address initiator,
+        uint256 betAmount,
+        uint48 startTime,
+        uint48 endTime,
+        Status gameStatus
+    );
+    event UpDownFinalized(
+        uint256 betId,
+        address winner,
+        address loser,
+        uint256 betAmount,
+        uint256 startingAssetPrice,
+        uint256 finalAssetPrice,
+        uint48 startTime,
+        uint48 endTime,
+        Status gameStatus
+    );
 
     enum Status {
         Created,
         Prepared,
-        Closed,
+        Cancelled,
         Started,
         Finished,
         Refused
@@ -31,7 +53,7 @@ contract UpDownStandalone is Ownable {
         uint48 startTime;
         uint48 endTime;
         address opponent;
-        bool willGoUp; //что выбрал инициатор игры
+        bool willGoUp; //Initiator choise
         uint256 betAmount;
         uint256 startingAssetPrice;
         uint256 finalAssetPrice;
@@ -58,7 +80,7 @@ contract UpDownStandalone is Ownable {
             _endTime - _startTime <= 24 weeks,
             "Max bet duration must be 6 month"
         );
-        require(_betAmount >= 10000000000000000000, "Wrong bet amount");
+        require(_betAmount >= 1e19, "Wrong bet amount");
         BetInfo memory newBet;
         newBet.initiator = msg.sender;
         newBet.startTime = _startTime;
@@ -94,9 +116,9 @@ contract UpDownStandalone is Ownable {
         require(
             bet.startTime + (bet.endTime - bet.startTime) / 3 >=
                 block.timestamp,
-            "Time is up"
+            "Game is closed for bets"
         );
-        //Если не приватная игра, то адрес будет 0
+        //If game is not private address should be 0
         if (bet.opponent != address(0)) {
             require(
                 msg.sender == bet.opponent,
@@ -108,7 +130,7 @@ contract UpDownStandalone is Ownable {
         ITreasury(treasury).deposit(bet.betAmount, msg.sender);
         bet.gameStatus = Status.Started;
         games[betId] = bet;
-        emit UpDownAccepted(betId, msg.sender);
+        emit UpDownAccepted(betId, msg.sender, !bet.willGoUp, bet.betAmount);
     }
 
     function refuseBet(uint256 betId) public {
@@ -131,13 +153,13 @@ contract UpDownStandalone is Ownable {
             "Wrong status!"
         );
         ITreasury(treasury).refund(bet.betAmount, bet.initiator);
-        games[betId].gameStatus = Status.Closed;
+        games[betId].gameStatus = Status.Cancelled;
         games[betId] = bet;
-        emit UpDownClosed(betId, msg.sender);
+        emit UpDownCancelled(betId, msg.sender, bet.betAmount, bet.startTime, bet.endTime, Status.Cancelled);
     }
 
     //only owner
-    function endGame(uint256 betId, uint256 finalPrice) public onlyOwner {
+    function finalizeGame(uint256 betId, uint256 finalPrice) public onlyOwner {
         BetInfo memory bet = games[betId];
         require(bet.gameStatus == Status.Started, "Wrong status!");
         require(block.timestamp >= bet.endTime, "Too early to finish");
@@ -151,14 +173,34 @@ contract UpDownStandalone is Ownable {
                 bet.initiator,
                 bet.betAmount
             );
-            emit UpDownEnd(betId, bet.initiator);
+            emit UpDownFinalized(
+                betId,
+                bet.initiator,
+                bet.opponent,
+                bet.betAmount,
+                bet.startingAssetPrice,
+                finalPrice,
+                bet.startTime,
+                bet.endTime,
+                Status.Finished
+            );
         } else {
             ITreasury(treasury).distribute(
                 bet.betAmount,
                 bet.opponent,
                 bet.betAmount
             );
-            emit UpDownEnd(betId, bet.opponent);
+            emit UpDownFinalized(
+                betId,
+                bet.opponent,
+                bet.initiator,
+                bet.betAmount,
+                bet.startingAssetPrice,
+                finalPrice,
+                bet.startTime,
+                bet.endTime,
+                Status.Finished
+            );
         }
         bet.finalAssetPrice = finalPrice;
         bet.gameStatus = Status.Finished;

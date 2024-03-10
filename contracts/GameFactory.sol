@@ -82,7 +82,7 @@ contract GameFactory is Ownable {
             endTime - startTime <= 24 weeks,
             "Max bet duration must be 6 month"
         );
-        require(betAmount >= 10000000000000000000, "Wrong bet amount");
+        require(betAmount >= 1e19, "Wrong bet amount");
         newGame = Create2.deploy(
             0,
             keccak256(abi.encodePacked(startTime, betAmount)),
@@ -120,7 +120,7 @@ contract GameFactory is Ownable {
             endTime - startTime <= 24 weeks,
             "Max bet duration must be 6 month"
         );
-        require(betAmount >= 10000000000000000000, "Wrong bet amount");
+        require(betAmount >= 1e19, "Wrong bet amount");
         newGame = Create2.deploy(
             0,
             keccak256(abi.encodePacked(startTime, initiatorPrice)),

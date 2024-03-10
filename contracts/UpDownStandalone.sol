@@ -31,12 +31,21 @@ contract UpDownStandalone is Ownable {
     event UpDownFinalized(
         uint256 betId,
         address winner,
+        bool willGoUp,
         address loser,
         uint256 betAmount,
         uint256 startingAssetPrice,
         uint256 finalAssetPrice,
         uint48 startTime,
         uint48 endTime,
+        Status gameStatus
+    );
+    event UpDownStartingPriceSet(
+        uint256 betId,
+        address initiator,
+        uint48 startTime,
+        uint48 endTime,
+        uint256 assetPrice,
         Status gameStatus
     );
 
@@ -108,6 +117,14 @@ contract UpDownStandalone is Ownable {
         require(games[betId].gameStatus == Status.Created, "Wrong status!");
         games[betId].gameStatus = Status.Prepared;
         games[betId].startingAssetPrice = assetPrice;
+        emit UpDownStartingPriceSet(
+            betId,
+            games[betId].initiator,
+            games[betId].startTime,
+            games[betId].endTime,
+            assetPrice,
+            Status.Prepared
+        );
     }
 
     function acceptBet(uint256 betId) public {
@@ -155,7 +172,14 @@ contract UpDownStandalone is Ownable {
         ITreasury(treasury).refund(bet.betAmount, bet.initiator);
         games[betId].gameStatus = Status.Cancelled;
         games[betId] = bet;
-        emit UpDownCancelled(betId, msg.sender, bet.betAmount, bet.startTime, bet.endTime, Status.Cancelled);
+        emit UpDownCancelled(
+            betId,
+            msg.sender,
+            bet.betAmount,
+            bet.startTime,
+            bet.endTime,
+            Status.Cancelled
+        );
     }
 
     //only owner
@@ -176,6 +200,7 @@ contract UpDownStandalone is Ownable {
             emit UpDownFinalized(
                 betId,
                 bet.initiator,
+                bet.willGoUp,
                 bet.opponent,
                 bet.betAmount,
                 bet.startingAssetPrice,
@@ -193,6 +218,7 @@ contract UpDownStandalone is Ownable {
             emit UpDownFinalized(
                 betId,
                 bet.opponent,
+                !bet.willGoUp,
                 bet.initiator,
                 bet.betAmount,
                 bet.startingAssetPrice,

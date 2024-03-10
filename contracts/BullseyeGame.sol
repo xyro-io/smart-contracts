@@ -5,8 +5,9 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/IERC20.sol";
 
 contract BullseyeGame is Ownable {
+    event BullseyeStart(uint48 startTime, uint48 endTime, uint256 betAmount);
     event BullseyeBet(address player, uint256 assetPrice, uint256 betAmount);
-    event BullseyeEnd(address[3] topPlayers, uint256[3] wonAmount);
+    event BullseyeFinalized(address[3] topPlayers, uint256[3] wonAmount);
 
     struct BetInfo {
         uint48 startTime;
@@ -30,13 +31,14 @@ contract BullseyeGame is Ownable {
         game.startTime = startTime;
         game.endTime = endTime;
         game.betAmount = betAmount;
+        emit BullseyeStart(startTime, endTime, betAmount);
     }
 
     function bet(uint256 assetPrice) public {
         require(
             game.startTime + (game.endTime - game.startTime) / 3 >=
                 block.timestamp,
-            "Time is up"
+            "Game is closed for bets"
         );
         require(game.assetPrices[msg.sender] == 0, "Bet already exists");
         game.betTimestamp[msg.sender] = block.timestamp;
@@ -47,7 +49,7 @@ contract BullseyeGame is Ownable {
     }
 
     //only owner
-    function endGame(uint256 finalPrice) public onlyOwner {
+    function finalizeGame(uint256 finalPrice) public onlyOwner {
         require(game.players.length > 0, "Can't end");
         require(block.timestamp >= game.endTime, "Too early to finish");
         address[3] memory topPlayers;
@@ -107,7 +109,7 @@ contract BullseyeGame is Ownable {
         }
         ITreasury(treasury).increaseFee(totalBets);
 
-        emit BullseyeEnd(topPlayers, wonAmount);
+        emit BullseyeFinalized(topPlayers, wonAmount);
         delete game;
     }
 

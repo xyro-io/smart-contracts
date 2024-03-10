@@ -14,6 +14,7 @@ contract Treasury is AccessControlEnumerable {
     uint256 public constant FEE_DENOMINATOR = 10000;
     bytes32 public constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
     uint256 public collectedFee;
+    mapping(address => uint256) public earnedRakeback;
 
     constructor(address newApprovedToken, address xyroTokenAdr) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -52,10 +53,7 @@ contract Treasury is AccessControlEnumerable {
         IERC20(approvedToken).approve(winner, wonAmount);
         SafeERC20.safeTransfer(IERC20(approvedToken), winner, wonAmount);
         if (getCashbackAmount(winner, initialBet) != 0) {
-            IERC20Mint(xyroToken).mint(
-                winner,
-                getCashbackAmount(winner, initialBet)
-            );
+            earnedRakeback[winner] += getCashbackAmount(winner, initialBet);
         }
     }
 
@@ -84,10 +82,7 @@ contract Treasury is AccessControlEnumerable {
         IERC20(approvedToken).approve(winner, amount);
         SafeERC20.safeTransfer(IERC20(approvedToken), winner, amount);
         if (getCashbackAmount(winner, initialBet) != 0) {
-            IERC20Mint(xyroToken).mint(
-                winner,
-                getCashbackAmount(winner, initialBet)
-            );
+            earnedRakeback[winner] += getCashbackAmount(winner, initialBet);
         }
     }
 
@@ -104,10 +99,7 @@ contract Treasury is AccessControlEnumerable {
         IERC20(approvedToken).approve(winner, wonAmount);
         SafeERC20.safeTransfer(IERC20(approvedToken), winner, wonAmount);
         if (getCashbackAmount(winner, initialBet) != 0) {
-            IERC20Mint(xyroToken).mint(
-                winner,
-                getCashbackAmount(winner, initialBet)
-            );
+            earnedRakeback[winner] += getCashbackAmount(winner, initialBet);
         }
     }
 
@@ -121,7 +113,6 @@ contract Treasury is AccessControlEnumerable {
 
         uint256 feeToInitiator = ((lostTeamBets + wonTeamBets) * fee) /
             FEE_DENOMINATOR;
-        //стоит ли перенести в отдельную выплату?
         SafeERC20.safeTransfer(
             IERC20(approvedToken),
             initiator,
@@ -138,8 +129,6 @@ contract Treasury is AccessControlEnumerable {
         uint256 amount
     ) public view returns (uint256) {
         uint256 targetBalance = IERC20(xyroToken).balanceOf(target);
-        //если будет пул xyro/usdt можно брать цену оттуда
-        //пока что кешбек привязан к кол-ву xyro токена
         if (targetBalance >= 500000 * 10 ** 18) {
             return (amount * 1000) / FEE_DENOMINATOR;
         } else if (targetBalance >= 250000 * 10 ** 18) {

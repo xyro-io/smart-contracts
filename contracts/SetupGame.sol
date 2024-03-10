@@ -6,12 +6,35 @@ import "./interfaces/IERC20.sol";
 
 contract SetupGame is Ownable {
     event SetupBet(bool isStopLoss, uint256 amount, address player);
-    event SetupClosed(address gameAdress, address initiator);
-    event SetupEnd(bool takeProfitWon, uint256 totalBetsTP, uint256 totalBetsSL);
+    event SetupCancelled(
+        address gameAdress,
+        address initiator,
+        Status gameStatus
+    );
+    event SetupEnd(
+        bool takeProfitWon,
+        uint256 totalBetsTP,
+        uint256 totalBetsSL,
+        bool isStopLoss,
+        uint256 takeProfitPrice,
+        uint256 stopLossPrice,
+        uint48 startTime,
+        uint48 endTime,
+        uint256 startingAssetPrice,
+        uint256 finalAssetPrice,
+        Status gameStatus
+    );
+    event SetupStartingPriceSet(
+        address gameAdress,
+        uint48 startTime,
+        uint48 endTime,
+        uint256 assetPrice,
+        Status gameStatus
+    );
 
     enum Status {
         Created,
-        Closed,
+        Cancelled,
         Started,
         Finished
     }
@@ -69,17 +92,23 @@ contract SetupGame is Ownable {
         require(game.gameStatus == Status.Created, "Wrong status!");
         game.gameStatus = Status.Started;
         game.startingAssetPrice = assetPrice;
+        emit SetupStartingPriceSet(
+            address(this),
+            game.startTime,
+            game.endTime,
+            assetPrice,
+            Status.Started
+        );
     }
 
     function bet(bool isStopLoss, uint256 amount) public {
-        //reentrancy
         require(game.gameStatus == Status.Started, "Wrong status!");
         require(
             game.startTime + (game.endTime - game.startTime) / 3 >
                 block.timestamp,
-            "Too late!"
+            "Game is closed for bets"
         );
-        require(betAmounts[msg.sender] == 0, "bet already exists");
+        require(betAmounts[msg.sender] == 0, "Bet already exists");
         ITreasury(treasury).deposit(amount, msg.sender);
         betAmounts[msg.sender] = amount;
         if (isStopLoss) {
@@ -92,7 +121,7 @@ contract SetupGame is Ownable {
         emit SetupBet(isStopLoss, amount, msg.sender);
     }
 
-    function closeBet() public {
+    function closeGame() public {
         require(game.initiator == msg.sender, "Wrong sender");
         require(
             (game.startTime + (game.endTime - game.startTime) / 3 <
@@ -107,12 +136,11 @@ contract SetupGame is Ownable {
             ITreasury(treasury).refund(betAmounts[teamTP[i]], teamTP[i]);
         }
 
-        game.gameStatus = Status.Closed;
-        emit SetupClosed(address(this), game.initiator);
+        game.gameStatus = Status.Cancelled;
+        emit SetupCancelled(address(this), game.initiator, Status.Cancelled);
     }
 
-    //only owner
-    function endGame(uint256 finalPrice) public onlyOwner {
+    function finalizeGame(uint256 finalPrice) public onlyOwner {
         require(game.gameStatus == Status.Started, "Wrong status!");
         require(block.timestamp >= game.endTime, "Too early to finish");
         bool takeProfitWon;
@@ -126,7 +154,6 @@ contract SetupGame is Ownable {
                 );
 
                 for (uint i; i < teamSL.length; i++) {
-                    //Не читать с стораджа
                     ITreasury(treasury).distributeWithoutFee(
                         finalRate,
                         teamSL[i],
@@ -146,7 +173,7 @@ contract SetupGame is Ownable {
                         betAmounts[teamTP[i]]
                     );
                 }
-                takeProfitWon=true;
+                takeProfitWon = true;
             }
         } else {
             if (finalPrice >= game.takeProfitPrice) {
@@ -163,7 +190,7 @@ contract SetupGame is Ownable {
                         betAmounts[teamTP[i]]
                     );
                 }
-                takeProfitWon=true;
+                takeProfitWon = true;
             } else {
                 //sl team wins
                 uint256 finalRate = ITreasury(treasury).calculateSetupRate(
@@ -182,7 +209,19 @@ contract SetupGame is Ownable {
         }
         game.finalAssetPrice = finalPrice;
         game.gameStatus = Status.Finished;
-        emit SetupEnd(takeProfitWon, game.totalBetsTP, game.totalBetsSL);
+        emit SetupEnd(
+            takeProfitWon,
+            game.totalBetsTP,
+            game.totalBetsSL,
+            game.isStopLoss,
+            game.takeProfitPrice,
+            game.stopLossPrice,
+            game.startTime,
+            game.endTime,
+            game.startingAssetPrice,
+            finalPrice,
+            Status.Finished
+        );
     }
 
     function setTreasury(address newTreasury) public onlyOwner {

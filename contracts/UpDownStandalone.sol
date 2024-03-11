@@ -129,7 +129,7 @@ contract UpDownStandalone is Ownable {
 
     function acceptBet(uint256 betId) public {
         BetInfo memory bet = games[betId];
-        require(bet.gameStatus == Status.Created, "Wrong status!");
+        require(bet.gameStatus == Status.Prepared, "Wrong status!");
         require(
             bet.startTime + (bet.endTime - bet.startTime) / 3 >=
                 block.timestamp,

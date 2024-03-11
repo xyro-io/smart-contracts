@@ -3,13 +3,12 @@
     "target": "es2020",
     "module": "commonjs",
     "esModuleInterop": true,
-    // "allowJs": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "skipLibCheck": true,
-    "resolveJsonModule": true,
-    "rootDirs": ["./scripts", "./test"]
+    "resolveJsonModule": true
   },
+
   "include": ["./test", "./scripts"],
   "files": ["./hardhat.config.ts"]
 }

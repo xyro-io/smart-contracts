@@ -1,9 +1,10 @@
 import { HardhatUserConfig } from "hardhat/config";
-import "hardhat-contract-sizer";
-import "hardhat-dependency-compiler";
-import "hardhat-gas-reporter";
-import "hardhat-contract-sizer";
-import "@nomicfoundation/hardhat-ethers";
+// import "hardhat-contract-sizer";
+// import "hardhat-dependency-compiler";
+// import "hardhat-gas-reporter";
+// import "@nomicfoundation/hardhat-ethers";
+// import "@typechain/hardhat";
+import "@nomicfoundation/hardhat-toolbox";
 
 const config: HardhatUserConfig = {
   networks: {
@@ -63,14 +64,14 @@ const config: HardhatUserConfig = {
       },
     ],
   },
-  gasReporter: {
-    enabled: true,
-    currency: "USD",
-    gasPrice: 25,
-    showTimeSpent: true,
-    token: "ETH",
-    gasPriceApi: "https://api.bscscan.com/api?module=proxy&action=eth_gasPrice",
-    coinmarketcap: "d64e6644-6472-4b53-8375-5ae706aec3eb",
-  },
+  // gasReporter: {
+  //   enabled: true,
+  //   currency: "USD",
+  //   gasPrice: 25,
+  //   showTimeSpent: true,
+  //   token: "ETH",
+  //   gasPriceApi: "https://api.bscscan.com/api?module=proxy&action=eth_gasPrice",
+  //   coinmarketcap: "d64e6644-6472-4b53-8375-5ae706aec3eb",
+  // },
 };
 export default config;

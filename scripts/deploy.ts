@@ -5,8 +5,13 @@ import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
 const parse18 = ethers.parseEther;
 
+interface ContractData {
+  address: string;
+  url: string;
+}
+
 let contracts: {
-    [x: string]: any;
+    [x: string]: ContractData;
   },
   USDC,
   XyroToken,
@@ -14,7 +19,8 @@ let contracts: {
   Vesting,
   Staking,
   GameFactory,
-  OneVsOneGame,
+  ExactPrice,
+  UpDown,
   BullseyeGame,
   factory: any;
 let deployer: HardhatEthersSigner;
@@ -26,7 +32,7 @@ if (fs.existsSync("./contracts.json")) {
 async function deployUSDC() {
   factory = await ethers.getContractFactory("MockToken");
   if (contracts.USDC?.address == undefined || contracts.USDC?.address == "") {
-    USDC = await wrapFnc([parse18("10000000000000")], factory);
+    USDC = await wrapFnc([parse18((1e13).toString())], factory);
     contracts.USDC = { address: "", url: "" };
     contracts.USDC.address = USDC.target;
     console.log("MockUSDC deployed");
@@ -41,7 +47,7 @@ async function deployXyroToken() {
     contracts.XyroToken?.address == undefined ||
     contracts.XyroToken?.address == ""
   ) {
-    XyroToken = await wrapFnc([parse18("10000000000000")], factory);
+    XyroToken = await wrapFnc([parse18((1e13).toString())], factory);
     contracts.XyroToken = { address: "", url: "" };
     contracts.XyroToken.address = XyroToken.target;
     console.log("XyroToken deployed");
@@ -134,18 +140,35 @@ async function deployBullseye() {
   }
 }
 
-async function deployOneVsOne() {
-  factory = await ethers.getContractFactory("OneVsOneGame");
+async function deployExactPriceStandalone() {
+  factory = await ethers.getContractFactory("ExactPriceStandalone");
   if (
-    contracts.OneVsOneGame?.address == undefined ||
-    contracts.OneVsOneGame?.address == ""
+    contracts.ExactPrice?.address == undefined ||
+    contracts.ExactPrice?.address == ""
   ) {
-    OneVsOneGame = await wrapFnc([contracts.Treasury.address], factory);
-    contracts.OneVsOneGame = { address: "", url: "" };
-    contracts.OneVsOneGame.address = OneVsOneGame.target;
-    console.log("OneVsOneGame deployed");
+    ExactPrice = await wrapFnc([], factory);
+    await wrapFnc([contracts.Treasury.address], ExactPrice.setTreasury);
+    contracts.ExactPrice = { address: "", url: "" };
+    contracts.ExactPrice.address = ExactPrice.target;
+    console.log("ExactPrice deployed");
   } else {
-    console.log("OneVsOneGame already deployed skipping...");
+    console.log("ExactPrice already deployed skipping...");
+  }
+}
+
+async function deployUpDownStandalone() {
+  factory = await ethers.getContractFactory("UpDownStandalone");
+  if (
+    contracts.UpDown?.address == undefined ||
+    contracts.UpDown?.address == ""
+  ) {
+    UpDown = await wrapFnc([], factory);
+    await wrapFnc([contracts.Treasury.address], UpDown.setTreasury);
+    contracts.UpDown = { address: "", url: "" };
+    contracts.UpDown.address = UpDown.target;
+    console.log("UpDown deployed");
+  } else {
+    console.log("UpDown already deployed skipping...");
   }
 }
 
@@ -153,6 +176,12 @@ async function main() {
   [deployer] = await ethers.getSigners();
   console.log("Deployer = ", deployer.address);
   await deployUSDC();
+  await deployXyroToken();
+  await deployTreasury();
+  await deployExactPriceStandalone();
+  await deployUpDownStandalone();
+  await deployGameFactory();
+  await deployBullseye();
   const json = JSON.stringify(contracts);
   fs.writeFileSync("./contracts.json", json);
 }

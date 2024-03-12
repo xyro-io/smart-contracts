@@ -124,6 +124,15 @@ contract Treasury is AccessControlEnumerable {
             (wonTeamBets - ((wonTeamBets * fee) / FEE_DENOMINATOR));
     }
 
+    function withdrawRakeback(uint256 amount) public {
+        require(
+            earnedRakeback[msg.sender] >= amount,
+            "Amount is greated than earned rakeback"
+        );
+        earnedRakeback[msg.sender] -= amount;
+        IERC20Mint(xyroToken).mint(msg.sender, amount);
+    }
+
     function getCashbackAmount(
         address target,
         uint256 amount

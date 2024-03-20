@@ -10,9 +10,10 @@ interface IERC20Mint {
 contract Treasury is AccessControlEnumerable {
     address approvedToken;
     address xyroToken;
-    uint256 fee; //100 for 1%
+    uint256 public fee = 100; //100 for 1%
     uint256 public constant FEE_DENOMINATOR = 10000;
     bytes32 public constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
+    bytes32 public constant DAO_ROLE = keccak256("DAO_ROLE");
     uint256 public collectedFee;
     mapping(address => uint256) public earnedRakeback;
 
@@ -28,7 +29,11 @@ contract Treasury is AccessControlEnumerable {
     }
 
     function setFee(uint256 newFee) public {
-        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Invalid role");
+        require(
+            hasRole(DAO_ROLE, msg.sender) ||
+                hasRole(DEFAULT_ADMIN_ROLE, msg.sender),
+            "Invalid role"
+        );
         fee = newFee;
     }
 

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // OpenZeppelin Contracts (last updated v5.0.0) (token/ERC20/IERC20.sol)
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.24;
 
 /**
  * @dev Interface of the ERC20 standard as defined in the EIP.
  */
-interface IERC20 {
+interface IERC20Mint {
     /**
      * @dev Emitted when `value` tokens are moved from one account (`from`) to
      * another (`to`).
@@ -19,7 +19,11 @@ interface IERC20 {
      * @dev Emitted when the allowance of a `spender` for an `owner` is set by
      * a call to {approve}. `value` is the new allowance.
      */
-    event Approval(address indexed owner, address indexed spender, uint256 value);
+    event Approval(
+        address indexed owner,
+        address indexed spender,
+        uint256 value
+    );
 
     /**
      * @dev Returns the value of tokens in existence.
@@ -47,7 +51,10 @@ interface IERC20 {
      *
      * This value changes when {approve} or {transferFrom} are called.
      */
-    function allowance(address owner, address spender) external view returns (uint256);
+    function allowance(
+        address owner,
+        address spender
+    ) external view returns (uint256);
 
     /**
      * @dev Sets a `value` amount of tokens as the allowance of `spender` over the
@@ -75,7 +82,15 @@ interface IERC20 {
      *
      * Emits a {Transfer} event.
      */
-    function transferFrom(address from, address to, uint256 value) external returns (bool);
+    function transferFrom(
+        address from,
+        address to,
+        uint256 value
+    ) external returns (bool);
 
     function decimals() external view returns (uint256);
+
+    function mint(address to, uint256 amount) external;
+
+    function burn(address account, uint256 amount) external;
 }

@@ -24,6 +24,8 @@ contract GameFactory is Ownable {
 
     address public treasury;
     uint256 betId;
+    uint256 public minDuration = 30 minutes;
+    uint256 public maxDuration = 24 weeks;
     mapping(uint256 => address) public games;
 
     constructor(address newTreasury) Ownable(msg.sender) {
@@ -39,12 +41,12 @@ contract GameFactory is Ownable {
         bool isStopLoss
     ) public returns (address newGame) {
         require(
-            endTime - startTime >= 15 minutes,
-            "Min game duration must be 15 minutes"
+            endTime - startTime >= minDuration,
+            "Min bet duration must be higher"
         );
         require(
-            endTime - startTime <= 24 hours,
-            "Max game duration must be 24 hours"
+            endTime - startTime <= maxDuration,
+            "Max bet duration must be lower"
         );
         if (betAmount != 0) {
             ITreasury(treasury).deposit(betAmount, msg.sender);
@@ -77,6 +79,15 @@ contract GameFactory is Ownable {
         IGame(newGame).setTreasury(treasury);
         IGame(newGame).transferOwnership(owner());
         games[betId++] = newGame;
+    }
+
+    //onlyDao
+    function changeBetDuration(
+        uint256 newMaxDuration,
+        uint256 newMinDuration
+    ) public {
+        minDuration = newMinDuration;
+        maxDuration = newMaxDuration;
     }
 
     function setTreasury(address newTreasury) public onlyOwner {

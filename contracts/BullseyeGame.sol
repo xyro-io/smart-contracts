@@ -5,6 +5,8 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/IERC20.sol";
 
 contract BullseyeGame is Ownable {
+    uint256 constant DENOMINATOR = 10000;
+    uint256[4] public rate = [5000, 2500, 1500, 1000];
     event BullseyeStart(uint48 startTime, uint48 endTime, uint256 betAmount);
     event BullseyeBet(address player, uint256 assetPrice, uint256 betAmount);
     event BullseyeFinalized(address[3] topPlayers, uint256[3] wonAmount);
@@ -92,10 +94,10 @@ contract BullseyeGame is Ownable {
         uint256 totalBets = game.betAmount * game.players.length;
         uint256[3] memory wonAmount = [
             closestDiff[0] == 0
-                ? (totalBets * 5000) / 10000
-                : (totalBets * 2500) / 10000,
-            (totalBets * 1500) / 10000,
-            (totalBets * 1000) / 10000
+                ? (totalBets * rate[0]) / DENOMINATOR
+                : (totalBets * rate[1]) / DENOMINATOR,
+            (totalBets * rate[2]) / DENOMINATOR,
+            (totalBets * rate[3]) / DENOMINATOR
         ];
         for (uint256 i = 0; i < 3; i++) {
             if (topPlayers[i] != address(0)) {
@@ -111,6 +113,16 @@ contract BullseyeGame is Ownable {
 
         emit BullseyeFinalized(topPlayers, wonAmount);
         delete game;
+    }
+
+    //onlyDAO
+    function setRates(uint256[4] memory newRate) public {
+        rate = newRate;
+    }
+
+    //onlyDAO
+    function changeBetAmount(uint256 newBetAmount) public {
+        game.betAmount = newBetAmount;
     }
 
     function setTreasury(address newTreasury) public onlyOwner {

@@ -11,6 +11,7 @@ contract Treasury is AccessControlEnumerable {
     address approvedToken;
     address xyroToken;
     uint256 public fee = 100; //100 for 1%
+    uint256 public setupInitiatorFee = 100;
     uint256 public constant FEE_DENOMINATOR = 10000;
     bytes32 public constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
     bytes32 public constant DAO_ROLE = keccak256("DAO_ROLE");
@@ -35,6 +36,15 @@ contract Treasury is AccessControlEnumerable {
             "Invalid role"
         );
         fee = newFee;
+    }
+
+    function setSetupFee(uint256 newFee) public {
+        require(
+            hasRole(DAO_ROLE, msg.sender) ||
+                hasRole(DEFAULT_ADMIN_ROLE, msg.sender),
+            "Invalid role"
+        );
+        setupInitiatorFee = newFee;
     }
 
     function deposit(uint256 amount, address initiator) public {
@@ -115,18 +125,21 @@ contract Treasury is AccessControlEnumerable {
     ) public returns (uint256 rate) {
         uint256 withdrawnFee = (lostTeamBets * fee) / FEE_DENOMINATOR;
         collectedFee += withdrawnFee;
-
-        uint256 feeToInitiator = ((lostTeamBets + wonTeamBets) * fee) /
+        uint256 lostTeamFee = (lostTeamBets * setupInitiatorFee) /
             FEE_DENOMINATOR;
+        uint256 wonTeamFee = (wonTeamBets * setupInitiatorFee) /
+            FEE_DENOMINATOR;
+        // uint256 feeToInitiator = ((lostTeamBets + wonTeamBets) * fee) /
+        //     FEE_DENOMINATOR;
         SafeERC20.safeTransfer(
             IERC20(approvedToken),
             initiator,
-            feeToInitiator
+            lostTeamFee + wonTeamFee
         );
         //collect dust
         rate =
-            ((lostTeamBets - withdrawnFee * 2) * FEE_DENOMINATOR) /
-            (wonTeamBets - ((wonTeamBets * fee) / FEE_DENOMINATOR));
+            ((lostTeamBets - withdrawnFee - lostTeamFee) * FEE_DENOMINATOR) /
+            (wonTeamBets - wonTeamFee);
     }
 
     function withdrawRakeback(uint256 amount) public {

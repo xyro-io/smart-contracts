@@ -71,6 +71,8 @@ contract UpDownStandalone is Ownable {
 
     BetInfo[] public games;
     address public treasury;
+    uint256 public minDuration = 30 minutes;
+    uint256 public maxDuration = 24 weeks;
 
     constructor() Ownable(msg.sender) {}
 
@@ -82,12 +84,12 @@ contract UpDownStandalone is Ownable {
         uint256 _betAmount
     ) public {
         require(
-            _endTime - _startTime >= 30 minutes,
-            "Min bet duration must be 30 minutes"
+            _endTime - _startTime >= minDuration,
+            "Min bet duration must be higher"
         );
         require(
-            _endTime - _startTime <= 24 weeks,
-            "Max bet duration must be 6 month"
+            _endTime - _startTime <= maxDuration,
+            "Max bet duration must be lower"
         );
         require(_betAmount >= 1e19, "Wrong bet amount");
         BetInfo memory newBet;
@@ -231,6 +233,15 @@ contract UpDownStandalone is Ownable {
         bet.finalAssetPrice = finalPrice;
         bet.gameStatus = Status.Finished;
         games[betId] = bet;
+    }
+
+    //onlyDao
+    function changeBetDuration(
+        uint256 newMaxDuration,
+        uint256 newMinDuration
+    ) public {
+        minDuration = newMinDuration;
+        maxDuration = newMaxDuration;
     }
 
     function totalBets() public view returns (uint256) {

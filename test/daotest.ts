@@ -18,7 +18,7 @@ const parse18 = ethers.parseEther;
 
 describe("DAO test", () => {
   let owner: HardhatEthersSigner;
-  let opponent: HardhatEthersSigner;
+  let bob: HardhatEthersSigner;
   let alice: HardhatEthersSigner;
   let XyroToken: XyroToken;
   let Staking: XyroStaking;
@@ -29,8 +29,9 @@ describe("DAO test", () => {
   let encodedFunctionCall: string;
   const rate = 125;
   const proposalDescription = "decrease rakeback";
+  const proposalDescription_2 = "should fail";
   before(async () => {
-    [owner, opponent, alice] = await ethers.getSigners();
+    [owner, bob, alice] = await ethers.getSigners();
     //Setup staking contract and tokens
     XyroToken = await new XyroToken__factory(owner).deploy(
       parse18((1e9).toString())
@@ -123,5 +124,44 @@ describe("DAO test", () => {
     await executeTx.wait(1);
     const value = await Treasury.fee();
     console.log(value);
+  });
+
+  it("should not execute if less 60% voted", async function () {
+    //add 2 more voters
+    await GovernanceToken.mint(bob.getAddress(), parse18("1000"));
+    await GovernanceToken.mint(alice.getAddress(), parse18("1000"));
+    await GovernanceToken.connect(bob).delegate(await bob.getAddress());
+    await GovernanceToken.connect(alice).delegate(await alice.getAddress());
+    //create new proposal
+    await DAO.propose(
+      [await Treasury.getAddress()],
+      [0],
+      [encodedFunctionCall],
+      proposalDescription_2
+    );
+    //voting
+    await mine(4);
+    const voteWay = 1; //yes
+    await DAO.castVote(
+      await DAO.hashProposal(
+        [await Treasury.getAddress()],
+        [0],
+        [encodedFunctionCall],
+        ethers.keccak256(ethers.toUtf8Bytes(proposalDescription_2))
+      ),
+      voteWay
+    );
+    //executing
+    await mine(4);
+    expect(
+      await DAO.state(
+        await DAO.hashProposal(
+          [await Treasury.getAddress()],
+          [0],
+          [encodedFunctionCall],
+          ethers.keccak256(ethers.toUtf8Bytes(proposalDescription_2))
+        )
+      )
+    ).to.be.equal(3);
   });
 });

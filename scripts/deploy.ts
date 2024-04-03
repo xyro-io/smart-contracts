@@ -22,6 +22,9 @@ let contracts: {
   ExactPrice,
   UpDown,
   BullseyeGame,
+  GovernanceToken,
+  TimeLock,
+  DAO,
   factory: any;
 let deployer: HardhatEthersSigner;
 if (fs.existsSync("./contracts.json")) {
@@ -47,7 +50,7 @@ async function deployXyroToken() {
     contracts.XyroToken?.address == undefined ||
     contracts.XyroToken?.address == ""
   ) {
-    XyroToken = await wrapFnc([parse18((1e13).toString())], factory);
+    XyroToken = await wrapFnc([parse18((1e8).toString())], factory);
     contracts.XyroToken = { address: "", url: "" };
     contracts.XyroToken.address = XyroToken.target;
     console.log("XyroToken deployed");
@@ -99,7 +102,7 @@ async function deployStaking() {
     contracts.Staking?.address == ""
   ) {
     Staking = await wrapFnc(
-      [], // parameters needed
+      [contracts.XyroToken.address, 125, contracts.GovernanceToken.address], // parameters needed
       factory
     );
     contracts.Staking = { address: "", url: "" };
@@ -131,7 +134,7 @@ async function deployBullseye() {
     contracts.BullseyeGame?.address == undefined ||
     contracts.BullseyeGame?.address == ""
   ) {
-    BullseyeGame = await wrapFnc([contracts.Treasury.address], factory);
+    BullseyeGame = await wrapFnc([], factory);
     contracts.BullseyeGame = { address: "", url: "" };
     contracts.BullseyeGame.address = BullseyeGame.target;
     console.log("BullseyeGame deployed");
@@ -147,7 +150,6 @@ async function deployExactPriceStandalone() {
     contracts.ExactPrice?.address == ""
   ) {
     ExactPrice = await wrapFnc([], factory);
-    await wrapFnc([contracts.Treasury.address], ExactPrice.setTreasury);
     contracts.ExactPrice = { address: "", url: "" };
     contracts.ExactPrice.address = ExactPrice.target;
     console.log("ExactPrice deployed");
@@ -163,7 +165,6 @@ async function deployUpDownStandalone() {
     contracts.UpDown?.address == ""
   ) {
     UpDown = await wrapFnc([], factory);
-    await wrapFnc([contracts.Treasury.address], UpDown.setTreasury);
     contracts.UpDown = { address: "", url: "" };
     contracts.UpDown.address = UpDown.target;
     console.log("UpDown deployed");
@@ -172,16 +173,71 @@ async function deployUpDownStandalone() {
   }
 }
 
+async function deployGovernanceToken() {
+  factory = await ethers.getContractFactory("XyroGovernanceToken");
+  if (
+    contracts.GovernanceToken?.address == undefined ||
+    contracts.GovernanceToken?.address == ""
+  ) {
+    GovernanceToken = await wrapFnc([], factory);
+    contracts.GovernanceToken = { address: "", url: "" };
+    contracts.GovernanceToken.address = GovernanceToken.target;
+    console.log("GovernanceToken deployed");
+  } else {
+    console.log("GovernanceToken already deployed skipping...");
+  }
+}
+
+async function deployTimeLock(deployer: HardhatEthersSigner) {
+  factory = await ethers.getContractFactory("TimeLock");
+  if (
+    contracts.TimeLock?.address == undefined ||
+    contracts.TimeLock?.address == ""
+  ) {
+    TimeLock = await wrapFnc([1, [], [], deployer], factory);
+    contracts.TimeLock = { address: "", url: "" };
+    contracts.TimeLock.address = TimeLock.target;
+    console.log("TimeLock deployed");
+  } else {
+    console.log("TimeLock already deployed skipping...");
+  }
+}
+
+async function deployDAO() {
+  factory = await ethers.getContractFactory("XyroGovernorContract");
+  if (contracts.DAO?.address == undefined || contracts.DAO?.address == "") {
+    DAO = await wrapFnc(
+      [contracts.GovernanceToken.address, contracts.TimeLock.address, 60, 3, 2],
+      factory
+    );
+    contracts.DAO = { address: "", url: "" };
+    contracts.DAO.address = DAO.target;
+    console.log("DAO deployed");
+  } else {
+    console.log("DAO already deployed skipping...");
+  }
+}
+
 async function main() {
   [deployer] = await ethers.getSigners();
   console.log("Deployer = ", deployer.address);
-  await deployUSDC();
-  await deployXyroToken();
-  await deployTreasury();
-  await deployExactPriceStandalone();
-  await deployUpDownStandalone();
-  await deployGameFactory();
-  await deployBullseye();
+  try {
+    await deployGovernanceToken();
+    await deployTimeLock(deployer);
+    await deployDAO();
+    await deployUSDC();
+    await deployXyroToken();
+    await deployTreasury();
+    await deployStaking();
+    await deployExactPriceStandalone();
+    await deployUpDownStandalone();
+    await deployGameFactory();
+    await deployBullseye();
+  } catch (e) {
+    const json = JSON.stringify(contracts);
+    fs.writeFileSync("./contracts.json", json);
+  }
+
   const json = JSON.stringify(contracts);
   fs.writeFileSync("./contracts.json", json);
 }

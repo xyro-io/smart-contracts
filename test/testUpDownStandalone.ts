@@ -8,23 +8,20 @@ import { MockToken } from "../typechain-types/contracts/mock/MockERC20.sol/MockT
 import { MockToken__factory } from "../typechain-types/factories/contracts/mock/MockERC20.sol/MockToken__factory";
 import { Treasury } from "../typechain-types/contracts/Treasury.sol/Treasury";
 import { Treasury__factory } from "../typechain-types/factories/contracts/Treasury.sol/Treasury__factory";
-import { UpDownGame } from "../typechain-types/contracts/UpDown.sol/UpDownGame";
-import { UpDownGame__factory } from "../typechain-types/factories/contracts/UpDown.sol/UpDownGame__factory";
+import { UpDownStandalone } from "../typechain-types/contracts/UpDownStandalone";
+import { UpDownStandalone__factory } from "../typechain-types/factories/contracts/UpDownStandalone__factory";
 const parse18 = ethers.parseEther;
 
-describe("UpDown", () => {
+describe("UpDownStandalone", () => {
   let owner: HardhatEthersSigner;
   let opponent: HardhatEthersSigner;
-  let alice: HardhatEthersSigner;
   let USDT: MockToken;
   let XyroToken: XyroToken;
   let Treasury: Treasury;
-  let Game: UpDownGame;
+  let Game: UpDownStandalone;
   const assetPrice = parse18("2310");
-  const finalPrice = parse18("3000");
   before(async () => {
-    [owner, opponent, alice] = await ethers.getSigners();
-
+    [owner, opponent] = await ethers.getSigners();
     USDT = await new MockToken__factory(owner).deploy(
       parse18((1e13).toString())
     );
@@ -33,53 +30,52 @@ describe("UpDown", () => {
       await USDT.getAddress(),
       await XyroToken.getAddress()
     );
-    Game = await new UpDownGame__factory(owner).deploy();
+    Game = await new UpDownStandalone__factory(owner).deploy();
     await Game.setTreasury(await Treasury.getAddress());
+    await USDT.mint(await opponent.getAddress(), parse18("1000"));
     await Treasury.setFee(100);
-    await USDT.mint(await opponent.getAddress(), parse18("10000000"));
-    await USDT.mint(await alice.getAddress(), parse18("10000000"));
     await Treasury.grantRole(
       await Treasury.DISTRIBUTOR_ROLE(),
       await Game.getAddress()
     );
   });
 
-  it("should create updown game", async function () {
-    await USDT.approve(await Treasury.getAddress(), ethers.MaxUint256);
-    await Game.startGame(
+  it("should create updown bet", async function () {
+    await USDT.approve(Treasury.getAddress(), ethers.MaxUint256);
+    await Game.createBet(
+      await opponent.getAddress(),
       await time.latest(),
       (await time.latest()) + 2700,
-      parse18("100"),
-      assetPrice
-    );
-    let bet = await Game.game();
-    expect(bet.betAmount).to.equal(parse18("100"));
-  });
-
-  it("should bet down", async function () {
-    await USDT.connect(opponent).approve(
-      Treasury.getAddress(),
-      ethers.MaxUint256
-    );
-    await Game.connect(opponent).bet(false);
-    expect(await USDT.balanceOf(Treasury.getAddress())).to.equal(
+      false,
       parse18("100")
     );
+
+    let bet = await Game.games(0);
+    expect(bet.initiator).to.equal(await owner.getAddress());
+    expect(bet.gameStatus).to.equal(0);
   });
 
-  it("should bet up", async function () {
-    await USDT.connect(alice).approve(Treasury.getAddress(), ethers.MaxUint256);
-    await Game.connect(alice).bet(true);
-    expect(await USDT.balanceOf(Treasury.getAddress())).to.equal(
-      parse18("200")
+  it("should set price", async function () {
+    await Game.setStartingPrice(assetPrice, 0);
+    let bet = await Game.games(0);
+    expect(bet.gameStatus).to.equal(1);
+  });
+
+  it("should accept updown mode bet", async function () {
+    await USDT.connect(opponent).approve(
+      await Treasury.getAddress(),
+      ethers.MaxUint256
     );
+    await Game.connect(opponent).acceptBet(0);
+    let bet = await Game.games(0);
+    expect(bet.gameStatus).to.equal(3);
   });
 
   it("should end updown game", async function () {
-    let oldBalance = await USDT.balanceOf(alice.getAddress());
+    let oldBalance = await USDT.balanceOf(await opponent.getAddress());
     await time.increase(2700);
-    await Game.finalizeGame(finalPrice);
-    let newBalance = await USDT.balanceOf(alice.getAddress());
+    await Game.finalizeGame(0, (assetPrice / BigInt(100)) * BigInt(103));
+    let newBalance = await USDT.balanceOf(await opponent.getAddress());
     expect(newBalance).to.be.above(oldBalance);
   });
 });

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
 
 interface IERC20Mint {
@@ -11,6 +12,7 @@ contract Treasury is AccessControlEnumerable {
     address approvedToken;
     address xyroToken;
     uint256 public fee = 100; //100 for 1%
+    uint256 public updownFee = 500;
     uint256 public setupInitiatorFee = 100;
     uint256 public constant FEE_DENOMINATOR = 10000;
     bytes32 public constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
@@ -48,6 +50,31 @@ contract Treasury is AccessControlEnumerable {
     }
 
     function deposit(uint256 amount, address initiator) public {
+        SafeERC20.safeTransferFrom(
+            IERC20(approvedToken),
+            initiator,
+            address(this),
+            amount
+        );
+    }
+
+    function depositWithPermit(
+        uint256 amount,
+        address initiator,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) public {
+        IERC20Permit(approvedToken).permit(
+            initiator,
+            address(this),
+            amount,
+            deadline,
+            v,
+            r,
+            s
+        );
         SafeERC20.safeTransferFrom(
             IERC20(approvedToken),
             initiator,
@@ -96,6 +123,21 @@ contract Treasury is AccessControlEnumerable {
         require(hasRole(DISTRIBUTOR_ROLE, msg.sender), "Invalid role");
         IERC20(approvedToken).approve(winner, amount);
         SafeERC20.safeTransfer(IERC20(approvedToken), winner, amount);
+        if (getCashbackAmount(winner, initialBet) != 0) {
+            earnedRakeback[winner] += getCashbackAmount(winner, initialBet);
+        }
+    }
+
+    function distributeUpDown(
+        uint256 amount,
+        address winner,
+        uint256 initialBet
+    ) public {
+        require(hasRole(DISTRIBUTOR_ROLE, msg.sender), "Invalid role");
+        uint256 withdrawnFees = (amount * updownFee) / FEE_DENOMINATOR;
+        uint256 wonAmount = amount - withdrawnFees;
+        collectedFee += withdrawnFees;
+        SafeERC20.safeTransfer(IERC20(approvedToken), winner, wonAmount);
         if (getCashbackAmount(winner, initialBet) != 0) {
             earnedRakeback[winner] += getCashbackAmount(winner, initialBet);
         }

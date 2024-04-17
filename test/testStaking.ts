@@ -15,7 +15,7 @@ describe("Staking", () => {
   let XyroToken: XyroToken;
   let Staking: XyroStaking;
   let GovernanceToken: XyroGovernanceToken;
-  const rate = 125;
+  const day = 86400;
   before(async () => {
     [owner] = await ethers.getSigners();
 
@@ -26,7 +26,6 @@ describe("Staking", () => {
     GovernanceToken = await new XyroGovernanceToken__factory(owner).deploy();
     Staking = await new XyroStaking__factory(owner).deploy(
       await XyroToken.getAddress(),
-      rate,
       GovernanceToken.getAddress()
     );
     await XyroToken.approve(await Staking.getAddress(), ethers.MaxUint256);
@@ -37,27 +36,27 @@ describe("Staking", () => {
     let oldBalanceGov = await GovernanceToken.balanceOf(
       await owner.getAddress()
     );
-    await Staking.stake(parse18("100"));
-    expect(await Staking.stakedBalance(owner.address)).to.be.above(0);
+    await Staking.stake(parse18("100"), 30 * day);
+    expect(await Staking.stakedBalance()).to.be.above(0);
     let newBalanceGov = await GovernanceToken.balanceOf(
       await owner.getAddress()
     );
     expect(newBalanceGov).to.be.above(oldBalanceGov);
   });
 
-  it("should get some tokens", async function () {
+  it("should unstake tokens and get reward", async function () {
     let oldBalanceGov = await GovernanceToken.balanceOf(
       await owner.getAddress()
     );
     let oldBalance = await XyroToken.balanceOf(owner.address);
-    await time.increase(2629743); //4 weeks
-    expect(await Staking.earned(owner.address)).to.be.above(0);
-    await Staking.unstake(parse18("100"));
+    await time.increase(31 * day);
+    expect(await Staking.earned(0)).to.be.above(0);
+    await Staking.unstake(0);
     let newBalance = await XyroToken.balanceOf(owner.address);
     let newBalanceGov = await GovernanceToken.balanceOf(
       await owner.getAddress()
     );
-    expect(newBalance).to.be.above(oldBalance);
+    expect(newBalance - oldBalance).to.be.equal(parse18("125"));
     expect(oldBalanceGov).to.be.above(newBalanceGov);
   });
 });

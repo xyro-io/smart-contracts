@@ -7,22 +7,30 @@ contract XyroStaking {
     address public token;
     address public governanceToken;
     uint256 public totalStaked;
-    mapping(address => uint256) public stakedBalance;
-    mapping(address => uint256) public lastClaimTime;
-    uint256 public rewardRate; //недельный рейт
+    uint256 public constant APR_DENOMINATOR = 10000;
 
-    constructor(
-        address _tokenAddress,
-        uint256 _rewardRate,
-        address _governanceToken
-    ) {
+    struct Stake {
+        uint256 stakedBalance;
+        uint256 startTime;
+        uint256 lockedFor;
+    }
+
+    mapping(address => Stake[]) public stakes;
+
+    constructor(address _tokenAddress, address _governanceToken) {
         token = _tokenAddress;
-        rewardRate = _rewardRate;
         governanceToken = _governanceToken;
     }
 
-    function stake(uint256 amount) external {
+    function stake(uint256 amount, uint256 lockPeriod) external {
         require(amount > 0, "Amount must be greater than zero");
+        require(
+            lockPeriod == 30 days ||
+                lockPeriod == 90 days ||
+                lockPeriod == 180 days ||
+                lockPeriod == 365 days,
+            "Invalid lock period"
+        );
         SafeERC20.safeTransferFrom(
             IERC20(token),
             msg.sender,
@@ -31,38 +39,63 @@ contract XyroStaking {
         );
         IERC20Mint(governanceToken).mint(msg.sender, amount);
         totalStaked += amount;
-        stakedBalance[msg.sender] += amount;
-        lastClaimTime[msg.sender] = block.timestamp;
+        stakes[msg.sender].push(
+            Stake({
+                stakedBalance: amount,
+                startTime: block.timestamp,
+                lockedFor: lockPeriod
+            })
+        );
     }
 
-    function unstake(uint256 amount) external {
+    function unstake(uint256 stakeId) external {
+        Stake memory currentStake = stakes[msg.sender][stakeId];
         require(
-            IERC20Mint(governanceToken).balanceOf(msg.sender) >= amount,
+            IERC20Mint(governanceToken).balanceOf(msg.sender) >=
+                currentStake.stakedBalance,
             "Can't unstake without governance"
         );
         require(
-            amount > 0 && amount <= stakedBalance[msg.sender],
-            "Invalid amount"
+            currentStake.startTime >= currentStake.lockedFor,
+            "Can't unstake so early"
         );
-        require(lastClaimTime[msg.sender] >= 3 weeks, "Can't unstake so early");
-        IERC20Mint(governanceToken).burn(msg.sender, amount);
-        SafeERC20.safeTransfer(IERC20(token), msg.sender, earned(msg.sender));
-        lastClaimTime[msg.sender] = block.timestamp;
-        totalStaked -= amount;
-        stakedBalance[msg.sender] -= amount;
+        IERC20Mint(governanceToken).burn(
+            msg.sender,
+            currentStake.stakedBalance
+        );
+        SafeERC20.safeTransfer(IERC20(token), msg.sender, earned(stakeId));
+        //can be done without deleting but with additional state variable
+        delete stakes[msg.sender][stakeId];
     }
 
-    //Можно прикрутить зависимость награды от статистики в играх
-    function earned(address account) public view returns (uint256) {
-        uint256 timeSinceLastClaim = block.timestamp - lastClaimTime[account];
-        return
-            stakedBalance[account] +
-            ((stakedBalance[account] * rewardRate * timeSinceLastClaim) /
-                1 weeks) /
-            10000;
+    function earned(uint256 stakeId) public view returns (uint256 totalEarned) {
+        Stake memory currentStake = stakes[msg.sender][stakeId];
+        if (currentStake.lockedFor == 30 days) {
+            totalEarned =
+                currentStake.stakedBalance +
+                (currentStake.stakedBalance * 2500) /
+                APR_DENOMINATOR;
+        } else if (currentStake.lockedFor == 90 days) {
+            totalEarned =
+                currentStake.stakedBalance +
+                (currentStake.stakedBalance * 5000) /
+                APR_DENOMINATOR;
+        } else if (currentStake.lockedFor == 180 days) {
+            totalEarned =
+                currentStake.stakedBalance +
+                (currentStake.stakedBalance * 8000) /
+                APR_DENOMINATOR;
+        } else if (currentStake.lockedFor == 365 days) {
+            totalEarned =
+                currentStake.stakedBalance +
+                (currentStake.stakedBalance * 15000) /
+                APR_DENOMINATOR;
+        }
     }
 
-    function setRewardRate(uint256 _rewardRate) external {
-        rewardRate = _rewardRate;
+    function stakedBalance() public view returns (uint256 userStaked) {
+        for (uint i; i < stakes[msg.sender].length; i++) {
+            userStaked += stakes[msg.sender][i].stakedBalance;
+        }
     }
 }

@@ -142,7 +142,12 @@ contract SetupGame is Ownable {
 
     function finalizeGame(uint256 finalPrice) public onlyOwner {
         require(game.gameStatus == Status.Started, "Wrong status!");
-        require(block.timestamp >= game.endTime, "Too early to finish");
+        require(
+            block.timestamp >= game.endTime ||
+                game.stopLossPrice == finalPrice ||
+                game.takeProfitPrice == finalPrice,
+            "Too early to finish"
+        );
         bool takeProfitWon;
         if (game.isStopLoss) {
             if (finalPrice <= game.stopLossPrice) {

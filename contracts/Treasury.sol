@@ -12,7 +12,6 @@ contract Treasury is AccessControlEnumerable {
     address approvedToken;
     address xyroToken;
     uint256 public fee = 100; //100 for 1%
-    uint256 public updownFee = 500;
     uint256 public setupInitiatorFee = 100;
     uint256 public constant FEE_DENOMINATOR = 10000;
     bytes32 public constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
@@ -83,22 +82,6 @@ contract Treasury is AccessControlEnumerable {
         );
     }
 
-    function distribute(
-        uint256 amount,
-        address winner,
-        uint256 initialBet
-    ) public {
-        require(hasRole(DISTRIBUTOR_ROLE, msg.sender), "Invalid role");
-        uint256 withdrawnFee = (amount * fee) / FEE_DENOMINATOR;
-        uint256 wonAmount = amount * 2 - withdrawnFee;
-        collectedFee += withdrawnFee;
-        IERC20(approvedToken).approve(winner, wonAmount);
-        SafeERC20.safeTransfer(IERC20(approvedToken), winner, wonAmount);
-        if (getCashbackAmount(winner, initialBet) != 0) {
-            earnedRakeback[winner] += getCashbackAmount(winner, initialBet);
-        }
-    }
-
     function refund(uint256 amount, address initiator) public {
         require(hasRole(DISTRIBUTOR_ROLE, msg.sender), "Invalid role");
         IERC20(approvedToken).approve(initiator, amount);
@@ -111,35 +94,22 @@ contract Treasury is AccessControlEnumerable {
         SafeERC20.safeTransfer(IERC20(approvedToken), msg.sender, amount);
     }
 
-    function increaseFee(uint256 amount) public {
-        collectedFee += amount;
-    }
-
-    function distributeBullseye(
+    function distribute(
         uint256 amount,
         address winner,
-        uint256 initialBet
+        uint256 initialBet,
+        uint256 gameFee
     ) public {
         require(hasRole(DISTRIBUTOR_ROLE, msg.sender), "Invalid role");
-        IERC20(approvedToken).approve(winner, amount);
-        SafeERC20.safeTransfer(IERC20(approvedToken), winner, amount);
-        if (getCashbackAmount(winner, initialBet) != 0) {
-            earnedRakeback[winner] += getCashbackAmount(winner, initialBet);
-        }
-    }
-
-    function distributeUpDown(
-        uint256 amount,
-        address winner,
-        uint256 initialBet
-    ) public {
-        require(hasRole(DISTRIBUTOR_ROLE, msg.sender), "Invalid role");
-        uint256 withdrawnFees = (amount * updownFee) / FEE_DENOMINATOR;
-        uint256 wonAmount = amount - withdrawnFees;
+        uint256 withdrawnFees = (amount * gameFee) / FEE_DENOMINATOR;
+        uint256 wonAmount = amount -
+            (withdrawnFees -
+                (withdrawnFees * getCommissionCut(winner)) /
+                FEE_DENOMINATOR);
         collectedFee += withdrawnFees;
         SafeERC20.safeTransfer(IERC20(approvedToken), winner, wonAmount);
-        if (getCashbackAmount(winner, initialBet) != 0) {
-            earnedRakeback[winner] += getCashbackAmount(winner, initialBet);
+        if (getRakebackAmount(winner, initialBet) != 0) {
+            earnedRakeback[winner] += getRakebackAmount(winner, initialBet);
         }
     }
 
@@ -155,8 +125,8 @@ contract Treasury is AccessControlEnumerable {
             FEE_DENOMINATOR;
         IERC20(approvedToken).approve(winner, wonAmount);
         SafeERC20.safeTransfer(IERC20(approvedToken), winner, wonAmount);
-        if (getCashbackAmount(winner, initialBet) != 0) {
-            earnedRakeback[winner] += getCashbackAmount(winner, initialBet);
+        if (getRakebackAmount(winner, initialBet) != 0) {
+            earnedRakeback[winner] += getRakebackAmount(winner, initialBet);
         }
     }
 
@@ -193,33 +163,31 @@ contract Treasury is AccessControlEnumerable {
         IERC20Mint(xyroToken).mint(msg.sender, amount);
     }
 
-    function getCashbackAmount(
+    function getRakebackAmount(
         address target,
         uint256 amount
     ) public view returns (uint256) {
         uint256 targetBalance = IERC20(xyroToken).balanceOf(target);
-        if (targetBalance >= 500000 * 10 ** 18) {
-            return (amount * 1000) / FEE_DENOMINATOR;
-        } else if (targetBalance >= 250000 * 10 ** 18) {
-            return (amount * 900) / FEE_DENOMINATOR;
-        } else if (targetBalance >= 100000 * 10 ** 18) {
-            return (amount * 800) / FEE_DENOMINATOR;
-        } else if (targetBalance >= 50000 * 10 ** 18) {
-            return (amount * 700) / FEE_DENOMINATOR;
-        } else if (targetBalance >= 25000 * 10 ** 18) {
-            return (amount * 600) / FEE_DENOMINATOR;
-        } else if (targetBalance >= 10000 * 10 ** 18) {
-            return (amount * 500) / FEE_DENOMINATOR;
-        } else if (targetBalance >= 5000 * 10 ** 18) {
-            return (amount * 400) / FEE_DENOMINATOR;
-        } else if (targetBalance >= 2500 * 10 ** 18) {
-            return (amount * 300) / FEE_DENOMINATOR;
-        } else if (targetBalance >= 1000 * 10 ** 18) {
-            return (amount * 200) / FEE_DENOMINATOR;
-        } else if (targetBalance >= 100 * 10 ** 18) {
-            return (amount * 100) / FEE_DENOMINATOR;
-        } else {
-            return 0;
+        uint256 tier = targetBalance / (2500 * 10 ** 18) >= 4
+            ? 4
+            : targetBalance / (2500 * 10 ** 18);
+        return (amount * 500 * tier) / FEE_DENOMINATOR;
+    }
+
+    function getCommissionCut(
+        address target
+    ) public view returns (uint256 comissionCut) {
+        uint256 targetBalance = IERC20(xyroToken).balanceOf(target);
+        uint256 tier = targetBalance / (2500 * 10 ** 18) >= 4
+            ? 4
+            : targetBalance / (2500 * 10 ** 18);
+
+        if (tier == 4) {
+            //10-20%
+            comissionCut = 3000;
+        } else if (tier > 0) {
+            //30%
+            comissionCut = 1000 + 500 * tier - 1;
         }
     }
 }

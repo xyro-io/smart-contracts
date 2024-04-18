@@ -18,25 +18,14 @@ interface ITreasury {
     function distribute(
         uint256 amount,
         address winner,
-        uint256 initialBet
+        uint256 initialBet,
+        uint256 gameFee
     ) external;
 
     function refund(uint256 amount, address initiator) external;
 
     function distributeWithoutFee(
         uint256 rate,
-        address winner,
-        uint256 initialBet
-    ) external;
-
-    function distributeUpDown(
-        uint256 amount,
-        address winner,
-        uint256 initialBet
-    ) external;
-
-    function distributeBullseye(
-        uint256 amount,
         address winner,
         uint256 initialBet
     ) external;

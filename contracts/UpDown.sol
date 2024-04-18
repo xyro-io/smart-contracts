@@ -19,6 +19,7 @@ contract UpDownGame is Ownable {
 
     BetInfo public game;
     address public treasury;
+    uint256 public fee = 100;
 
     constructor() Ownable(msg.sender) {}
 
@@ -63,10 +64,11 @@ contract UpDownGame is Ownable {
                 ((_game.betAmount * _game.DownPlayers.length) /
                     _game.UpPlayers.length);
             for (uint i = 0; i < _game.UpPlayers.length; i++) {
-                ITreasury(treasury).distributeUpDown(
+                ITreasury(treasury).distribute(
                     wonAmount,
                     _game.UpPlayers[i],
-                    _game.betAmount
+                    _game.betAmount,
+                    fee
                 );
             }
             emit UpDownFinalized(finalPrice, wonAmount);
@@ -75,10 +77,11 @@ contract UpDownGame is Ownable {
                 ((_game.betAmount * _game.UpPlayers.length) /
                     _game.DownPlayers.length);
             for (uint i = 0; i < _game.DownPlayers.length; i++) {
-                ITreasury(treasury).distributeUpDown(
+                ITreasury(treasury).distribute(
                     wonAmount,
                     _game.DownPlayers[i],
-                    _game.betAmount
+                    _game.betAmount,
+                    fee
                 );
             }
             emit UpDownFinalized(finalPrice, wonAmount);

@@ -71,6 +71,7 @@ contract UpDownStandalone is Ownable {
 
     BetInfo[] public games;
     address public treasury;
+    uint256 public fee = 100;
     uint256 public minDuration = 30 minutes;
     uint256 public maxDuration = 24 weeks;
 
@@ -197,7 +198,8 @@ contract UpDownStandalone is Ownable {
             ITreasury(treasury).distribute(
                 bet.betAmount,
                 bet.initiator,
-                bet.betAmount
+                bet.betAmount,
+                fee
             );
             emit UpDownFinalized(
                 betId,
@@ -215,7 +217,8 @@ contract UpDownStandalone is Ownable {
             ITreasury(treasury).distribute(
                 bet.betAmount,
                 bet.opponent,
-                bet.betAmount
+                bet.betAmount,
+                fee
             );
             emit UpDownFinalized(
                 betId,

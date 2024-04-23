@@ -81,6 +81,21 @@ contract GameFactory is Ownable {
         games[betId++] = newGame;
     }
 
+    function getStatus()
+        public
+        view
+        returns (SetupGame.Status[] memory status)
+    {
+        SetupGame setup;
+        status = new SetupGame.Status[](betId);
+
+        for (uint256 i; i < betId; i++) {
+            setup = SetupGame(games[i]);
+            (, , , , , , , , , , SetupGame.Status current) = setup.game();
+            status[i] = current;
+        }
+    }
+
     //onlyDao
     function changeBetDuration(
         uint256 newMaxDuration,

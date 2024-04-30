@@ -45,7 +45,6 @@ export async function wrapFnc(params: any, fnc: any) {
         }
       }
       let res: any = null;
-      console.log(params.length);
       if (fnc?.deploy) {
         if (params.length > 1) {
           res = await fnc.deploy(...params);

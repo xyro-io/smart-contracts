@@ -29,7 +29,8 @@ let contracts: {
 let deployer: HardhatEthersSigner;
 if (fs.existsSync("./contracts.json")) {
   contracts = JSON.parse(fs.readFileSync("contracts.json", "utf8"));
-  console.log(contracts);
+} else {
+  contracts = {};
 }
 
 async function deployUSDC() {
@@ -102,7 +103,7 @@ async function deployStaking() {
     contracts.Staking?.address == ""
   ) {
     Staking = await wrapFnc(
-      [contracts.XyroToken.address, 125, contracts.GovernanceToken.address], // parameters needed
+      [contracts.XyroToken.address, contracts.GovernanceToken.address], // parameters needed
       factory
     );
     contracts.Staking = { address: "", url: "" };
@@ -240,5 +241,6 @@ async function main() {
 
   const json = JSON.stringify(contracts);
   fs.writeFileSync("./contracts.json", json);
+  process.exit();
 }
 main();

@@ -15,6 +15,8 @@ interface ITreasury {
         bytes32 s
     ) external;
 
+    function upkeep() external view returns (address);
+
     function distribute(
         uint256 amount,
         address winner,

@@ -1,17 +1,23 @@
 //SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 import "./interfaces/ITreasury.sol";
+import "./interfaces/IMockUpkeep.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract UpDownGame is Ownable {
-    event UpDownStart(uint48 startTime, uint48 endTime, uint256 betAmount);
+    event UpDownStart(
+        uint48 startTime,
+        uint48 endTime,
+        uint256 betAmount,
+        int192 startingPrice
+    );
     event UpDownBet(address player, bool willGoUp, uint256 betAmount);
-    event UpDownFinalized(uint256 topPlayers, uint256 wonAmount);
+    event UpDownFinalized(int192 finalPrice, uint256 wonAmount);
 
     struct BetInfo {
         uint48 startTime;
         uint48 endTime;
-        uint256 startingPrice;
+        int192 startingPrice;
         uint256 betAmount;
         address[] UpPlayers;
         address[] DownPlayers;
@@ -27,13 +33,14 @@ contract UpDownGame is Ownable {
         uint48 startTime,
         uint48 endTime,
         uint256 betAmount,
-        uint256 startingPrice
+        bytes memory unverifiedReport
     ) public onlyOwner {
-        game.startingPrice = startingPrice;
+        address upkeep = ITreasury(treasury).upkeep();
+        game.startingPrice = IMockUpkeep(upkeep).verify(unverifiedReport);
         game.startTime = startTime;
         game.endTime = endTime;
         game.betAmount = betAmount;
-        emit UpDownStart(startTime, endTime, betAmount);
+        emit UpDownStart(startTime, endTime, betAmount, game.startingPrice);
     }
 
     function bet(bool willGoUp) public {
@@ -52,7 +59,9 @@ contract UpDownGame is Ownable {
         emit UpDownBet(msg.sender, willGoUp, game.betAmount);
     }
 
-    function finalizeGame(uint256 finalPrice) public onlyOwner {
+    function finalizeGame(bytes memory unverifiedReport) public onlyOwner {
+        address upkeep = ITreasury(treasury).upkeep();
+        int192 finalPrice = IMockUpkeep(upkeep).verify(unverifiedReport);
         BetInfo memory _game = game;
         require(
             game.UpPlayers.length > 0 && game.DownPlayers.length > 0,

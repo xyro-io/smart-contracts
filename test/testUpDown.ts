@@ -10,6 +10,9 @@ import { Treasury } from "../typechain-types/contracts/Treasury.sol/Treasury";
 import { Treasury__factory } from "../typechain-types/factories/contracts/Treasury.sol/Treasury__factory";
 import { UpDownGame } from "../typechain-types/contracts/UpDown.sol/UpDownGame";
 import { UpDownGame__factory } from "../typechain-types/factories/contracts/UpDown.sol/UpDownGame__factory";
+import { MockUpkeep } from "../typechain-types/contracts/MockUpkeep";
+import { MockUpkeep__factory } from "../typechain-types/factories/contracts/MockUpkeep__factory";
+import { abiEncodeInt192 } from "../scripts/helper";
 const parse18 = ethers.parseEther;
 
 describe("UpDown", () => {
@@ -20,11 +23,15 @@ describe("UpDown", () => {
   let XyroToken: XyroToken;
   let Treasury: Treasury;
   let Game: UpDownGame;
+  let Upkeep: MockUpkeep;
   const assetPrice = parse18("2310");
   const finalPrice = parse18("3000");
+  let startingPriceBytes: string;
+  let finalPriceBytes: string;
   before(async () => {
     [owner, opponent, alice] = await ethers.getSigners();
-
+    startingPriceBytes = abiEncodeInt192(assetPrice.toString());
+    finalPriceBytes = abiEncodeInt192(finalPrice.toString());
     USDT = await new MockToken__factory(owner).deploy(
       parse18((1e13).toString())
     );
@@ -34,8 +41,10 @@ describe("UpDown", () => {
       await XyroToken.getAddress()
     );
     Game = await new UpDownGame__factory(owner).deploy();
+    Upkeep = await new MockUpkeep__factory(owner).deploy();
     await Game.setTreasury(await Treasury.getAddress());
     await Treasury.setFee(100);
+    await Treasury.setUpkeep(await Upkeep.getAddress());
     await USDT.mint(await opponent.getAddress(), parse18("10000000"));
     await USDT.mint(await alice.getAddress(), parse18("10000000"));
     await Treasury.grantRole(
@@ -50,7 +59,7 @@ describe("UpDown", () => {
       await time.latest(),
       (await time.latest()) + 2700,
       parse18("100"),
-      assetPrice
+      startingPriceBytes
     );
     let bet = await Game.game();
     expect(bet.betAmount).to.equal(parse18("100"));
@@ -78,7 +87,7 @@ describe("UpDown", () => {
   it("should end updown game", async function () {
     let oldBalance = await USDT.balanceOf(alice.getAddress());
     await time.increase(2700);
-    await Game.finalizeGame(finalPrice);
+    await Game.finalizeGame(finalPriceBytes);
     let newBalance = await USDT.balanceOf(alice.getAddress());
     expect(newBalance).to.be.above(oldBalance);
   });

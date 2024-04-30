@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 import "./interfaces/ITreasury.sol";
+import "./interfaces/IMockUpkeep.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/IERC20.sol";
 
@@ -12,7 +13,7 @@ contract BullseyeGame is Ownable {
     uint256[2] public twoPlayersRate = [7500, 2500];
     uint256[2] public twoPlayersExactRate = [8000, 2000];
     event BullseyeStart(uint48 startTime, uint48 endTime, uint256 betAmount);
-    event BullseyeBet(address player, uint256 assetPrice, uint256 betAmount);
+    event BullseyeBet(address player, int192 assetPrice, uint256 betAmount);
     event BullseyeFinalized(address[3] topPlayers, uint256[3] wonAmount);
 
     struct BetInfo {
@@ -20,7 +21,7 @@ contract BullseyeGame is Ownable {
         uint48 endTime;
         uint256 betAmount;
         address[] players;
-        mapping(address => uint256) assetPrices;
+        mapping(address => int192) assetPrices;
         mapping(address => uint256) betTimestamp;
     }
 
@@ -40,7 +41,7 @@ contract BullseyeGame is Ownable {
         emit BullseyeStart(startTime, endTime, betAmount);
     }
 
-    function bet(uint256 assetPrice) public {
+    function bet(int192 assetPrice) public {
         require(
             game.startTime + (game.endTime - game.startTime) / 3 >=
                 block.timestamp,
@@ -55,16 +56,18 @@ contract BullseyeGame is Ownable {
     }
 
     //only owner
-    function finalizeGame(uint256 finalPrice) public onlyOwner {
+    function finalizeGame(bytes memory unverifiedReport) public onlyOwner {
         require(game.players.length > 0, "Can't end");
         require(block.timestamp >= game.endTime, "Too early to finish");
+        address upkeep = ITreasury(treasury).upkeep();
+        int192 finalPrice = IMockUpkeep(upkeep).verify(unverifiedReport);
         if (game.players.length == 2) {
             address playerOne = game.players[0];
             address playerTwo = game.players[1];
-            uint256 playerOneDiff = game.assetPrices[playerOne] > finalPrice
+            int192 playerOneDiff = game.assetPrices[playerOne] > finalPrice
                 ? game.assetPrices[playerOne] - finalPrice
                 : finalPrice - game.assetPrices[playerOne];
-            uint256 playerTwoDiff = game.assetPrices[playerTwo] > finalPrice
+            int192 playerTwoDiff = game.assetPrices[playerTwo] > finalPrice
                 ? game.assetPrices[playerTwo] - finalPrice
                 : finalPrice - game.assetPrices[playerTwo];
             if (playerOneDiff < playerTwoDiff) {
@@ -96,8 +99,7 @@ contract BullseyeGame is Ownable {
             } else {
                 //player 2 closer
                 ITreasury(treasury).distribute(
-                    (2 *
-                        game.betAmount *
+                    ((2 * game.betAmount) *
                         (
                             playerTwoDiff == 0
                                 ? twoPlayersExactRate[0]
@@ -111,7 +113,7 @@ contract BullseyeGame is Ownable {
                     (2 *
                         game.betAmount *
                         (
-                            playerOneDiff == 0
+                            playerTwoDiff == 0
                                 ? twoPlayersExactRate[1]
                                 : twoPlayersRate[1]
                         )) / DENOMINATOR,
@@ -122,20 +124,18 @@ contract BullseyeGame is Ownable {
             }
         } else {
             address[3] memory topPlayers;
-            uint256[3] memory closestDiff = [
-                type(uint256).max,
-                type(uint256).max,
-                type(uint256).max
+            int192[3] memory closestDiff = [
+                type(int192).max,
+                type(int192).max,
+                type(int192).max
             ];
-
             for (uint256 j = 0; j < game.players.length; j++) {
                 address currentAddress = game.players[j];
-                uint256 currentGuess = game.assetPrices[currentAddress];
-                uint256 currentDiff = currentGuess > finalPrice
+                int192 currentGuess = game.assetPrices[currentAddress];
+                int192 currentDiff = currentGuess > finalPrice
                     ? currentGuess - finalPrice
                     : finalPrice - currentGuess;
                 uint256 currentTimestamp = game.betTimestamp[currentAddress];
-
                 for (uint256 i = 0; i < 3; i++) {
                     if (currentDiff < closestDiff[i]) {
                         for (uint256 k = 2; k > i; k--) {
@@ -158,16 +158,13 @@ contract BullseyeGame is Ownable {
                     }
                 }
             }
-
             uint256 totalBets = game.betAmount * game.players.length;
             uint256[3] memory wonAmount;
-
             if (closestDiff[0] == 0) {
                 wonAmount = exactRate;
             } else {
                 wonAmount = rate;
             }
-
             for (uint256 i = 0; i < 3; i++) {
                 if (topPlayers[i] != address(0)) {
                     ITreasury(treasury).distribute(

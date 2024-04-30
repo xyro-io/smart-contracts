@@ -1,6 +1,7 @@
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { ethers } from "hardhat";
 import { XyroToken } from "../typechain-types/contracts/XyroToken";
+import { MockToken } from "../typechain-types/contracts/mock/MockERC20.sol/MockToken";
 
 interface VRS {
   r: string;
@@ -143,7 +144,7 @@ export function splitSignatureToVRS(signature: string): VRS {
 
 export async function getPermitSignature(
   wallet: HardhatEthersSigner,
-  token: XyroToken,
+  token: XyroToken | MockToken,
   spender: string,
   value = ethers.MaxUint256,
   deadline = ethers.MaxUint256,
@@ -202,6 +203,11 @@ export async function getPermitSignature(
       }
     )
   );
+}
+
+export function abiEncodeInt192(num: string): string {
+  const encoded = ethers.solidityPacked(["int192"], [num]);
+  return encoded.slice(0, 3) + "0".repeat(16) + encoded.slice(3);
 }
 
 function timeout(ms: number) {

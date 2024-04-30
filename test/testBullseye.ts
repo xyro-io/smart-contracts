@@ -10,6 +10,9 @@ import { Treasury } from "../typechain-types/contracts/Treasury.sol/Treasury";
 import { Treasury__factory } from "../typechain-types/factories/contracts/Treasury.sol/Treasury__factory";
 import { BullseyeGame } from "../typechain-types/contracts/BullseyeGame";
 import { BullseyeGame__factory } from "../typechain-types/factories/contracts/BullseyeGame__factory";
+import { MockUpkeep } from "../typechain-types/contracts/MockUpkeep";
+import { MockUpkeep__factory } from "../typechain-types/factories/contracts/MockUpkeep__factory";
+import { abiEncodeInt192 } from "../scripts/helper";
 const parse18 = ethers.parseEther;
 
 describe("BullseyeGame", () => {
@@ -20,10 +23,10 @@ describe("BullseyeGame", () => {
   let XyroToken: XyroToken;
   let Treasury: Treasury;
   let Game: BullseyeGame;
+  let Upkeep: MockUpkeep;
   const assetPrice = parse18("2310");
   before(async () => {
     [owner, opponent, alice] = await ethers.getSigners();
-
     USDT = await new MockToken__factory(owner).deploy(
       parse18((1e13).toString())
     );
@@ -33,7 +36,9 @@ describe("BullseyeGame", () => {
       await XyroToken.getAddress()
     );
     Game = await new BullseyeGame__factory(owner).deploy();
+    Upkeep = await new MockUpkeep__factory(owner).deploy();
     await Game.setTreasury(await Treasury.getAddress());
+    await Treasury.setUpkeep(await Upkeep.getAddress());
     await Treasury.setFee(100);
     await USDT.mint(await opponent.getAddress(), parse18("10000000"));
     await USDT.mint(await alice.getAddress(), parse18("10000000"));
@@ -76,7 +81,10 @@ describe("BullseyeGame", () => {
   it("should end bullseye game", async function () {
     let oldBalance = await USDT.balanceOf(alice.getAddress());
     await time.increase(2700);
-    await Game.finalizeGame((assetPrice / BigInt(100)) * BigInt(95));
+    const finalPrice = abiEncodeInt192(
+      ((assetPrice / BigInt(100)) * BigInt(95)).toString()
+    );
+    await Game.finalizeGame(finalPrice);
     let newBalance = await USDT.balanceOf(alice.getAddress());
     expect(newBalance).to.be.above(oldBalance);
   });

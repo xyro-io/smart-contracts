@@ -10,6 +10,9 @@ import { ExactPriceStandalone } from "../typechain-types/contracts/ExactPriceSta
 import { ExactPriceStandalone__factory } from "../typechain-types/factories/contracts/ExactPriceStandalone__factory";
 import { MockToken } from "../typechain-types/contracts/mock/MockERC20.sol/MockToken";
 import { MockToken__factory } from "../typechain-types/factories/contracts/mock/MockERC20.sol/MockToken__factory";
+import { MockUpkeep } from "../typechain-types/contracts/MockUpkeep";
+import { MockUpkeep__factory } from "../typechain-types/factories/contracts/MockUpkeep__factory";
+import { abiEncodeInt192 } from "../scripts/helper";
 const parse18 = ethers.parseEther;
 
 describe("ExactPriceStandalone", () => {
@@ -19,6 +22,7 @@ describe("ExactPriceStandalone", () => {
   let XyroToken: XyroToken;
   let Treasury: Treasury;
   let Game: ExactPriceStandalone;
+  let Upkeep: MockUpkeep;
   const assetPrice = parse18("2310");
   before(async () => {
     [owner, opponent] = await ethers.getSigners();
@@ -31,8 +35,10 @@ describe("ExactPriceStandalone", () => {
       await XyroToken.getAddress()
     );
     Game = await new ExactPriceStandalone__factory(owner).deploy();
+    Upkeep = await new MockUpkeep__factory(owner).deploy();
     await Game.setTreasury(await Treasury.getAddress());
     await USDT.mint(await opponent.getAddress(), parse18("1000"));
+    await Treasury.setUpkeep(await Upkeep.getAddress());
     await Treasury.setFee(100);
     await Treasury.grantRole(
       await Treasury.DISTRIBUTOR_ROLE(),
@@ -71,7 +77,10 @@ describe("ExactPriceStandalone", () => {
   it("should end exact price game", async function () {
     let oldBalance = await USDT.balanceOf(await opponent.getAddress());
     await time.increase(2700);
-    await Game.finalizeGame(0, (assetPrice / BigInt(100)) * BigInt(103));
+    const finalPrice = abiEncodeInt192(
+      ((assetPrice / BigInt(100)) * BigInt(103)).toString()
+    );
+    await Game.finalizeGame(0, finalPrice);
     let newBalance = await USDT.balanceOf(await opponent.getAddress());
     expect(newBalance).to.be.above(oldBalance);
   });

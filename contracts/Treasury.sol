@@ -3,14 +3,14 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
-
 interface IERC20Mint {
     function mint(address to, uint256 value) external returns (bool);
 }
 
 contract Treasury is AccessControlEnumerable {
-    address approvedToken;
-    address xyroToken;
+    address public approvedToken;
+    address public xyroToken;
+    address public upkeep;
     uint256 public fee = 100; //100 for 1%
     uint256 public setupInitiatorFee = 100;
     uint256 public constant FEE_DENOMINATOR = 10000;
@@ -189,5 +189,9 @@ contract Treasury is AccessControlEnumerable {
             //30%
             comissionCut = 1000 + 500 * tier - 1;
         }
+    }
+
+    function setUpkeep(address newUpkeep) public {
+        upkeep = newUpkeep;
     }
 }

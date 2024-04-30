@@ -3,20 +3,21 @@ pragma solidity ^0.8.24;
 import "./interfaces/ITreasury.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/IERC20.sol";
+import "./interfaces/IMockUpkeep.sol";
 
 contract ExactPriceStandalone is Ownable {
     event ExactPriceCreated(
         address opponent,
         uint48 startTime,
         uint48 endTime,
-        uint256 initiatorPrice,
+        int192 initiatorPrice,
         uint256 betAmount,
         address initiator
     );
     event ExactPriceAccepted(
         uint256 betId,
         address opponent,
-        uint256 opponentPrice
+        int192 opponentPrice
     );
     event ExactPriceRefused(uint256 betId);
     event ExactPriceCancelled(
@@ -31,10 +32,10 @@ contract ExactPriceStandalone is Ownable {
         uint256 betId,
         address winner,
         address loser,
-        uint256 winnerGuessPrice,
-        uint256 loserAssetPrice,
+        int192 winnerGuessPrice,
+        int192 loserAssetPrice,
         uint256 betAmount,
-        uint256 finalAssetPrice,
+        int192 finalAssetPrice,
         uint48 startTime,
         uint48 endTime,
         Status gameStatus
@@ -54,9 +55,9 @@ contract ExactPriceStandalone is Ownable {
         uint48 endTime;
         address opponent;
         uint256 betAmount;
-        uint256 initiatorPrice;
-        uint256 opponentPrice;
-        uint256 finalAssetPrice;
+        int192 initiatorPrice;
+        int192 opponentPrice;
+        int192 finalAssetPrice;
         Status gameStatus;
     }
 
@@ -72,7 +73,7 @@ contract ExactPriceStandalone is Ownable {
         address _opponent,
         uint48 _startTime,
         uint48 _endTime,
-        uint256 _initiatorPrice,
+        int192 _initiatorPrice,
         uint256 _betAmount
     ) public {
         require(
@@ -104,7 +105,7 @@ contract ExactPriceStandalone is Ownable {
         );
     }
 
-    function acceptBet(uint256 betId, uint256 _opponentPrice) public {
+    function acceptBet(uint256 betId, int192 _opponentPrice) public {
         BetInfo memory bet = games[betId];
         require(bet.gameStatus == Status.Created, "Wrong status!");
         require(
@@ -168,15 +169,17 @@ contract ExactPriceStandalone is Ownable {
 
     function finalizeGame(
         uint256 betId,
-        uint256 finalAssetPrice
+        bytes memory unverifiedReport
     ) public onlyOwner {
+        address upkeep = ITreasury(treasury).upkeep();
+        int192 finalAssetPrice = IMockUpkeep(upkeep).verify(unverifiedReport);
         BetInfo memory bet = games[betId];
         require(bet.gameStatus == Status.Started, "Wrong status!");
         require(block.timestamp >= bet.endTime, "Too early to finish");
-        uint256 diff1 = bet.initiatorPrice > finalAssetPrice
+        int192 diff1 = bet.initiatorPrice > finalAssetPrice
             ? bet.initiatorPrice - finalAssetPrice
             : finalAssetPrice - bet.initiatorPrice;
-        uint256 diff2 = bet.opponentPrice > finalAssetPrice
+        int192 diff2 = bet.opponentPrice > finalAssetPrice
             ? bet.opponentPrice - finalAssetPrice
             : finalAssetPrice - bet.opponentPrice;
 

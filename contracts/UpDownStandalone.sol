@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 import "./interfaces/ITreasury.sol";
+import "./interfaces/IMockUpkeep.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/IERC20.sol";
 
@@ -34,24 +35,15 @@ contract UpDownStandalone is Ownable {
         bool willGoUp,
         address loser,
         uint256 betAmount,
-        uint256 startingAssetPrice,
-        uint256 finalAssetPrice,
+        int192 startingAssetPrice,
+        int192 finalAssetPrice,
         uint48 startTime,
         uint48 endTime,
-        Status gameStatus
-    );
-    event UpDownStartingPriceSet(
-        uint256 betId,
-        address initiator,
-        uint48 startTime,
-        uint48 endTime,
-        uint256 assetPrice,
         Status gameStatus
     );
 
     enum Status {
         Created,
-        Prepared,
         Cancelled,
         Started,
         Finished,
@@ -64,8 +56,8 @@ contract UpDownStandalone is Ownable {
         address opponent;
         bool willGoUp; //Initiator choise
         uint256 betAmount;
-        uint256 startingAssetPrice;
-        uint256 finalAssetPrice;
+        int192 startingAssetPrice;
+        int192 finalAssetPrice;
         Status gameStatus;
     }
 
@@ -82,7 +74,8 @@ contract UpDownStandalone is Ownable {
         uint48 _startTime,
         uint48 _endTime,
         bool _willGoUp,
-        uint256 _betAmount
+        uint256 _betAmount,
+        bytes memory unverifiedReport
     ) public {
         require(
             _endTime - _startTime >= minDuration,
@@ -94,6 +87,10 @@ contract UpDownStandalone is Ownable {
         );
         require(_betAmount >= 1e19, "Wrong bet amount");
         BetInfo memory newBet;
+        address upkeep = ITreasury(treasury).upkeep();
+        newBet.startingAssetPrice = IMockUpkeep(upkeep).verify(
+            unverifiedReport
+        );
         newBet.initiator = msg.sender;
         newBet.startTime = _startTime;
         newBet.endTime = _endTime;
@@ -113,26 +110,9 @@ contract UpDownStandalone is Ownable {
         );
     }
 
-    function setStartingPrice(
-        uint256 assetPrice,
-        uint256 betId
-    ) public onlyOwner {
-        require(games[betId].gameStatus == Status.Created, "Wrong status!");
-        games[betId].gameStatus = Status.Prepared;
-        games[betId].startingAssetPrice = assetPrice;
-        emit UpDownStartingPriceSet(
-            betId,
-            games[betId].initiator,
-            games[betId].startTime,
-            games[betId].endTime,
-            assetPrice,
-            Status.Prepared
-        );
-    }
-
     function acceptBet(uint256 betId) public {
         BetInfo memory bet = games[betId];
-        require(bet.gameStatus == Status.Prepared, "Wrong status!");
+        require(bet.gameStatus == Status.Created, "Wrong status!");
         require(
             bet.startTime + (bet.endTime - bet.startTime) / 3 >=
                 block.timestamp,
@@ -186,10 +166,15 @@ contract UpDownStandalone is Ownable {
     }
 
     //only owner
-    function finalizeGame(uint256 betId, uint256 finalPrice) public onlyOwner {
+    function finalizeGame(
+        uint256 betId,
+        bytes memory unverifiedReport
+    ) public onlyOwner {
         BetInfo memory bet = games[betId];
         require(bet.gameStatus == Status.Started, "Wrong status!");
         require(block.timestamp >= bet.endTime, "Too early to finish");
+        address upkeep = ITreasury(treasury).upkeep();
+        int192 finalPrice = IMockUpkeep(upkeep).verify(unverifiedReport);
         if (
             bet.willGoUp
                 ? bet.startingAssetPrice < finalPrice

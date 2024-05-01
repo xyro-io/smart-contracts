@@ -19,12 +19,14 @@ let contracts: {
   Vesting,
   Staking,
   GameFactory,
-  ExactPrice,
-  UpDown,
+  ExactPriceOneVsOne,
+  UpDownOneVsOne,
   BullseyeGame,
   GovernanceToken,
   TimeLock,
+  MockUpkeep,
   DAO,
+  UpDown,
   factory: any;
 let deployer: HardhatEthersSigner;
 if (fs.existsSync("./contracts.json")) {
@@ -147,20 +149,35 @@ async function deployBullseye() {
 async function deployExactPriceStandalone() {
   factory = await ethers.getContractFactory("ExactPriceStandalone");
   if (
-    contracts.ExactPrice?.address == undefined ||
-    contracts.ExactPrice?.address == ""
+    contracts.ExactPriceOneVsOne?.address == undefined ||
+    contracts.ExactPriceOneVsOne?.address == ""
   ) {
-    ExactPrice = await wrapFnc([], factory);
-    contracts.ExactPrice = { address: "", url: "" };
-    contracts.ExactPrice.address = ExactPrice.target;
-    console.log("ExactPrice deployed");
+    ExactPriceOneVsOne = await wrapFnc([], factory);
+    contracts.ExactPriceOneVsOne = { address: "", url: "" };
+    contracts.ExactPriceOneVsOne.address = ExactPriceOneVsOne.target;
+    console.log("ExactPriceOneVsOne deployed");
   } else {
-    console.log("ExactPrice already deployed skipping...");
+    console.log("ExactPriceOneVsOne already deployed skipping...");
   }
 }
 
 async function deployUpDownStandalone() {
   factory = await ethers.getContractFactory("UpDownStandalone");
+  if (
+    contracts.UpDownOneVsOne?.address == undefined ||
+    contracts.UpDownOneVsOne?.address == ""
+  ) {
+    UpDownOneVsOne = await wrapFnc([], factory);
+    contracts.UpDownOneVsOne = { address: "", url: "" };
+    contracts.UpDownOneVsOne.address = UpDownOneVsOne.target;
+    console.log("UpDownOneVsOne deployed");
+  } else {
+    console.log("UpDownOneVsOne already deployed skipping...");
+  }
+}
+
+async function deployUpDown() {
+  factory = await ethers.getContractFactory("UpDownGame");
   if (
     contracts.UpDown?.address == undefined ||
     contracts.UpDown?.address == ""
@@ -204,6 +221,21 @@ async function deployTimeLock(deployer: HardhatEthersSigner) {
   }
 }
 
+async function deployUpkeep() {
+  factory = await ethers.getContractFactory("MockUpkeep");
+  if (
+    contracts.MockUpkeep?.address == undefined ||
+    contracts.MockUpkeep?.address == ""
+  ) {
+    MockUpkeep = await wrapFnc([], factory);
+    contracts.MockUpkeep = { address: "", url: "" };
+    contracts.MockUpkeep.address = MockUpkeep.target;
+    console.log("MockUpkeep deployed");
+  } else {
+    console.log("MockUpkeep already deployed skipping...");
+  }
+}
+
 async function deployDAO() {
   factory = await ethers.getContractFactory("XyroGovernorContract");
   if (contracts.DAO?.address == undefined || contracts.DAO?.address == "") {
@@ -234,6 +266,8 @@ async function main() {
     await deployUpDownStandalone();
     await deployGameFactory();
     await deployBullseye();
+    await deployUpkeep();
+    await deployUpDown();
   } catch (e) {
     const json = JSON.stringify(contracts);
     fs.writeFileSync("./contracts.json", json);
@@ -241,6 +275,6 @@ async function main() {
 
   const json = JSON.stringify(contracts);
   fs.writeFileSync("./contracts.json", json);
-  process.exit();
+  // process.exit();
 }
 main();

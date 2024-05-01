@@ -61,7 +61,6 @@ export async function wrapFnc(params: any, fnc: any) {
           let network = await ethers.provider.getNetwork();
           await new Promise((resolve, reject) => {
             console.log(`\nTrying to send tx... ${f + 1}`);
-            console.log("res data = ", res);
             console.log(
               `function name: ${res.data.substring(0, 10)}, on network: ${
                 network.name
@@ -209,6 +208,6 @@ export function abiEncodeInt192(num: string): string {
   return encoded.slice(0, 3) + "0".repeat(16) + encoded.slice(3);
 }
 
-function timeout(ms: number) {
+export function timeout(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

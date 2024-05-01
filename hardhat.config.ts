@@ -5,6 +5,7 @@ import "hardhat-gas-reporter";
 // import "@nomicfoundation/hardhat-ethers";
 // import "@typechain/hardhat";
 import "@nomicfoundation/hardhat-toolbox";
+import "./scripts/task.ts";
 
 const config: HardhatUserConfig = {
   networks: {

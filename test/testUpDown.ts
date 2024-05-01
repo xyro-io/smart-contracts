@@ -54,7 +54,6 @@ describe("UpDown", () => {
   });
 
   it("should create updown game", async function () {
-    await USDT.approve(await Treasury.getAddress(), ethers.MaxUint256);
     await Game.startGame(
       await time.latest(),
       (await time.latest()) + 2700,

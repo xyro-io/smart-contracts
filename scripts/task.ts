@@ -25,6 +25,17 @@ task("approveTreasury", "Increases allowance")
     );
   });
 
+task("mint", "Mints tokens on target address")
+  .addParam("address", "Address that gets tokens")
+  .addParam("amount", "Amount to mint")
+  .setAction(async (taskArgs) => {
+    const USDC = await ethers.getContractAt(
+      "MockToken",
+      contracts.USDC.address
+    );
+    await USDC.mint(taskArgs.address, ethers.parseEther(taskArgs.amount));
+  });
+
 task("startBullseye", "Starts bullseye game")
   .addParam("time", "How long game will be opened")
   .addParam("betamount", "Bet amount")
@@ -111,6 +122,52 @@ task("finalizeUpDown", "Finishes UpDown game")
       contracts.UpDown.address
     );
     await contract.finalizeGame(abiEncodeInt192(taskArgs.price));
+  });
+
+task("startExactPrice", "Starts one vs one exact price game")
+  .addParam("opponent", "Opponent address")
+  .addParam("time", "How long game will be opened")
+  .addParam("price", "Guess price")
+  .addParam("betamount", "Bet amount")
+  .setAction(async (taskArgs: any) => {
+    const contract = await ethers.getContractAt(
+      "ExactPriceStandalone",
+      contracts.ExactPriceOneVsOne.address
+    );
+    await contract.createBet(
+      taskArgs.opponent,
+      (
+        await ethers.provider.getBlock("latest")
+      ).timestamp,
+      (await ethers.provider.getBlock("latest")).timestamp +
+        Number(taskArgs.time),
+      taskArgs.price,
+      ethers.parseEther(taskArgs.betamount)
+    );
+  });
+
+task("betExact", "Accept exact price bet")
+  .addParam("id", "Bet id")
+  .addParam("price", "Guess price")
+  .addParam("better", "Who is betting")
+  .setAction(async (taskArgs: any) => {
+    const signer = await ethers.getSigner(taskArgs.better);
+    const contract = await ethers.getContractAt(
+      "ExactPriceStandalone",
+      contracts.ExactPriceOneVsOne.address
+    );
+    await contract.connect(signer).acceptBet(taskArgs.id, taskArgs.price);
+  });
+
+task("finalizeExact", "Finalize exact price game")
+  .addParam("id", "Bet id")
+  .addParam("price", "Final price")
+  .setAction(async (taskArgs: any) => {
+    const contract = await ethers.getContractAt(
+      "ExactPriceStandalone",
+      contracts.ExactPriceOneVsOne.address
+    );
+    await contract.finalizeGame(taskArgs.id, abiEncodeInt192(taskArgs.price));
   });
 
 function abiEncodeInt192(num: string): string {

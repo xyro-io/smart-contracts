@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 import "./interfaces/ITreasury.sol";
+import "./interfaces/IMockUpkeep.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/IERC20.sol";
 
@@ -16,26 +17,25 @@ contract SetupGame is Ownable {
         uint256 totalBetsTP,
         uint256 totalBetsSL,
         bool isStopLoss,
-        uint256 takeProfitPrice,
-        uint256 stopLossPrice,
+        int192 takeProfitPrice,
+        int192 stopLossPrice,
         uint48 startTime,
         uint48 endTime,
-        uint256 startingAssetPrice,
-        uint256 finalAssetPrice,
+        int192 startingAssetPrice,
+        int192 finalAssetPrice,
         Status gameStatus
     );
     event SetupStartingPriceSet(
         address gameAdress,
         uint48 startTime,
         uint48 endTime,
-        uint256 assetPrice,
+        int192 assetPrice,
         Status gameStatus
     );
 
     enum Status {
         Created,
         Cancelled,
-        Started,
         Finished
     }
 
@@ -46,10 +46,10 @@ contract SetupGame is Ownable {
         bool isStopLoss;
         uint256 totalBetsSL;
         uint256 totalBetsTP;
-        uint256 takeProfitPrice;
-        uint256 stopLossPrice;
-        uint256 startingAssetPrice;
-        uint256 finalAssetPrice;
+        int192 takeProfitPrice;
+        int192 stopLossPrice;
+        int192 startingAssetPrice;
+        int192 finalAssetPrice;
         Status gameStatus;
     }
 
@@ -64,10 +64,12 @@ contract SetupGame is Ownable {
         bool isStopLoss,
         uint48 startTime,
         uint48 endTime,
-        uint256 takeProfitPrice,
-        uint256 stopLossPrice,
+        int192 takeProfitPrice,
+        int192 stopLossPrice,
         address initiator,
-        uint256 amount
+        uint256 amount,
+        bytes memory unverifiedReport,
+        address newTreasury
     ) Ownable(msg.sender) {
         game.isStopLoss = isStopLoss;
         game.initiator = initiator;
@@ -76,6 +78,9 @@ contract SetupGame is Ownable {
         game.stopLossPrice = stopLossPrice;
         game.takeProfitPrice = takeProfitPrice;
         game.gameStatus = Status.Created;
+        treasury = newTreasury;
+        address upkeep = ITreasury(newTreasury).upkeep();
+        game.startingAssetPrice = IMockUpkeep(upkeep).verify(unverifiedReport);
         if (amount != 0) {
             betAmounts[msg.sender] = amount;
             if (isStopLoss) {
@@ -88,21 +93,13 @@ contract SetupGame is Ownable {
         }
     }
 
-    function setStartingPrice(uint256 assetPrice) public onlyOwner {
-        require(game.gameStatus == Status.Created, "Wrong status!");
-        game.gameStatus = Status.Started;
-        game.startingAssetPrice = assetPrice;
-        emit SetupStartingPriceSet(
-            address(this),
-            game.startTime,
-            game.endTime,
-            assetPrice,
-            Status.Started
-        );
+    function setPrice(bytes memory unverifiedReport) public {
+        address upkeep = ITreasury(treasury).upkeep();
+        game.startingAssetPrice = IMockUpkeep(upkeep).verify(unverifiedReport);
     }
 
     function bet(bool isStopLoss, uint256 amount) public {
-        require(game.gameStatus == Status.Started, "Wrong status!");
+        require(game.gameStatus == Status.Created, "Wrong status!");
         require(
             game.startTime + (game.endTime - game.startTime) / 3 >
                 block.timestamp,
@@ -140,8 +137,10 @@ contract SetupGame is Ownable {
         emit SetupCancelled(address(this), game.initiator, Status.Cancelled);
     }
 
-    function finalizeGame(uint256 finalPrice) public onlyOwner {
-        require(game.gameStatus == Status.Started, "Wrong status!");
+    function finalizeGame(bytes memory unverifiedReport) public onlyOwner {
+        require(game.gameStatus == Status.Created, "Wrong status!");
+        address upkeep = ITreasury(treasury).upkeep();
+        int192 finalPrice = IMockUpkeep(upkeep).verify(unverifiedReport);
         require(
             block.timestamp >= game.endTime ||
                 game.stopLossPrice == finalPrice ||

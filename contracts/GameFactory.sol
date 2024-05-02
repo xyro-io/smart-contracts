@@ -15,8 +15,8 @@ contract GameFactory is Ownable {
     event SetupCreated(
         uint48 startTime,
         uint48 endTime,
-        uint256 takeProfitPrice,
-        uint256 stopLossPrice,
+        int192 takeProfitPrice,
+        int192 stopLossPrice,
         uint256 betAmount,
         bool isStopLoss,
         address creator
@@ -35,10 +35,11 @@ contract GameFactory is Ownable {
     function createSetupGame(
         uint48 startTime,
         uint48 endTime,
-        uint256 takeProfitPrice,
-        uint256 stopLossPrice,
+        int192 takeProfitPrice,
+        int192 stopLossPrice,
         uint256 betAmount,
-        bool isStopLoss
+        bool isStopLoss,
+        bytes memory unverifiedReport
     ) public returns (address newGame) {
         require(
             endTime - startTime >= minDuration,
@@ -63,7 +64,9 @@ contract GameFactory is Ownable {
                     takeProfitPrice,
                     stopLossPrice,
                     msg.sender,
-                    betAmount
+                    betAmount,
+                    unverifiedReport,
+                    treasury
                 )
             )
         );
@@ -76,7 +79,6 @@ contract GameFactory is Ownable {
             isStopLoss,
             msg.sender
         );
-        IGame(newGame).setTreasury(treasury);
         IGame(newGame).transferOwnership(owner());
         games[betId++] = newGame;
     }

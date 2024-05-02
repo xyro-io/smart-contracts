@@ -12,6 +12,9 @@ import { GameFactory } from "../typechain-types/contracts/GameFactory.sol/GameFa
 import { GameFactory__factory } from "../typechain-types/factories/contracts/GameFactory.sol/GameFactory__factory";
 import { SetupGame } from "../typechain-types/contracts/SetupGame";
 import { SetupGame__factory } from "../typechain-types/factories/contracts/SetupGame__factory";
+import { MockUpkeep } from "../typechain-types/contracts/MockUpkeep";
+import { MockUpkeep__factory } from "../typechain-types/factories/contracts/MockUpkeep__factory";
+import { abiEncodeInt192 } from "../scripts/helper";
 const parse18 = ethers.parseEther;
 
 describe("Setup Game", () => {
@@ -23,6 +26,7 @@ describe("Setup Game", () => {
   let Treasury: Treasury;
   let Game: SetupGame;
   let Factory: GameFactory;
+  let Upkeep: MockUpkeep;
   const assetPrice = parse18("2310");
   before(async () => {
     [owner, bob, alice] = await ethers.getSigners();
@@ -38,7 +42,9 @@ describe("Setup Game", () => {
     Factory = await new GameFactory__factory(owner).deploy(
       Treasury.getAddress()
     );
+    Upkeep = await new MockUpkeep__factory(owner).deploy();
     await Treasury.setFee(100);
+    await Treasury.setUpkeep(await Upkeep.getAddress());
     await USDT.mint(bob.address, parse18("1000"));
     await USDT.mint(alice.address, parse18("1000"));
     await USDT.approve(await Treasury.getAddress(), ethers.MaxUint256);
@@ -51,7 +57,8 @@ describe("Setup Game", () => {
       (assetPrice / BigInt(100)) * BigInt(103),
       (assetPrice / BigInt(100)) * BigInt(97),
       parse18("100"),
-      true
+      true,
+      abiEncodeInt192(assetPrice.toString())
     );
     let gameAddress = await Factory.games(0);
     Game = SetupGame__factory.connect(gameAddress, owner);
@@ -59,15 +66,10 @@ describe("Setup Game", () => {
       await Treasury.DISTRIBUTOR_ROLE(),
       await Factory.games(0)
     );
+    await Game.setPrice(abiEncodeInt192(assetPrice.toString()));
     let bet = await Game.game();
     expect(bet.initiator).to.equal(owner.address);
     expect(bet.gameStatus).to.equal(0);
-  });
-
-  it("should set asset price", async function () {
-    await Game.setStartingPrice(assetPrice);
-    let bet = await Game.game();
-    expect(bet.gameStatus).to.equal(2);
   });
 
   it("should create SL bet", async function () {
@@ -93,7 +95,9 @@ describe("Setup Game", () => {
   it("should end setup game", async function () {
     let oldBalance = await USDT.balanceOf(bob.address);
     await time.increase(2700);
-    await Game.finalizeGame((assetPrice / BigInt(100)) * BigInt(95));
+    await Game.finalizeGame(
+      abiEncodeInt192(((assetPrice / BigInt(100)) * BigInt(95)).toString())
+    );
     let newBalance = await USDT.balanceOf(bob.address);
     expect(newBalance).to.be.above(oldBalance);
   });
@@ -105,7 +109,8 @@ describe("Setup Game", () => {
       (assetPrice / BigInt(100)) * BigInt(107),
       (assetPrice / BigInt(100)) * BigInt(90),
       parse18("100"),
-      false
+      false,
+      abiEncodeInt192(assetPrice.toString())
     );
     Game = Game = SetupGame__factory.connect(await Factory.games(1), owner);
     await Treasury.grantRole(
@@ -115,12 +120,6 @@ describe("Setup Game", () => {
     let bet = await Game.game();
     expect(bet.initiator).to.equal(owner.address);
     expect(bet.gameStatus).to.equal(0);
-  });
-
-  it("should set asset price", async function () {
-    await Game.setStartingPrice(assetPrice);
-    let bet = await Game.game();
-    expect(bet.gameStatus).to.equal(2);
   });
 
   it("should create SL bet", async function () {
@@ -146,7 +145,9 @@ describe("Setup Game", () => {
   it("should end setup game", async function () {
     let oldBalance = await USDT.balanceOf(alice.address);
     await time.increase(2700);
-    await Game.finalizeGame((assetPrice / BigInt(100)) * BigInt(120));
+    await Game.finalizeGame(
+      abiEncodeInt192(((assetPrice / BigInt(100)) * BigInt(120)).toString())
+    );
     let newBalance = await USDT.balanceOf(alice.address);
     expect(newBalance).to.be.above(oldBalance);
   });

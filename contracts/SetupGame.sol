@@ -93,11 +93,6 @@ contract SetupGame is Ownable {
         }
     }
 
-    function setPrice(bytes memory unverifiedReport) public {
-        address upkeep = ITreasury(treasury).upkeep();
-        game.startingAssetPrice = IMockUpkeep(upkeep).verify(unverifiedReport);
-    }
-
     function bet(bool isStopLoss, uint256 amount) public {
         require(game.gameStatus == Status.Created, "Wrong status!");
         require(

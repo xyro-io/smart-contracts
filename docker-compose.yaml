@@ -1,0 +1,11 @@
+version: "3"
+services:
+  sheeshs:
+    image: node:latest
+    working_dir: /app
+    command: "ganache-cli --account '0xb181b71e57dee6063f0dc40376007a071dc55640998fc31b7c451497465bbd23,100000000000000000000' --account '0xab37fb15374ebcd4b9ce4b9445980a4e55bff31cb587159729670b877b24cc5c,100000000000000000000' --blockTime=1"
+    volumes:
+      - ./:/app
+    restart: always
+    ports:
+      - "8584:8584"

@@ -170,6 +170,124 @@ task("finalizeExact", "Finalize exact price game")
     await contract.finalizeGame(taskArgs.id, abiEncodeInt192(taskArgs.price));
   });
 
+task("startUpDown1vs1", "Starts one vs one up down game")
+  .addParam("opponent", "Opponent address")
+  .addParam("time", "How long game will be opened")
+  .addParam("up", "Will go up?")
+  .addParam("betamount", "Bet amount")
+  .addParam("price", "Starting price")
+  .setAction(async (taskArgs: any) => {
+    const contract = await ethers.getContractAt(
+      "UpDownStandalone",
+      contracts.UpDownOneVsOne.address
+    );
+    await contract.createBet(
+      taskArgs.opponent,
+      (
+        await ethers.provider.getBlock("latest")
+      ).timestamp,
+      (await ethers.provider.getBlock("latest")).timestamp +
+        Number(taskArgs.time),
+      taskArgs.up === "true",
+      ethers.parseEther(taskArgs.betamount),
+      abiEncodeInt192(taskArgs.price)
+    );
+  });
+
+task("acceptUpDown", "Accept up down one vs one bet")
+  .addParam("id", "Bet id")
+  .addParam("better", "Who is betting")
+  .setAction(async (taskArgs: any) => {
+    const signer = await ethers.getSigner(taskArgs.better);
+    const contract = await ethers.getContractAt(
+      "UpDownStandalone",
+      contracts.UpDownOneVsOne.address
+    );
+    await contract.connect(signer).acceptBet(taskArgs.id);
+  });
+
+task("finalizeUpDown1vs1", "Finalize up down one vs one game")
+  .addParam("id", "Bet id")
+  .addParam("price", "Final price")
+  .setAction(async (taskArgs: any) => {
+    const contract = await ethers.getContractAt(
+      "UpDownStandalone",
+      contracts.UpDownOneVsOne.address
+    );
+    await contract.finalizeGame(taskArgs.id, abiEncodeInt192(taskArgs.price));
+  });
+
+task("createSetup", "Create setup game")
+  .addParam("time", "How long game will be opened")
+  .addParam("sl", "Is SL game?")
+  .addParam("price", "Starting price")
+  .addParam("slprice", "SL price")
+  .addParam("tpprice", "TP price")
+  .addParam("betamount", "Bet amount")
+  .setAction(async (taskArgs: any) => {
+    const contract = await ethers.getContractAt(
+      "GameFactory",
+      contracts.GameFactory.address
+    );
+    await contract.createSetupGame(
+      (
+        await ethers.provider.getBlock("latest")
+      ).timestamp,
+      (await ethers.provider.getBlock("latest")).timestamp +
+        Number(taskArgs.time),
+      ethers.parseEther(taskArgs.tpprice),
+      ethers.parseEther(taskArgs.slprice),
+      ethers.parseEther(taskArgs.betamount),
+      taskArgs.sl === "true",
+      abiEncodeInt192(taskArgs.price)
+    );
+
+    const treasury = await ethers.getContractAt(
+      "Treasury",
+      contracts.Treasury.address
+    );
+
+    const role = await treasury.DISTRIBUTOR_ROLE();
+    const id = await contract.betId();
+    const gameAddress = await contract.games(id);
+    console.log("Bet id: ", id);
+    console.log("Setup address: ", gameAddress);
+
+    await treasury.grantRole(role, gameAddress);
+  });
+
+task("getSetupAddress", "Returns setup address by id")
+  .addParam("id", "Game id")
+  .setAction(async (taskArgs: any) => {
+    const contract = await ethers.getContractAt(
+      "GameFactory",
+      contracts.GameFactory.address
+    );
+    const setupAddress = await contract.games(taskArgs.id);
+    console.log("Setup address: ", setupAddress);
+  });
+
+task("betSetup", "Setup bet")
+  .addParam("address", "Setup address")
+  .addParam("sl", "Is SL?")
+  .addParam("better", "Who is betting")
+  .addParam("betamount", "Bet amount")
+  .setAction(async (taskArgs: any) => {
+    const signer = await ethers.getSigner(taskArgs.better);
+    const contract = await ethers.getContractAt("SetupGame", taskArgs.address);
+    await contract
+      .connect(signer)
+      .bet(taskArgs.sl === "true", ethers.parseEther(taskArgs.betamount));
+  });
+
+task("finalizeSetup", "Finalize up down one vs one game")
+  .addParam("address", "Setup address")
+  .addParam("price", "Final price")
+  .setAction(async (taskArgs: any) => {
+    const contract = await ethers.getContractAt("SetupGame", taskArgs.address);
+    await contract.finalizeGame(abiEncodeInt192(taskArgs.price));
+  });
+
 function abiEncodeInt192(num: string): string {
   const encoded = ethers.solidityPacked(["int192"], [num]);
   return encoded.slice(0, 3) + "0".repeat(16) + encoded.slice(3);

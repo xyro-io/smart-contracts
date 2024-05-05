@@ -1,4 +1,5 @@
 import contracts from "../contracts.json";
+import { getPrice } from "./fetchPrice";
 
 task("balance", "Prints an account's balance")
   .addParam("account", "The account's address")
@@ -12,7 +13,7 @@ task("balance", "Prints an account's balance")
   });
 
 task("approveTreasury", "Increases allowance")
-  .addParam("owner", "Token owner address")
+  .addParam("account", "Token owner address")
   .setAction(async (taskArgs) => {
     const signer = await ethers.getSigner(taskArgs.owner);
     const USDC = await ethers.getContractAt(
@@ -66,15 +67,16 @@ task("betBullseye", "Bullseye bet")
     await contract.connect(signer).bet(taskArgs.price);
   });
 
-task("finalizeBullseye", "Finishes bullseye game")
-  .addParam("price", "Final asset price")
-  .setAction(async (taskArgs: any) => {
+task("finalizeBullseye", "Finishes bullseye game").setAction(
+  async (taskArgs: any) => {
     const contract = await ethers.getContractAt(
       "BullseyeGame",
       contracts.BullseyeGame.address
     );
-    await contract.finalizeGame(abiEncodeInt192(taskArgs.price));
-  });
+    const price = await getPrice();
+    await contract.finalizeGame(abiEncodeInt192(price));
+  }
+);
 
 task("increaseTime", "Increases ganache block timestamp")
   .addParam("time", "Time to increase current block by")
@@ -85,12 +87,12 @@ task("increaseTime", "Increases ganache block timestamp")
 task("startUpDown", "Starts updown game")
   .addParam("time", "How long game will be opened")
   .addParam("betamount", "Bet amount")
-  .addParam("price", "Starting asset price")
   .setAction(async (taskArgs: any) => {
     const contract = await ethers.getContractAt(
       "UpDownGame",
       contracts.UpDown.address
     );
+    const price = await getPrice();
     await contract.startGame(
       (
         await ethers.provider.getBlock("latest")
@@ -98,7 +100,7 @@ task("startUpDown", "Starts updown game")
       (await ethers.provider.getBlock("latest")).timestamp +
         Number(taskArgs.time),
       ethers.parseEther(taskArgs.betamount),
-      abiEncodeInt192(taskArgs.price)
+      abiEncodeInt192(price)
     );
   });
 
@@ -114,15 +116,16 @@ task("betUpDown", "UpDown bet")
     await contract.connect(signer).bet(taskArgs.up === "true");
   });
 
-task("finalizeUpDown", "Finishes UpDown game")
-  .addParam("price", "Final asset price")
-  .setAction(async (taskArgs: any) => {
+task("finalizeUpDown", "Finishes UpDown game").setAction(
+  async (taskArgs: any) => {
     const contract = await ethers.getContractAt(
       "UpDownGame",
       contracts.UpDown.address
     );
-    await contract.finalizeGame(abiEncodeInt192(taskArgs.price));
-  });
+    const price = await getPrice();
+    await contract.finalizeGame(abiEncodeInt192(price));
+  }
+);
 
 task("startExactPrice", "Starts one vs one exact price game")
   .addParam("opponent", "Opponent address")
@@ -161,13 +164,13 @@ task("betExact", "Accept exact price bet")
 
 task("finalizeExact", "Finalize exact price game")
   .addParam("id", "Bet id")
-  .addParam("price", "Final price")
   .setAction(async (taskArgs: any) => {
     const contract = await ethers.getContractAt(
       "ExactPriceStandalone",
       contracts.ExactPriceOneVsOne.address
     );
-    await contract.finalizeGame(taskArgs.id, abiEncodeInt192(taskArgs.price));
+    const price = await getPrice();
+    await contract.finalizeGame(taskArgs.id, abiEncodeInt192(price));
   });
 
 task("startUpDown1vs1", "Starts one vs one up down game")
@@ -175,12 +178,12 @@ task("startUpDown1vs1", "Starts one vs one up down game")
   .addParam("time", "How long game will be opened")
   .addParam("up", "Will go up?")
   .addParam("betamount", "Bet amount")
-  .addParam("price", "Starting price")
   .setAction(async (taskArgs: any) => {
     const contract = await ethers.getContractAt(
       "UpDownStandalone",
       contracts.UpDownOneVsOne.address
     );
+    const price = await getPrice();
     await contract.createBet(
       taskArgs.opponent,
       (
@@ -190,7 +193,7 @@ task("startUpDown1vs1", "Starts one vs one up down game")
         Number(taskArgs.time),
       taskArgs.up === "true",
       ethers.parseEther(taskArgs.betamount),
-      abiEncodeInt192(taskArgs.price)
+      abiEncodeInt192(price)
     );
   });
 
@@ -208,19 +211,18 @@ task("acceptUpDown", "Accept up down one vs one bet")
 
 task("finalizeUpDown1vs1", "Finalize up down one vs one game")
   .addParam("id", "Bet id")
-  .addParam("price", "Final price")
   .setAction(async (taskArgs: any) => {
     const contract = await ethers.getContractAt(
       "UpDownStandalone",
       contracts.UpDownOneVsOne.address
     );
-    await contract.finalizeGame(taskArgs.id, abiEncodeInt192(taskArgs.price));
+    const price = await getPrice();
+    await contract.finalizeGame(taskArgs.id, abiEncodeInt192(price));
   });
 
 task("createSetup", "Create setup game")
   .addParam("time", "How long game will be opened")
   .addParam("sl", "Is SL game?")
-  .addParam("price", "Starting price")
   .addParam("slprice", "SL price")
   .addParam("tpprice", "TP price")
   .addParam("betamount", "Bet amount")
@@ -229,6 +231,9 @@ task("createSetup", "Create setup game")
       "GameFactory",
       contracts.GameFactory.address
     );
+
+    const price = await getPrice();
+
     await contract.createSetupGame(
       (
         await ethers.provider.getBlock("latest")
@@ -239,7 +244,7 @@ task("createSetup", "Create setup game")
       ethers.parseEther(taskArgs.slprice),
       ethers.parseEther(taskArgs.betamount),
       taskArgs.sl === "true",
-      abiEncodeInt192(taskArgs.price)
+      abiEncodeInt192(price)
     );
 
     const treasury = await ethers.getContractAt(
@@ -285,7 +290,8 @@ task("finalizeSetup", "Finalize up down one vs one game")
   .addParam("price", "Final price")
   .setAction(async (taskArgs: any) => {
     const contract = await ethers.getContractAt("SetupGame", taskArgs.address);
-    await contract.finalizeGame(abiEncodeInt192(taskArgs.price));
+    const price = await getPrice();
+    await contract.finalizeGame(abiEncodeInt192(price));
   });
 
 function abiEncodeInt192(num: string): string {

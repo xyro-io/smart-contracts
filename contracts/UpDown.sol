@@ -19,6 +19,7 @@ contract UpDownGame is Ownable {
         uint48 endTime;
         int192 startingPrice;
         uint256 betAmount;
+        bytes32 feedId;
         address[] UpPlayers;
         address[] DownPlayers;
     }
@@ -40,10 +41,15 @@ contract UpDownGame is Ownable {
         uint48 startTime,
         uint48 endTime,
         uint256 betAmount,
-        bytes memory unverifiedReport
+        bytes memory unverifiedReport,
+        bytes32 feedId
     ) public onlyOwner {
         address upkeep = ITreasury(treasury).upkeep();
-        game.startingPrice = IMockUpkeep(upkeep).verify(unverifiedReport);
+        game.startingPrice = IMockUpkeep(upkeep).verifyReport(
+            unverifiedReport,
+            feedId
+        );
+        game.feedId = feedId;
         game.startTime = startTime;
         game.endTime = endTime;
         game.betAmount = betAmount;
@@ -76,7 +82,10 @@ contract UpDownGame is Ownable {
      */
     function finalizeGame(bytes memory unverifiedReport) public onlyOwner {
         address upkeep = ITreasury(treasury).upkeep();
-        int192 finalPrice = IMockUpkeep(upkeep).verify(unverifiedReport);
+        int192 finalPrice = IMockUpkeep(upkeep).verifyReport(
+            unverifiedReport,
+            game.feedId
+        );
         BetInfo memory _game = game;
         require(
             game.UpPlayers.length > 0 && game.DownPlayers.length > 0,

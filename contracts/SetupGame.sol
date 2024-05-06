@@ -40,6 +40,7 @@ contract SetupGame is Ownable {
     }
 
     struct BetInfo {
+        bytes32 feedId;
         address initiator;
         uint48 startTime;
         uint48 endTime;
@@ -80,6 +81,7 @@ contract SetupGame is Ownable {
         address initiator,
         uint256 amount,
         bytes memory unverifiedReport,
+        bytes32 feedId,
         address newTreasury
     ) Ownable(msg.sender) {
         game.isStopLoss = isStopLoss;
@@ -89,9 +91,13 @@ contract SetupGame is Ownable {
         game.stopLossPrice = stopLossPrice;
         game.takeProfitPrice = takeProfitPrice;
         game.gameStatus = Status.Created;
+        game.feedId = feedId;
         treasury = newTreasury;
         address upkeep = ITreasury(newTreasury).upkeep();
-        game.startingAssetPrice = IMockUpkeep(upkeep).verify(unverifiedReport);
+        game.startingAssetPrice = IMockUpkeep(upkeep).verifyReport(
+            unverifiedReport,
+            feedId
+        );
         if (amount != 0) {
             betAmounts[msg.sender] = amount;
             if (isStopLoss) {
@@ -158,7 +164,10 @@ contract SetupGame is Ownable {
     function finalizeGame(bytes memory unverifiedReport) public onlyOwner {
         require(game.gameStatus == Status.Created, "Wrong status!");
         address upkeep = ITreasury(treasury).upkeep();
-        int192 finalPrice = IMockUpkeep(upkeep).verify(unverifiedReport);
+        int192 finalPrice = IMockUpkeep(upkeep).verifyReport(
+            unverifiedReport,
+            game.feedId
+        );
         require(
             block.timestamp >= game.endTime ||
                 game.stopLossPrice == finalPrice ||

@@ -26,12 +26,14 @@ describe("UpDown", () => {
   let Upkeep: MockUpkeep;
   const assetPrice = parse18("2310");
   const finalPrice = parse18("3000");
+  const mockFeedId =
+    "0x00037da06d56d083fe599397a4769a042d63aa73dc4ef57709d31e9971a5b439";
   let startingPriceBytes: string;
   let finalPriceBytes: string;
   before(async () => {
     [owner, opponent, alice] = await ethers.getSigners();
-    startingPriceBytes = abiEncodeInt192(assetPrice.toString());
-    finalPriceBytes = abiEncodeInt192(finalPrice.toString());
+    startingPriceBytes = abiEncodeInt192(assetPrice.toString(), mockFeedId);
+    finalPriceBytes = abiEncodeInt192(finalPrice.toString(), mockFeedId);
     USDT = await new MockToken__factory(owner).deploy(
       parse18((1e13).toString())
     );
@@ -58,7 +60,8 @@ describe("UpDown", () => {
       await time.latest(),
       (await time.latest()) + 2700,
       parse18("100"),
-      startingPriceBytes
+      startingPriceBytes,
+      mockFeedId
     );
     let bet = await Game.game();
     expect(bet.betAmount).to.equal(parse18("100"));

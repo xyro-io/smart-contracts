@@ -34,7 +34,6 @@ export async function wrapFnc(params: any, fnc: any) {
       } else {
         params.push({ nonce: actualNonce });
       }
-
       indexNonce = params.findIndex((x: any) => x.nonce !== undefined);
       let gp = (await ethers.provider.getFeeData()).gasPrice;
       if (params.gasPrice === undefined) {
@@ -203,8 +202,8 @@ export async function getPermitSignature(
   );
 }
 
-export function abiEncodeInt192(num: string): string {
-  const encoded = ethers.solidityPacked(["int192"], [num]);
+export function abiEncodeInt192(price: string, feedId: string): string {
+  const encoded = ethers.solidityPacked(["int192", "bytes32"], [price, feedId]);
   return encoded.slice(0, 3) + "0".repeat(16) + encoded.slice(3);
 }
 

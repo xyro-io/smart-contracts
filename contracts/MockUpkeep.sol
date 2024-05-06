@@ -12,10 +12,15 @@ contract MockUpkeep {
         return lastRetrievedPrice;
     }
 
-    function verify(
-        bytes memory unverifiedReport
+    function verifyReport(
+        bytes memory unverifiedReport,
+        bytes32 feedId
     ) public pure returns (int192) {
-        int192 price = abi.decode(unverifiedReport, (int192));
+        (int192 price, bytes32 decodedFeed) = abi.decode(
+            unverifiedReport,
+            (int192, bytes32)
+        );
+        require(feedId == decodedFeed, "Wrong feedId");
         return price;
     }
 }

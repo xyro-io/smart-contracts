@@ -50,6 +50,7 @@ contract ExactPriceStandalone is Ownable {
     }
 
     struct BetInfo {
+        bytes32 feedId;
         address initiator;
         uint48 startTime;
         uint48 endTime;
@@ -78,6 +79,7 @@ contract ExactPriceStandalone is Ownable {
      * @param betAmount amount to enter the game
      */
     function createBet(
+        bytes32 feedId,
         address opponent,
         uint48 startTime,
         uint48 endTime,
@@ -97,6 +99,7 @@ contract ExactPriceStandalone is Ownable {
         newBet.initiator = msg.sender;
         newBet.startTime = startTime;
         newBet.endTime = endTime;
+        newBet.feedId = feedId;
         ITreasury(treasury).deposit(betAmount, msg.sender);
         newBet.initiatorPrice = initiatorPrice;
         newBet.betAmount = betAmount;
@@ -198,8 +201,11 @@ contract ExactPriceStandalone is Ownable {
         bytes memory unverifiedReport
     ) public onlyOwner {
         address upkeep = ITreasury(treasury).upkeep();
-        int192 finalAssetPrice = IMockUpkeep(upkeep).verify(unverifiedReport);
         BetInfo memory bet = games[betId];
+        int192 finalAssetPrice = IMockUpkeep(upkeep).verifyReport(
+            unverifiedReport,
+            bet.feedId
+        );
         require(bet.gameStatus == Status.Started, "Wrong status!");
         require(block.timestamp >= bet.endTime, "Too early to finish");
         int192 diff1 = bet.initiatorPrice > finalAssetPrice

@@ -50,6 +50,7 @@ contract UpDownStandalone is Ownable {
         Refused
     }
     struct BetInfo {
+        bytes32 feedId;
         address initiator;
         uint48 startTime;
         uint48 endTime;
@@ -83,7 +84,8 @@ contract UpDownStandalone is Ownable {
         uint48 endTime,
         bool willGoUp,
         uint256 betAmount,
-        bytes memory unverifiedReport
+        bytes memory unverifiedReport,
+        bytes32 feedId
     ) public {
         require(
             endTime - startTime >= minDuration,
@@ -96,9 +98,11 @@ contract UpDownStandalone is Ownable {
         require(betAmount >= 1e19, "Wrong bet amount");
         BetInfo memory newBet;
         address upkeep = ITreasury(treasury).upkeep();
-        newBet.startingAssetPrice = IMockUpkeep(upkeep).verify(
-            unverifiedReport
+        newBet.startingAssetPrice = IMockUpkeep(upkeep).verifyReport(
+            unverifiedReport,
+            feedId
         );
+        newBet.feedId = feedId;
         newBet.initiator = msg.sender;
         newBet.startTime = startTime;
         newBet.endTime = endTime;
@@ -198,7 +202,10 @@ contract UpDownStandalone is Ownable {
         require(bet.gameStatus == Status.Started, "Wrong status!");
         require(block.timestamp >= bet.endTime, "Too early to finish");
         address upkeep = ITreasury(treasury).upkeep();
-        int192 finalPrice = IMockUpkeep(upkeep).verify(unverifiedReport);
+        int192 finalPrice = IMockUpkeep(upkeep).verifyReport(
+            unverifiedReport,
+            bet.feedId
+        );
         if (
             bet.willGoUp
                 ? bet.startingAssetPrice < finalPrice

@@ -17,6 +17,7 @@ contract BullseyeGame is Ownable {
     event BullseyeFinalized(address[3] topPlayers, uint256[3] wonAmount);
 
     struct BetInfo {
+        bytes32 feedId;
         uint48 startTime;
         uint48 endTime;
         uint256 betAmount;
@@ -39,8 +40,10 @@ contract BullseyeGame is Ownable {
     function startGame(
         uint48 startTime,
         uint48 endTime,
-        uint256 betAmount
+        uint256 betAmount,
+        bytes32 feedId
     ) public onlyOwner {
+        game.feedId = feedId;
         game.startTime = startTime;
         game.endTime = endTime;
         game.betAmount = betAmount;
@@ -73,7 +76,10 @@ contract BullseyeGame is Ownable {
         require(game.players.length > 0, "Can't end");
         require(block.timestamp >= game.endTime, "Too early to finish");
         address upkeep = ITreasury(treasury).upkeep();
-        int192 finalPrice = IMockUpkeep(upkeep).verify(unverifiedReport);
+        int192 finalPrice = IMockUpkeep(upkeep).verifyReport(
+            unverifiedReport,
+            game.feedId
+        );
         if (game.players.length == 2) {
             address playerOne = game.players[0];
             address playerTwo = game.players[1];

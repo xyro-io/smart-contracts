@@ -6,7 +6,8 @@ interface IMockUpkeep {
 
     function getPrice() external view returns (int192);
 
-    function verify(
-        bytes memory unverifiedReport
+    function verifyReport(
+        bytes memory unverifiedReport,
+        bytes32 feedId
     ) external pure returns (int192);
 }

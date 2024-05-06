@@ -1,4 +1,4 @@
-//SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 import "./interfaces/ITreasury.sol";
 import "./interfaces/IMockUpkeep.sol";
@@ -29,6 +29,13 @@ contract UpDownGame is Ownable {
 
     constructor() Ownable(msg.sender) {}
 
+    /**
+     * Creates up/down game
+     * @param startTime when the game will start
+     * @param endTime when the game will end
+     * @param betAmount amount to enter the game
+     * @param unverifiedReport Chainlink DataStreams report
+     */
     function startGame(
         uint48 startTime,
         uint48 endTime,
@@ -43,6 +50,10 @@ contract UpDownGame is Ownable {
         emit UpDownStart(startTime, endTime, betAmount, game.startingPrice);
     }
 
+    /**
+     * Take a participation in up/down game
+     * @param willGoUp up = true, down = false
+     */
     function bet(bool willGoUp) public {
         require(
             game.startTime + (game.endTime - game.startTime) / 3 >=
@@ -59,6 +70,10 @@ contract UpDownGame is Ownable {
         emit UpDownBet(msg.sender, willGoUp, game.betAmount);
     }
 
+    /**
+     * Finalizes up/down game and distributes rewards to players
+     * @param unverifiedReport Chainlink DataStreams report
+     */
     function finalizeGame(bytes memory unverifiedReport) public onlyOwner {
         address upkeep = ITreasury(treasury).upkeep();
         int192 finalPrice = IMockUpkeep(upkeep).verify(unverifiedReport);
@@ -98,6 +113,10 @@ contract UpDownGame is Ownable {
         delete game;
     }
 
+    /**
+     * Check if player is participating in the game
+     * @param player player address
+     */
     function betExists(address player) internal view returns (bool) {
         for (uint i = 0; i < game.UpPlayers.length; i++) {
             if (game.UpPlayers[i] == player) {
@@ -112,10 +131,18 @@ contract UpDownGame is Ownable {
         return false;
     }
 
+    /**
+     * onlyDAO
+     * Do we need this?
+     */
     function changeBetAmount(uint256 newBetAmount) public {
         game.betAmount = newBetAmount;
     }
 
+    /**
+     * Change treasury address
+     * @param newTreasury new treasury address
+     */
     function setTreasury(address newTreasury) public onlyOwner {
         treasury = newTreasury;
     }

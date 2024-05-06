@@ -4,11 +4,11 @@ pragma solidity ^0.8.24;
 interface ITreasury {
     function increaseFee(uint256 amount) external;
 
-    function deposit(uint256 amount, address initiator) external;
+    function deposit(uint256 amount, address from) external;
 
     function depositWithPermit(
         uint256 amount,
-        address initiator,
+        address from,
         uint256 deadline,
         uint8 v,
         bytes32 r,
@@ -19,16 +19,16 @@ interface ITreasury {
 
     function distribute(
         uint256 amount,
-        address winner,
+        address to,
         uint256 initialBet,
         uint256 gameFee
     ) external;
 
-    function refund(uint256 amount, address initiator) external;
+    function refund(uint256 amount, address to) external;
 
     function distributeWithoutFee(
         uint256 rate,
-        address winner,
+        address to,
         uint256 initialBet
     ) external;
 

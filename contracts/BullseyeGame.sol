@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+//  SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 import "./interfaces/ITreasury.sol";
 import "./interfaces/IMockUpkeep.sol";
@@ -30,6 +30,12 @@ contract BullseyeGame is Ownable {
 
     constructor() Ownable(msg.sender) {}
 
+    /**
+     * Starts bullseye game
+     * @param startTime when the game iteration will start
+     * @param endTime when the game iteration will end
+     * @param betAmount amount to enter the game
+     */
     function startGame(
         uint48 startTime,
         uint48 endTime,
@@ -41,6 +47,10 @@ contract BullseyeGame is Ownable {
         emit BullseyeStart(startTime, endTime, betAmount);
     }
 
+    /**
+     * Participate in bullseye game
+     * @param assetPrice player's picked asset price
+     */
     function bet(int192 assetPrice) public {
         require(
             game.startTime + (game.endTime - game.startTime) / 3 >=
@@ -55,7 +65,10 @@ contract BullseyeGame is Ownable {
         emit BullseyeBet(msg.sender, assetPrice, game.betAmount);
     }
 
-    //only owner
+    /**
+     * Finalizes bullseye game and distributes rewards to players
+     * @param unverifiedReport Chainlink DataStreams report
+     */
     function finalizeGame(bytes memory unverifiedReport) public onlyOwner {
         require(game.players.length > 0, "Can't end");
         require(block.timestamp >= game.endTime, "Too early to finish");
@@ -71,7 +84,7 @@ contract BullseyeGame is Ownable {
                 ? game.assetPrices[playerTwo] - finalPrice
                 : finalPrice - game.assetPrices[playerTwo];
             if (playerOneDiff < playerTwoDiff) {
-                //player 1 closer
+                // player 1 closer
                 ITreasury(treasury).distribute(
                     (2 *
                         game.betAmount *
@@ -97,7 +110,7 @@ contract BullseyeGame is Ownable {
                     fee
                 );
             } else {
-                //player 2 closer
+                // player 2 closer
                 ITreasury(treasury).distribute(
                     ((2 * game.betAmount) *
                         (
@@ -177,15 +190,22 @@ contract BullseyeGame is Ownable {
                 }
             }
         }
-        // emit BullseyeFinalized(topPlayers, wonAmount);
+        //  emit BullseyeFinalized(topPlayers, wonAmount);
         delete game;
     }
 
-    //onlyDAO
+    /**
+     * onlyDAO
+     * Do we need this?
+     */
     function changeBetAmount(uint256 newBetAmount) public {
         game.betAmount = newBetAmount;
     }
 
+    /**
+     * Change treasury address
+     * @param newTreasury new treasury address
+     */
     function setTreasury(address newTreasury) public onlyOwner {
         treasury = newTreasury;
     }

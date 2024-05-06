@@ -69,47 +69,59 @@ contract UpDownStandalone is Ownable {
 
     constructor() Ownable(msg.sender) {}
 
+    /**Creates 1vs1 up/down mode game
+    //@param opponent address of the opponent
+    //@param startTime when the game will start
+    //@param endTime when the game will end
+    //@param willGoUp up = true, down = false
+    //@param betAmount amount to enter the game
+    //@param unverifiedReport Chainlink DataStreams report
+    */
     function createBet(
-        address _opponent,
-        uint48 _startTime,
-        uint48 _endTime,
-        bool _willGoUp,
-        uint256 _betAmount,
+        address opponent,
+        uint48 startTime,
+        uint48 endTime,
+        bool willGoUp,
+        uint256 betAmount,
         bytes memory unverifiedReport
     ) public {
         require(
-            _endTime - _startTime >= minDuration,
+            endTime - startTime >= minDuration,
             "Min bet duration must be higher"
         );
         require(
-            _endTime - _startTime <= maxDuration,
+            endTime - startTime <= maxDuration,
             "Max bet duration must be lower"
         );
-        require(_betAmount >= 1e19, "Wrong bet amount");
+        require(betAmount >= 1e19, "Wrong bet amount");
         BetInfo memory newBet;
         address upkeep = ITreasury(treasury).upkeep();
         newBet.startingAssetPrice = IMockUpkeep(upkeep).verify(
             unverifiedReport
         );
         newBet.initiator = msg.sender;
-        newBet.startTime = _startTime;
-        newBet.endTime = _endTime;
-        ITreasury(treasury).deposit(_betAmount, msg.sender);
-        newBet.betAmount = _betAmount;
-        newBet.opponent = _opponent;
-        newBet.willGoUp = _willGoUp;
+        newBet.startTime = startTime;
+        newBet.endTime = endTime;
+        ITreasury(treasury).deposit(betAmount, msg.sender);
+        newBet.betAmount = betAmount;
+        newBet.opponent = opponent;
+        newBet.willGoUp = willGoUp;
         newBet.gameStatus = Status.Created;
         games.push(newBet);
         emit UpDownCreated(
-            _opponent,
-            _startTime,
-            _endTime,
-            _willGoUp,
-            _betAmount,
+            opponent,
+            startTime,
+            endTime,
+            willGoUp,
+            betAmount,
             msg.sender
         );
     }
 
+    /**
+     * Accepts 1vs1 up/down mode game
+     * @param betId game id
+     */
     function acceptBet(uint256 betId) public {
         BetInfo memory bet = games[betId];
         require(bet.gameStatus == Status.Created, "Wrong status!");
@@ -133,6 +145,10 @@ contract UpDownStandalone is Ownable {
         emit UpDownAccepted(betId, msg.sender, !bet.willGoUp, bet.betAmount);
     }
 
+    /**
+     * Changes bet status if opponent refuses to play
+     * @param betId game id
+     */
     function refuseBet(uint256 betId) public {
         BetInfo memory bet = games[betId];
         require(bet.gameStatus == Status.Created, "Wrong status!");
@@ -142,6 +158,10 @@ contract UpDownStandalone is Ownable {
         emit UpDownRefused(betId);
     }
 
+    /**
+     * Closes game and refunds tokens
+     * @param betId game id
+     */
     function closeBet(uint256 betId) public {
         BetInfo memory bet = games[betId];
         require(bet.initiator == msg.sender, "Wrong sender");
@@ -165,7 +185,11 @@ contract UpDownStandalone is Ownable {
         );
     }
 
-    //only owner
+    /**
+     * Finalizes 1vs1 up/down mode game and distributes rewards to players
+     * @param betId game id
+     * @param unverifiedReport Chainlink DataStreams report
+     */
     function finalizeGame(
         uint256 betId,
         bytes memory unverifiedReport
@@ -223,7 +247,12 @@ contract UpDownStandalone is Ownable {
         games[betId] = bet;
     }
 
-    //onlyDao
+    /**
+     * onlyDao
+     * Changes min and max game limits
+     * @param newMaxDuration new max game duration
+     * @param newMinDuration new min game duration
+     */
     function changeBetDuration(
         uint256 newMaxDuration,
         uint256 newMinDuration
@@ -232,10 +261,15 @@ contract UpDownStandalone is Ownable {
         maxDuration = newMaxDuration;
     }
 
+    //Returns amount of all games
     function totalBets() public view returns (uint256) {
         return games.length;
     }
 
+    /**
+     * Change treasury address
+     * @param newTreasury new treasury address
+     */
     function setTreasury(address newTreasury) public onlyOwner {
         treasury = newTreasury;
     }

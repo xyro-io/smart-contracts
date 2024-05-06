@@ -60,6 +60,17 @@ contract SetupGame is Ownable {
     BetInfo public game;
     address public treasury;
 
+    /**
+    * @param isStopLoss if stop loss = true, take profit = false
+    * @param startTime when the game will start
+    * @param endTime when the game will end
+    * @param takeProfitPrice take profit price
+    * @param stopLossPrice stop loss price
+    * @param initiator game creator
+    * @param initiator's bet amount
+    * @param unverifiedReport Chainlink DataStreams report
+    * @param newTreasury new treasury address
+    */
     constructor(
         bool isStopLoss,
         uint48 startTime,
@@ -93,6 +104,11 @@ contract SetupGame is Ownable {
         }
     }
 
+    /**
+    * Take participation in setup game
+    * @param isStopLoss if stop loss = true, take profit = false
+    * @param sender's bet amount
+    */
     function bet(bool isStopLoss, uint256 amount) public {
         require(game.gameStatus == Status.Created, "Wrong status!");
         require(
@@ -113,6 +129,9 @@ contract SetupGame is Ownable {
         emit SetupBet(isStopLoss, amount, msg.sender);
     }
 
+    /**
+    * Closes setup game
+    */
     function closeGame() public {
         require(game.initiator == msg.sender, "Wrong sender");
         require(
@@ -132,6 +151,10 @@ contract SetupGame is Ownable {
         emit SetupCancelled(address(this), game.initiator, Status.Cancelled);
     }
 
+    /**
+    * Finalizes setup game
+    * @param unverifiedReport Chainlink DataStreams report
+    */
     function finalizeGame(bytes memory unverifiedReport) public onlyOwner {
         require(game.gameStatus == Status.Created, "Wrong status!");
         address upkeep = ITreasury(treasury).upkeep();
@@ -145,7 +168,7 @@ contract SetupGame is Ownable {
         bool takeProfitWon;
         if (game.isStopLoss) {
             if (finalPrice <= game.stopLossPrice) {
-                //sl team wins
+                * sl team wins
                 uint256 finalRate = ITreasury(treasury).calculateSetupRate(
                     game.totalBetsTP,
                     game.totalBetsSL,
@@ -176,7 +199,7 @@ contract SetupGame is Ownable {
             }
         } else {
             if (finalPrice >= game.takeProfitPrice) {
-                //tp team wins
+                * tp team wins
                 uint256 finalRate = ITreasury(treasury).calculateSetupRate(
                     game.totalBetsSL,
                     game.totalBetsTP,
@@ -191,7 +214,7 @@ contract SetupGame is Ownable {
                 }
                 takeProfitWon = true;
             } else {
-                //sl team wins
+                * sl team wins
                 uint256 finalRate = ITreasury(treasury).calculateSetupRate(
                     game.totalBetsTP,
                     game.totalBetsSL,
@@ -223,6 +246,10 @@ contract SetupGame is Ownable {
         );
     }
 
+    /**
+    * Change treasury address
+    * @param newTreasury new treasury address
+    */
     function setTreasury(address newTreasury) public onlyOwner {
         treasury = newTreasury;
     }

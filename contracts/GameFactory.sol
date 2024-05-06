@@ -28,10 +28,23 @@ contract GameFactory is Ownable {
     uint256 public maxDuration = 24 weeks;
     mapping(uint256 => address) public games;
 
+    /**
+     * @param newTreasury new treasury address
+     */
     constructor(address newTreasury) Ownable(msg.sender) {
         treasury = newTreasury;
     }
 
+    /**
+     * Creates setup game
+     * @param startTime when the game will start
+     * @param endTime when the game will end
+     * @param takeProfitPrice take profit price
+     * @param stopLossPrice stop loss price
+     * @param betAmount amount to enter the game
+     * @param isStopLoss if stop loss = true, take profit = false
+     * @param unverifiedReport Chainlink DataStreams report
+     */
     function createSetupGame(
         uint48 startTime,
         uint48 endTime,
@@ -83,6 +96,9 @@ contract GameFactory is Ownable {
         games[betId++] = newGame;
     }
 
+    /**
+     * Returns all games status
+     */
     function getStatus()
         public
         view
@@ -98,7 +114,12 @@ contract GameFactory is Ownable {
         }
     }
 
-    //onlyDao
+    /**
+     * onlyDao
+     * Changes min and max game limits
+     * @param newMaxDuration new max game duration
+     * @param newMinDuration new min game duration
+     */
     function changeBetDuration(
         uint256 newMaxDuration,
         uint256 newMinDuration
@@ -107,6 +128,10 @@ contract GameFactory is Ownable {
         maxDuration = newMaxDuration;
     }
 
+    /**
+     * Change treasury address
+     * @param newTreasury new treasury address
+     */
     function setTreasury(address newTreasury) public onlyOwner {
         treasury = newTreasury;
     }

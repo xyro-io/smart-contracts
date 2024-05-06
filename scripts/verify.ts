@@ -22,9 +22,7 @@ function isAlreadyVerified(error: any, verifiedAddress: string) {
     error.toString().includes("already verified")
   ) {
     console.log("Already verified");
-    console.log(
-      `https://mumbai.polygonscan.com/address/${verifiedAddress}#code`
-    );
+    console.log(`https://sepolia.arbiscan.io/address/${verifiedAddress}#code`);
     return true;
   } else {
     console.log(error);
@@ -32,7 +30,7 @@ function isAlreadyVerified(error: any, verifiedAddress: string) {
 }
 
 function getVerifiedUrl(verifiedAddress: string) {
-  return `https://mumbai.polygonscan.com/address/${verifiedAddress}#code`;
+  return `https://sepolia.arbiscan.io/address/${verifiedAddress}#code`;
 }
 
 async function verifyMockUSDC() {
@@ -57,7 +55,7 @@ async function verifyXyroToken() {
     try {
       await hre.run("verify:verify", {
         address: targetAddress,
-        constructorArguments: [parse18((1e13).toString())],
+        constructorArguments: [parse18((1e8).toString())],
       });
       contracts.XyroToken.url = getVerifiedUrl(targetAddress);
     } catch (e) {
@@ -92,7 +90,7 @@ async function verifyBullseye() {
     try {
       await hre.run("verify:verify", {
         address: targetAddress,
-        constructorArguments: [contracts.Treasury.address],
+        constructorArguments: [],
       });
       contracts.BullseyeGame.url = getVerifiedUrl(targetAddress);
     } catch (e) {
@@ -134,22 +132,38 @@ async function verifyGameFactory() {
 }
 
 async function verifyExactPriceStandalone() {
-  if (contracts.ExactPrice.address !== undefined) {
-    let targetAddress = contracts.ExactPrice.address;
+  if (contracts.ExactPriceOneVsOne.address !== undefined) {
+    let targetAddress = contracts.ExactPriceOneVsOne.address;
     try {
       await hre.run("verify:verify", {
         address: targetAddress,
         constructorArguments: [],
       });
-      contracts.ExactPrice.url = getVerifiedUrl(targetAddress);
+      contracts.ExactPriceOneVsOne.url = getVerifiedUrl(targetAddress);
     } catch (e) {
       if (isAlreadyVerified(e, targetAddress))
-        contracts.ExactPrice.url = getVerifiedUrl(targetAddress);
+        contracts.ExactPriceOneVsOne.url = getVerifiedUrl(targetAddress);
     }
   }
 }
 
 async function verifyUpDownStandalone() {
+  if (contracts.UpDownOneVsOne.address !== undefined) {
+    let targetAddress = contracts.UpDownOneVsOne.address;
+    try {
+      await hre.run("verify:verify", {
+        address: targetAddress,
+        constructorArguments: [],
+      });
+      contracts.UpDownOneVsOne.url = getVerifiedUrl(targetAddress);
+    } catch (e) {
+      if (isAlreadyVerified(e, targetAddress))
+        contracts.UpDownOneVsOne.url = getVerifiedUrl(targetAddress);
+    }
+  }
+}
+
+async function verifyUpDown() {
   if (contracts.UpDown.address !== undefined) {
     let targetAddress = contracts.UpDown.address;
     try {
@@ -173,6 +187,7 @@ async function verify() {
   await verifyUpDownStandalone();
   await verifyGameFactory();
   await verifyBullseye();
+  await verifyUpDown();
   // await verifySetups();
   const json = JSON.stringify(contracts);
   fs.writeFileSync("./contracts.json", json);

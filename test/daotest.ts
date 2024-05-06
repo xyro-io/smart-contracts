@@ -44,7 +44,6 @@ describe("DAO test", () => {
   let encodedFunctionCall: string;
   const year = 31556926;
   const month = 2629743;
-  const rate = 125;
   const proposalDescription = "decrease rakeback";
   const proposalDescription_2 = "alter time limit";
   const proposalDescription_3 = "change setup initiator fee";
@@ -61,7 +60,6 @@ describe("DAO test", () => {
     GovernanceToken = await new XyroGovernanceToken__factory(owner).deploy();
     Staking = await new XyroStaking__factory(owner).deploy(
       await XyroToken.getAddress(),
-      rate,
       await GovernanceToken.getAddress()
     );
     await GovernanceToken.delegate(await owner.getAddress());

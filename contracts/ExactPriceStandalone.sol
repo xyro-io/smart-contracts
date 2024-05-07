@@ -166,7 +166,7 @@ contract ExactPriceStandalone is Ownable {
             "Wrong status!"
         );
         ITreasury(treasury).refund(bet.betAmount, bet.initiator);
-        games[betId].gameStatus = Status.Cancelled;
+        bet.gameStatus = Status.Cancelled;
         games[betId] = bet;
         emit ExactPriceCancelled(
             betId,

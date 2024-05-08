@@ -40,7 +40,7 @@ task("mint", "Mints tokens on target address")
 task("startBullseye", "Starts bullseye game")
   .addParam("time", "How long game will be opened")
   .addParam("betamount", "Bet amount")
-  .addParam("feedId", "Pair feed id")
+  .addParam("feedid", "Pair feed id")
   .setAction(async (taskArgs: any) => {
     const contract = await ethers.getContractAt(
       "BullseyeGame",
@@ -53,7 +53,7 @@ task("startBullseye", "Starts bullseye game")
       (await ethers.provider.getBlock("latest")).timestamp +
         Number(taskArgs.time),
       ethers.parseEther(taskArgs.betamount),
-      taskArgs.feedId
+      taskArgs.feedid
     );
   });
 
@@ -70,7 +70,7 @@ task("betBullseye", "Bullseye bet")
   });
 
 task("finalizeBullseye", "Finishes bullseye game")
-.addParam("feedId", "Price feed id")
+.addParam("feedid", "Price feed id")
 .setAction(
   async (taskArgs: any) => {
     const contract = await ethers.getContractAt(
@@ -78,7 +78,7 @@ task("finalizeBullseye", "Finishes bullseye game")
       contracts.BullseyeGame.address
     );
     const price = await getPrice();
-    await contract.finalizeGame(abiEncodeInt192(price, taskArgs.feedId));
+    await contract.finalizeGame(abiEncodeInt192(price, taskArgs.feedid));
   }
 );
 
@@ -123,7 +123,7 @@ task("betUpDown", "UpDown bet")
   });
 
 task("finalizeUpDown", "Finishes UpDown game")
-.addParam("feedId", "Price feed id")
+.addParam("feedid", "Price feed id")
 .setAction(
   async (taskArgs: any) => {
     const contract = await ethers.getContractAt(
@@ -131,7 +131,7 @@ task("finalizeUpDown", "Finishes UpDown game")
       contracts.UpDown.address
     );
     const price = await getPrice();
-    await contract.finalizeGame(abiEncodeInt192(price, taskArgs.feedId));
+    await contract.finalizeGame(abiEncodeInt192(price, taskArgs.feedid));
   }
 );
 
@@ -172,14 +172,14 @@ task("betExact", "Accept exact price bet")
 
 task("finalizeExact", "Finalize exact price game")
   .addParam("id", "Bet id")
-  .addParam("feedId", "Price feed id")
+  .addParam("feedid", "Price feed id")
   .setAction(async (taskArgs: any) => {
     const contract = await ethers.getContractAt(
       "ExactPriceStandalone",
       contracts.ExactPriceOneVsOne.address
     );
     const price = await getPrice();
-    await contract.finalizeGame(taskArgs.id, abiEncodeInt192(price, taskArgs.feedId));
+    await contract.finalizeGame(taskArgs.id, abiEncodeInt192(price, taskArgs.feedid));
   });
 
 task("startUpDown1vs1", "Starts one vs one up down game")
@@ -187,7 +187,7 @@ task("startUpDown1vs1", "Starts one vs one up down game")
   .addParam("time", "How long game will be opened")
   .addParam("up", "Will go up?")
   .addParam("betamount", "Bet amount")
-  .addParam("feedId", "Price feed id")
+  .addParam("feedid", "Price feed id")
   .setAction(async (taskArgs: any) => {
     const contract = await ethers.getContractAt(
       "UpDownStandalone",
@@ -203,7 +203,7 @@ task("startUpDown1vs1", "Starts one vs one up down game")
         Number(taskArgs.time),
       taskArgs.up === "true",
       ethers.parseEther(taskArgs.betamount),
-      abiEncodeInt192(price, taskArgs.feedId)
+      abiEncodeInt192(price, taskArgs.feedid)
     );
   });
 
@@ -221,14 +221,14 @@ task("acceptUpDown", "Accept up down one vs one bet")
 
 task("finalizeUpDown1vs1", "Finalize up down one vs one game")
   .addParam("id", "Bet id")
-  .addParam("feedId", "Price feed id")
+  .addParam("feedid", "Price feed id")
   .setAction(async (taskArgs: any) => {
     const contract = await ethers.getContractAt(
       "UpDownStandalone",
       contracts.UpDownOneVsOne.address
     );
     const price = await getPrice();
-    await contract.finalizeGame(taskArgs.id, abiEncodeInt192(price, taskArgs.feedId));
+    await contract.finalizeGame(taskArgs.id, abiEncodeInt192(price, taskArgs.feedid));
   });
 
 task("createSetup", "Create setup game")
@@ -237,7 +237,7 @@ task("createSetup", "Create setup game")
   .addParam("slprice", "SL price")
   .addParam("tpprice", "TP price")
   .addParam("betamount", "Bet amount")
-  .addParam("feedId", "Price feed id")
+  .addParam("feedid", "Price feed id")
   .setAction(async (taskArgs: any) => {
     const contract = await ethers.getContractAt(
       "GameFactory",
@@ -256,7 +256,7 @@ task("createSetup", "Create setup game")
       ethers.parseEther(taskArgs.slprice),
       ethers.parseEther(taskArgs.betamount),
       taskArgs.sl === "true",
-      abiEncodeInt192(price, taskArgs.feedId)
+      abiEncodeInt192(price, taskArgs.feedid)
     );
 
     const treasury = await ethers.getContractAt(
@@ -300,11 +300,11 @@ task("betSetup", "Setup bet")
 task("finalizeSetup", "Finalize up down one vs one game")
   .addParam("address", "Setup address")
   .addParam("price", "Final price")
-  .addParam("feedId", "Price feed id")
+  .addParam("feedid", "Price feed id")
   .setAction(async (taskArgs: any) => {
     const contract = await ethers.getContractAt("SetupGame", taskArgs.address);
     const price = await getPrice();
-    await contract.finalizeGame(abiEncodeInt192(price, taskArgs.feedId));
+    await contract.finalizeGame(abiEncodeInt192(price, taskArgs.feedid));
   });
 
 function abiEncodeInt192(price: string, feedId: string): string {

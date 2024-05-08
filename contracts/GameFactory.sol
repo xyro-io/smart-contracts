@@ -109,7 +109,7 @@ contract GameFactory is Ownable {
 
         for (uint256 i; i < betId; i++) {
             setup = SetupGame(games[i]);
-            (, , , , , , , , , , SetupGame.Status current) = setup.game();
+            (, , , , , , , , , , , SetupGame.Status current) = setup.game();
             status[i] = current;
         }
     }

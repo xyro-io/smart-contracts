@@ -70,7 +70,7 @@ contract UpDownStandalone is Ownable {
 
     constructor() Ownable(msg.sender) {}
 
-    /**Creates 1vs1 up/down mode game
+    /** Creates 1vs1 up/down mode game
     //@param opponent address of the opponent
     //@param startTime when the game will start
     //@param endTime when the game will end

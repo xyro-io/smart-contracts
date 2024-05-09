@@ -21,10 +21,11 @@ contract BullseyeGame is Ownable {
         uint48 startTime;
         uint48 endTime;
         uint256 betAmount;
-        address[] players;
-        mapping(address => int192) assetPrices;
-        mapping(address => uint256) betTimestamp;
     }
+
+    address[] public players;
+    mapping(address => int192) public assetPrices;
+    mapping(address => uint256) public betTimestamp;
 
     BetInfo public game;
     address public treasury;
@@ -60,10 +61,10 @@ contract BullseyeGame is Ownable {
                 block.timestamp,
             "Game is closed for bets"
         );
-        require(game.assetPrices[msg.sender] == 0, "Bet already exists");
-        game.betTimestamp[msg.sender] = block.timestamp;
-        game.players.push(msg.sender);
-        game.assetPrices[msg.sender] = assetPrice;
+        require(assetPrices[msg.sender] == 0, "Bet already exists");
+        betTimestamp[msg.sender] = block.timestamp;
+        players.push(msg.sender);
+        assetPrices[msg.sender] = assetPrice;
         ITreasury(treasury).deposit(game.betAmount, msg.sender);
         emit BullseyeBet(msg.sender, assetPrice, game.betAmount);
     }
@@ -73,22 +74,22 @@ contract BullseyeGame is Ownable {
      * @param unverifiedReport Chainlink DataStreams report
      */
     function finalizeGame(bytes memory unverifiedReport) public onlyOwner {
-        require(game.players.length > 0, "Can't end");
+        require(players.length > 0, "Can't end");
         require(block.timestamp >= game.endTime, "Too early to finish");
         address upkeep = ITreasury(treasury).upkeep();
         int192 finalPrice = IMockUpkeep(upkeep).verifyReport(
             unverifiedReport,
             game.feedId
         );
-        if (game.players.length == 2) {
-            address playerOne = game.players[0];
-            address playerTwo = game.players[1];
-            int192 playerOneDiff = game.assetPrices[playerOne] > finalPrice
-                ? game.assetPrices[playerOne] - finalPrice
-                : finalPrice - game.assetPrices[playerOne];
-            int192 playerTwoDiff = game.assetPrices[playerTwo] > finalPrice
-                ? game.assetPrices[playerTwo] - finalPrice
-                : finalPrice - game.assetPrices[playerTwo];
+        if (players.length == 2) {
+            address playerOne = players[0];
+            address playerTwo = players[1];
+            int192 playerOneDiff = assetPrices[playerOne] > finalPrice
+                ? assetPrices[playerOne] - finalPrice
+                : finalPrice - assetPrices[playerOne];
+            int192 playerTwoDiff = assetPrices[playerTwo] > finalPrice
+                ? assetPrices[playerTwo] - finalPrice
+                : finalPrice - assetPrices[playerTwo];
             if (playerOneDiff < playerTwoDiff) {
                 // player 1 closer
                 ITreasury(treasury).distribute(
@@ -148,13 +149,13 @@ contract BullseyeGame is Ownable {
                 type(int192).max,
                 type(int192).max
             ];
-            for (uint256 j = 0; j < game.players.length; j++) {
-                address currentAddress = game.players[j];
-                int192 currentGuess = game.assetPrices[currentAddress];
+            for (uint256 j = 0; j < players.length; j++) {
+                address currentAddress = players[j];
+                int192 currentGuess = assetPrices[currentAddress];
                 int192 currentDiff = currentGuess > finalPrice
                     ? currentGuess - finalPrice
                     : finalPrice - currentGuess;
-                uint256 currentTimestamp = game.betTimestamp[currentAddress];
+                uint256 currentTimestamp = betTimestamp[currentAddress];
                 for (uint256 i = 0; i < 3; i++) {
                     if (currentDiff < closestDiff[i]) {
                         for (uint256 k = 2; k > i; k--) {
@@ -166,7 +167,7 @@ contract BullseyeGame is Ownable {
                         break;
                     } else if (
                         currentDiff == closestDiff[i] &&
-                        currentTimestamp < game.betTimestamp[topPlayers[i]]
+                        currentTimestamp < betTimestamp[topPlayers[i]]
                     ) {
                         for (uint256 k = 2; k > i; k--) {
                             closestDiff[k] = closestDiff[k - 1];
@@ -177,7 +178,7 @@ contract BullseyeGame is Ownable {
                     }
                 }
             }
-            uint256 totalBets = game.betAmount * game.players.length;
+            uint256 totalBets = game.betAmount * players.length;
             uint256[3] memory wonAmount;
             if (closestDiff[0] == 0) {
                 wonAmount = exactRate;
@@ -196,8 +197,16 @@ contract BullseyeGame is Ownable {
                 }
             }
         }
-        //  emit BullseyeFinalized(topPlayers, wonAmount);
+        //Do we need to clear mappings?
+        for (uint256 i = 0; i < players.length; i++) {
+            assetPrices[players[i]] = 0;
+            betTimestamp[players[i]] = 0;
+        }
         delete game;
+    }
+
+    function getTotalPlayers() public view returns (uint256) {
+        return players.length;
     }
 
     /**

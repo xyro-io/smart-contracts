@@ -20,10 +20,10 @@ contract UpDownGame is Ownable {
         int192 startingPrice;
         uint256 betAmount;
         bytes32 feedId;
-        address[] UpPlayers;
-        address[] DownPlayers;
     }
 
+    address[] public UpPlayers;
+    address[] public DownPlayers;
     BetInfo public game;
     address public treasury;
     uint256 public fee = 100;
@@ -68,9 +68,9 @@ contract UpDownGame is Ownable {
         );
         require(!betExists(msg.sender), "Bet exists");
         if (willGoUp) {
-            game.UpPlayers.push(msg.sender);
+            UpPlayers.push(msg.sender);
         } else {
-            game.DownPlayers.push(msg.sender);
+            DownPlayers.push(msg.sender);
         }
         ITreasury(treasury).deposit(game.betAmount, msg.sender);
         emit UpDownBet(msg.sender, willGoUp, game.betAmount);
@@ -88,18 +88,18 @@ contract UpDownGame is Ownable {
         );
         BetInfo memory _game = game;
         require(
-            game.UpPlayers.length > 0 && game.DownPlayers.length > 0,
+            UpPlayers.length > 0 && DownPlayers.length > 0,
             "Can't end"
         );
         require(block.timestamp >= game.endTime, "Too early to finish");
         if (finalPrice > _game.startingPrice) {
             uint256 wonAmount = _game.betAmount +
-                ((_game.betAmount * _game.DownPlayers.length) /
-                    _game.UpPlayers.length);
-            for (uint i = 0; i < _game.UpPlayers.length; i++) {
+                ((_game.betAmount * DownPlayers.length) /
+                    UpPlayers.length);
+            for (uint i = 0; i < UpPlayers.length; i++) {
                 ITreasury(treasury).distribute(
                     wonAmount,
-                    _game.UpPlayers[i],
+                    UpPlayers[i],
                     _game.betAmount,
                     fee
                 );
@@ -107,19 +107,26 @@ contract UpDownGame is Ownable {
             emit UpDownFinalized(finalPrice, wonAmount);
         } else {
             uint256 wonAmount = _game.betAmount +
-                ((_game.betAmount * _game.UpPlayers.length) /
-                    _game.DownPlayers.length);
-            for (uint i = 0; i < _game.DownPlayers.length; i++) {
+                ((_game.betAmount * UpPlayers.length) /
+                    DownPlayers.length);
+            for (uint i = 0; i < DownPlayers.length; i++) {
                 ITreasury(treasury).distribute(
                     wonAmount,
-                    _game.DownPlayers[i],
+                    DownPlayers[i],
                     _game.betAmount,
                     fee
                 );
             }
             emit UpDownFinalized(finalPrice, wonAmount);
         }
+
+        delete DownPlayers;
+        delete UpPlayers;
         delete game;
+    }
+
+    function getTotalPlayers() public view returns(uint256, uint256) {
+        return (UpPlayers.length, DownPlayers.length);
     }
 
     /**
@@ -127,13 +134,13 @@ contract UpDownGame is Ownable {
      * @param player player address
      */
     function betExists(address player) internal view returns (bool) {
-        for (uint i = 0; i < game.UpPlayers.length; i++) {
-            if (game.UpPlayers[i] == player) {
+        for (uint i = 0; i < UpPlayers.length; i++) {
+            if (UpPlayers[i] == player) {
                 return true;
             }
         }
-        for (uint i = 0; i < game.DownPlayers.length; i++) {
-            if (game.DownPlayers[i] == player) {
+        for (uint i = 0; i < DownPlayers.length; i++) {
+            if (DownPlayers[i] == player) {
                 return true;
             }
         }

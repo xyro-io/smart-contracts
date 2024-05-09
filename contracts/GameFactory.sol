@@ -52,6 +52,7 @@ contract GameFactory is Ownable {
         int192 stopLossPrice,
         uint256 betAmount,
         bool isStopLoss,
+        bytes32 feedId,
         bytes memory unverifiedReport
     ) public returns (address newGame) {
         require(
@@ -79,6 +80,7 @@ contract GameFactory is Ownable {
                     msg.sender,
                     betAmount,
                     unverifiedReport,
+                    feedId,
                     treasury
                 )
             )

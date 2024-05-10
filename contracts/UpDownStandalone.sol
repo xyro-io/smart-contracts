@@ -7,6 +7,7 @@ import "./interfaces/IERC20.sol";
 
 contract UpDownStandalone is Ownable {
     event UpDownCreated(
+        uint256 betId,
         address opponent,
         uint48 startTime,
         uint48 endTime,

@@ -7,6 +7,7 @@ import "./interfaces/IMockUpkeep.sol";
 
 contract ExactPriceStandalone is Ownable {
     event ExactPriceCreated(
+        uint256 betId,
         address opponent,
         uint48 startTime,
         uint48 endTime,

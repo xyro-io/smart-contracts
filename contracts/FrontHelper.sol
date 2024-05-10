@@ -121,6 +121,104 @@ contract FrontHelper {
         return allGames;
     }
 
+    function getExactPriceOpenedPublicGames(address game) public view returns(ExactPriceStandalone.BetInfo[] memory) {
+        ExactPriceStandalone exactPrice = ExactPriceStandalone(game);
+        uint256 totalGames = exactPrice.totalBets();
+        ExactPriceStandalone.BetInfo[] memory allGames = new ExactPriceStandalone.BetInfo[](totalGames);
+        for(uint i; i< totalGames; i++) {
+        (bytes32 feedId,
+            address initiator,
+            uint48 startTime,
+            uint48 endTime,
+            address opponent,
+            uint256 betAmount,
+            int192 initiatorPrice,
+            int192 opponentPrice,
+            int192 finalAssetPrice,
+            ExactPriceStandalone.Status gameStatus) = exactPrice.games(i);
+            if(gameStatus == ExactPriceStandalone.Status.Created && opponent == address(0)) {
+                allGames[i].feedId = feedId;
+                allGames[i].initiator = initiator;
+                allGames[i].startTime = startTime;
+                allGames[i].endTime = endTime;
+                allGames[i].opponent = opponent;
+                allGames[i].betAmount = betAmount;
+                allGames[i].initiatorPrice = initiatorPrice;
+                allGames[i].opponentPrice = opponentPrice;
+                allGames[i].finalAssetPrice = finalAssetPrice;
+                allGames[i].gameStatus = gameStatus;
+            }
+        }
+        return allGames;
+    }
+
+    function getExactPriceMyOpenedGames(address game, address player) public view returns(ExactPriceStandalone.BetInfo[] memory) {
+        ExactPriceStandalone exactPrice = ExactPriceStandalone(game);
+        uint256 totalGames = exactPrice.totalBets();
+        ExactPriceStandalone.BetInfo[] memory allGames = new ExactPriceStandalone.BetInfo[](totalGames);
+        for(uint i; i< totalGames; i++) {
+        (
+            bytes32 feedId,
+            address initiator,
+            uint48 startTime,
+            uint48 endTime,
+            address opponent,
+            uint256 betAmount,
+            int192 initiatorPrice,
+            int192 opponentPrice,
+            int192 finalAssetPrice,
+            ExactPriceStandalone.Status gameStatus) = exactPrice.games(i);
+            if(gameStatus == ExactPriceStandalone.Status.Created && opponent == player) {
+                allGames[i].feedId = feedId;
+                allGames[i].initiator = initiator;
+                allGames[i].startTime = startTime;
+                allGames[i].endTime = endTime;
+                allGames[i].opponent = opponent;
+                allGames[i].betAmount = betAmount;
+                allGames[i].initiatorPrice = initiatorPrice;
+                allGames[i].opponentPrice = opponentPrice;
+                allGames[i].finalAssetPrice = finalAssetPrice;
+                allGames[i].gameStatus = gameStatus;
+            }
+        }
+        return allGames;
+    }
+
+    function getExactPriceAllMyGames(address game, address player) public view returns(ExactPriceStandalone.BetInfo[] memory) {
+        ExactPriceStandalone exactPrice = ExactPriceStandalone(game);
+        uint256 totalGames = exactPrice.totalBets();
+        ExactPriceStandalone.BetInfo[] memory allGames = new ExactPriceStandalone.BetInfo[](totalGames);
+        for(uint i; i< totalGames; i++) {
+        (
+            bytes32 feedId,
+            address initiator,
+            uint48 startTime,
+            uint48 endTime,
+            address opponent,
+            uint256 betAmount,
+            int192 initiatorPrice,
+            int192 opponentPrice,
+            int192 finalAssetPrice,
+            ExactPriceStandalone.Status gameStatus) = exactPrice.games(i);
+            if(opponent == player) {
+                allGames[i].feedId = feedId;
+                allGames[i].initiator = initiator;
+                allGames[i].startTime = startTime;
+                allGames[i].endTime = endTime;
+                allGames[i].opponent = opponent;
+                allGames[i].betAmount = betAmount;
+                allGames[i].initiatorPrice = initiatorPrice;
+                allGames[i].opponentPrice = opponentPrice;
+                allGames[i].finalAssetPrice = finalAssetPrice;
+                allGames[i].gameStatus = gameStatus;
+            }
+        }
+        return allGames;
+    }
+    // function getMyOpenedGamesExactPrice() public view  returns (ExactPriceStandalone.BetInfo[] memory) {
+
+    // }
+
     // function getGamesExactPrice(address game) public view returns(uint256[] memory, uint256[] memory) {
     //     ExactPriceStandalone exactPrice = ExactPriceStandalone(game);
     //     uint256 totalGames = exactPrice.totalBets();
@@ -174,6 +272,99 @@ contract FrontHelper {
             allGames[i].startingAssetPrice = startingAssetPrice;
             allGames[i].finalAssetPrice = finalAssetPrice;
             allGames[i].gameStatus = gameStatus;
+        }
+        return allGames;
+    }
+
+    function getOneVsOneUpDownOpenedPublicGames(address game) public view returns(UpDownStandalone.BetInfo[] memory) {
+        UpDownStandalone updown = UpDownStandalone(game);
+        uint256 totalGames = updown.totalBets();
+        UpDownStandalone.BetInfo[] memory allGames = new UpDownStandalone.BetInfo[](totalGames);
+        for(uint i; i< totalGames; i++) {
+            (bytes32 feedId,
+            address initiator,
+            uint48 startTime,
+            uint48 endTime,
+            address opponent,
+            bool willGoUp,
+            uint256 betAmount,
+            int192 startingAssetPrice,
+            int192 finalAssetPrice,
+            UpDownStandalone.Status gameStatus) = updown.games(i);
+            if(gameStatus == UpDownStandalone.Status.Created && opponent == address(0)) {
+                allGames[i].feedId = feedId;
+                allGames[i].initiator = initiator;
+                allGames[i].startTime = startTime;
+                allGames[i].endTime = endTime;
+                allGames[i].opponent = opponent;
+                allGames[i].willGoUp = willGoUp;
+                allGames[i].betAmount = betAmount;
+                allGames[i].startingAssetPrice = startingAssetPrice;
+                allGames[i].finalAssetPrice = finalAssetPrice;
+                allGames[i].gameStatus = gameStatus;
+            }
+        }
+        return allGames;
+    }
+
+    function getOneVsOneUpDownMyOpenedGames(address game, address player) public view returns(UpDownStandalone.BetInfo[] memory) {
+        UpDownStandalone updown = UpDownStandalone(game);
+        uint256 totalGames = updown.totalBets();
+        UpDownStandalone.BetInfo[] memory allGames = new UpDownStandalone.BetInfo[](totalGames);
+        for(uint i; i< totalGames; i++) {
+            (bytes32 feedId,
+            address initiator,
+            uint48 startTime,
+            uint48 endTime,
+            address opponent,
+            bool willGoUp,
+            uint256 betAmount,
+            int192 startingAssetPrice,
+            int192 finalAssetPrice,
+            UpDownStandalone.Status gameStatus) = updown.games(i);
+            if(gameStatus == UpDownStandalone.Status.Created && opponent == player) {
+                allGames[i].feedId = feedId;
+                allGames[i].initiator = initiator;
+                allGames[i].startTime = startTime;
+                allGames[i].endTime = endTime;
+                allGames[i].opponent = opponent;
+                allGames[i].willGoUp = willGoUp;
+                allGames[i].betAmount = betAmount;
+                allGames[i].startingAssetPrice = startingAssetPrice;
+                allGames[i].finalAssetPrice = finalAssetPrice;
+                allGames[i].gameStatus = gameStatus;
+            }
+        }
+        return allGames;
+    }
+
+    function getOneVsOneUpDownAllMyGames(address game, address player) public view returns(UpDownStandalone.BetInfo[] memory) {
+        UpDownStandalone updown = UpDownStandalone(game);
+        uint256 totalGames = updown.totalBets();
+        UpDownStandalone.BetInfo[] memory allGames = new UpDownStandalone.BetInfo[](totalGames);
+        for(uint i; i< totalGames; i++) {
+            (bytes32 feedId,
+            address initiator,
+            uint48 startTime,
+            uint48 endTime,
+            address opponent,
+            bool willGoUp,
+            uint256 betAmount,
+            int192 startingAssetPrice,
+            int192 finalAssetPrice,
+            UpDownStandalone.Status gameStatus) = updown.games(i);
+            if(opponent == player) {
+                allGames[i].feedId = feedId;
+                allGames[i].initiator = initiator;
+                allGames[i].startTime = startTime;
+                allGames[i].endTime = endTime;
+                allGames[i].opponent = opponent;
+                allGames[i].willGoUp = willGoUp;
+                allGames[i].betAmount = betAmount;
+                allGames[i].startingAssetPrice = startingAssetPrice;
+                allGames[i].finalAssetPrice = finalAssetPrice;
+                allGames[i].gameStatus = gameStatus;
+            }
         }
         return allGames;
     }

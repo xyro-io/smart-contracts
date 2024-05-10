@@ -114,6 +114,7 @@ contract UpDownStandalone is Ownable {
         newBet.gameStatus = Status.Created;
         games.push(newBet);
         emit UpDownCreated(
+            games.length,
             opponent,
             startTime,
             endTime,

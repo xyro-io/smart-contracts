@@ -108,6 +108,7 @@ contract ExactPriceStandalone is Ownable {
         newBet.gameStatus = Status.Created;
         games.push(newBet);
         emit ExactPriceCreated(
+            games.length,
             opponent,
             startTime,
             endTime,

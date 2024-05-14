@@ -9,10 +9,11 @@ contract UpDownGame is Ownable {
         uint48 startTime,
         uint48 endTime,
         uint256 betAmount,
-        int192 startingPrice
+        int192 startingPrice,
+        uint256 indexed gameId
     );
-    event UpDownBet(address player, bool willGoUp, uint256 betAmount);
-    event UpDownFinalized(int192 finalPrice, uint256 wonAmount);
+    event UpDownBet(address player, bool willGoUp, uint256 betAmount, uint256 indexed gameId);
+    event UpDownFinalized(int192 finalPrice, uint256 wonAmount, uint256 indexed gameId);
 
     struct BetInfo {
         uint48 startTime;
@@ -27,6 +28,7 @@ contract UpDownGame is Ownable {
     BetInfo public game;
     address public treasury;
     uint256 public fee = 100;
+    uint256 public gameId;
 
     constructor() Ownable(msg.sender) {}
 
@@ -53,7 +55,7 @@ contract UpDownGame is Ownable {
         game.startTime = startTime;
         game.endTime = endTime;
         game.betAmount = betAmount;
-        emit UpDownStart(startTime, endTime, betAmount, game.startingPrice);
+        emit UpDownStart(startTime, endTime, betAmount, game.startingPrice, gameId);
     }
 
     /**
@@ -73,7 +75,7 @@ contract UpDownGame is Ownable {
             DownPlayers.push(msg.sender);
         }
         ITreasury(treasury).deposit(game.betAmount, msg.sender);
-        emit UpDownBet(msg.sender, willGoUp, game.betAmount);
+        emit UpDownBet(msg.sender, willGoUp, game.betAmount, gameId);
     }
 
     /**
@@ -104,7 +106,7 @@ contract UpDownGame is Ownable {
                     fee
                 );
             }
-            emit UpDownFinalized(finalPrice, wonAmount);
+            emit UpDownFinalized(finalPrice, wonAmount, gameId);
         } else {
             uint256 wonAmount = _game.betAmount +
                 ((_game.betAmount * UpPlayers.length) /
@@ -117,12 +119,13 @@ contract UpDownGame is Ownable {
                     fee
                 );
             }
-            emit UpDownFinalized(finalPrice, wonAmount);
+            emit UpDownFinalized(finalPrice, wonAmount, gameId);
         }
 
         delete DownPlayers;
         delete UpPlayers;
         delete game;
+        gameId++;
     }
 
     function getTotalPlayers() public view returns(uint256, uint256) {

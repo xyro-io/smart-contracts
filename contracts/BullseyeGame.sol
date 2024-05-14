@@ -12,9 +12,11 @@ contract BullseyeGame is Ownable {
     uint256[3] public exactRate = [7500, 1500, 1000];
     uint256[2] public twoPlayersRate = [7500, 2500];
     uint256[2] public twoPlayersExactRate = [8000, 2000];
-    event BullseyeStart(uint48 startTime, uint48 endTime, uint256 betAmount);
-    event BullseyeBet(address player, int192 assetPrice, uint256 betAmount);
-    event BullseyeFinalized(address[3] topPlayers, uint256[3] wonAmount);
+    uint256 public gameId;
+    event BullseyeStart(uint48 startTime, uint48 endTime, uint256 betAmount, uint256 indexed gameId);
+    event BullseyeBet(address player, int192 assetPrice, uint256 betAmount, uint256 indexed gameId);
+    event BullseyeFinalized(address[3] topPlayers, uint256[3] wonAmount, uint256 indexed gameId);
+    event BullseyeFinalized(address firstPlace, address secondPlace, uint256 wonAmountFirst, uint256 wonAmountSecond, uint256 indexed gameId);
 
     struct BetInfo {
         bytes32 feedId;
@@ -48,7 +50,7 @@ contract BullseyeGame is Ownable {
         game.startTime = startTime;
         game.endTime = endTime;
         game.betAmount = betAmount;
-        emit BullseyeStart(startTime, endTime, betAmount);
+        emit BullseyeStart(startTime, endTime, betAmount, gameId);
     }
 
     /**
@@ -66,7 +68,7 @@ contract BullseyeGame is Ownable {
         players.push(msg.sender);
         assetPrices[msg.sender] = assetPrice;
         ITreasury(treasury).deposit(game.betAmount, msg.sender);
-        emit BullseyeBet(msg.sender, assetPrice, game.betAmount);
+        emit BullseyeBet(msg.sender, assetPrice, game.betAmount, gameId);
     }
 
     /**
@@ -92,55 +94,62 @@ contract BullseyeGame is Ownable {
                 : finalPrice - assetPrices[playerTwo];
             if (playerOneDiff < playerTwoDiff) {
                 // player 1 closer
-                ITreasury(treasury).distribute(
-                    (2 *
+                uint256 wonAmountFirst = (2 *
                         game.betAmount *
                         (
                             playerOneDiff == 0
                                 ? twoPlayersExactRate[0]
                                 : twoPlayersRate[0]
-                        )) / DENOMINATOR,
+                        )) / DENOMINATOR;
+                ITreasury(treasury).distribute(
+                    wonAmountFirst,
                     playerOne,
                     game.betAmount,
                     fee
                 );
-                ITreasury(treasury).distribute(
-                    (2 *
+                uint256 wonAmountSecond = (2 *
                         game.betAmount *
                         (
                             playerOneDiff == 0
                                 ? twoPlayersExactRate[1]
                                 : twoPlayersRate[1]
-                        )) / DENOMINATOR,
+                        )) / DENOMINATOR;
+                ITreasury(treasury).distribute(
+                    wonAmountSecond,
                     playerTwo,
                     game.betAmount,
                     fee
                 );
+                emit BullseyeFinalized(playerOne, playerTwo, wonAmountFirst, wonAmountSecond, gameId);
             } else {
                 // player 2 closer
-                ITreasury(treasury).distribute(
-                    ((2 * game.betAmount) *
+                uint256 wonAmountFirst = (2 *
+                        game.betAmount *
                         (
-                            playerTwoDiff == 0
+                            playerOneDiff == 0
                                 ? twoPlayersExactRate[0]
                                 : twoPlayersRate[0]
-                        )) / DENOMINATOR,
+                        )) / DENOMINATOR;
+                ITreasury(treasury).distribute(
+                    wonAmountFirst,
                     playerTwo,
                     game.betAmount,
                     fee
                 );
-                ITreasury(treasury).distribute(
-                    (2 *
+                uint256 wonAmountSecond = (2 *
                         game.betAmount *
                         (
-                            playerTwoDiff == 0
+                            playerOneDiff == 0
                                 ? twoPlayersExactRate[1]
                                 : twoPlayersRate[1]
-                        )) / DENOMINATOR,
+                        )) / DENOMINATOR;
+                ITreasury(treasury).distribute(
+                    wonAmountSecond,
                     playerOne,
                     game.betAmount,
                     fee
                 );
+                emit BullseyeFinalized(playerTwo, playerOne, wonAmountFirst, wonAmountSecond, gameId);
             }
         } else {
             address[3] memory topPlayers;
@@ -196,6 +205,7 @@ contract BullseyeGame is Ownable {
                     totalBets -= wonAmount[i];
                 }
             }
+            emit BullseyeFinalized(topPlayers, wonAmount, gameId);
         }
         //Do we need to clear mappings?
         for (uint256 i = 0; i < players.length; i++) {
@@ -203,6 +213,7 @@ contract BullseyeGame is Ownable {
             betTimestamp[players[i]] = 0;
         }
         delete game;
+        gameId++;
     }
 
     function getTotalPlayers() public view returns (uint256) {

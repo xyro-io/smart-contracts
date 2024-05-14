@@ -119,6 +119,57 @@ contract ExactPriceStandalone is Ownable {
     }
 
     /**
+     * Creates 1vs1 exact price mode game
+     * @param opponent address of the opponent
+     * @param startTime when the game will start
+     * @param endTime when the game will end
+     * @param initiatorPrice game initiator picked asset price
+     * @param betAmount amount to enter the game
+     */
+    function createBetWithPermit(
+        bytes32 feedId,
+        address opponent,
+        uint48 startTime,
+        uint48 endTime,
+        int192 initiatorPrice,
+        uint256 betAmount,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) public {
+        require(
+            endTime - startTime >= minDuration,
+            "Min bet duration must be higher"
+        );
+        require(
+            endTime - startTime <= maxDuration,
+            "Max bet duration must be lower"
+        );
+        require(betAmount >= 1e19, "Wrong bet amount");
+        BetInfo memory newBet;
+        newBet.initiator = msg.sender;
+        newBet.startTime = startTime;
+        newBet.endTime = endTime;
+        newBet.feedId = feedId;
+        ITreasury(treasury).depositWithPermit(betAmount, msg.sender, deadline, v, r, s);
+        newBet.initiatorPrice = initiatorPrice;
+        newBet.betAmount = betAmount;
+        newBet.opponent = opponent;
+        newBet.gameStatus = Status.Created;
+        games.push(newBet);
+        emit ExactPriceCreated(
+            games.length,
+            opponent,
+            startTime,
+            endTime,
+            initiatorPrice,
+            betAmount,
+            msg.sender
+        );
+    }
+
+    /**
      * Accepts 1vs1 exact price mode game
      * @param betId game id
      * @param opponentPrice picked asset price

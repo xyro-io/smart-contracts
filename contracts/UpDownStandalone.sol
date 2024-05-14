@@ -124,6 +124,63 @@ contract UpDownStandalone is Ownable {
         );
     }
 
+    /** Creates 1vs1 up/down mode game
+    //@param opponent address of the opponent
+    //@param startTime when the game will start
+    //@param endTime when the game will end
+    //@param willGoUp up = true, down = false
+    //@param betAmount amount to enter the game
+    //@param unverifiedReport Chainlink DataStreams report
+    */
+    function createBetWithPermit(
+        address opponent,
+        uint48 startTime,
+        uint48 endTime,
+        bool willGoUp,
+        uint256 betAmount,
+        bytes memory unverifiedReport,
+        bytes32 feedId,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) public {
+        require(
+            endTime - startTime >= minDuration,
+            "Min bet duration must be higher"
+        );
+        require(
+            endTime - startTime <= maxDuration,
+            "Max bet duration must be lower"
+        );
+        require(betAmount >= 1e19, "Wrong bet amount");
+        BetInfo memory newBet;
+        address upkeep = ITreasury(treasury).upkeep();
+        newBet.startingAssetPrice = IMockUpkeep(upkeep).verifyReport(
+            unverifiedReport,
+            feedId
+        );
+        newBet.feedId = feedId;
+        newBet.initiator = msg.sender;
+        newBet.startTime = startTime;
+        newBet.endTime = endTime;
+        ITreasury(treasury).depositWithPermit(betAmount, msg.sender, deadline, v, r, s);
+        newBet.betAmount = betAmount;
+        newBet.opponent = opponent;
+        newBet.willGoUp = willGoUp;
+        newBet.gameStatus = Status.Created;
+        games.push(newBet);
+        emit UpDownCreated(
+            games.length,
+            opponent,
+            startTime,
+            endTime,
+            willGoUp,
+            betAmount,
+            msg.sender
+        );
+    }
+
     /**
      * Accepts 1vs1 up/down mode game
      * @param betId game id

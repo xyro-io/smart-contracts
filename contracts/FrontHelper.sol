@@ -13,6 +13,11 @@ contract FrontHelper {
         NoBet
     }
 
+    struct BullseyeGuesses {
+        address player;
+        int192 guessPrice;
+    }
+
     function getBullseyeData(address game) public view returns (bytes32, uint48, uint48, uint256, address[] memory, int192[] memory, uint256[] memory) {
         BullseyeGame bullseye = BullseyeGame(game);
         (bytes32 feedId, uint48 startTime, uint48 endTime, uint256 betAmout) = bullseye.game();
@@ -27,6 +32,18 @@ contract FrontHelper {
             
         }
         return (feedId, startTime, endTime, betAmout, players, assetPrices, timestamps);
+    }
+
+    function getBullseyeGuesses(address game) public view returns (BullseyeGuesses[] memory) {
+        BullseyeGame bullseye = BullseyeGame(game);
+        uint256 totalPlayers = bullseye.getTotalPlayers();
+        BullseyeGuesses[] memory data = new BullseyeGuesses[](totalPlayers);
+        address[] memory players = new address[](totalPlayers);
+        for(uint i; i < bullseye.getTotalPlayers(); i++) {
+            data[i].player = bullseye.players(i);
+            data[i].guessPrice = bullseye.assetPrices(players[i]);
+        }
+        return data;
     }
 
     function getBullseyeBet(address player, address game) public view returns (int192) {

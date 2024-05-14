@@ -152,6 +152,39 @@ contract UpDownStandalone is Ownable {
     }
 
     /**
+     * Accepts 1vs1 up/down mode game with permit
+     * @param betId game id
+     */
+    function acceptBetWithPermit(
+        uint256 betId,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) public {
+        BetInfo memory bet = games[betId];
+        require(bet.gameStatus == Status.Created, "Wrong status!");
+        require(
+            bet.startTime + (bet.endTime - bet.startTime) / 3 >=
+                block.timestamp,
+            "Game is closed for bets"
+        );
+        //If game is not private address should be 0
+        if (bet.opponent != address(0)) {
+            require(
+                msg.sender == bet.opponent,
+                "Only certain account can accept"
+            );
+        } else {
+            bet.opponent == msg.sender;
+        }
+        ITreasury(treasury).depositWithPermit(bet.betAmount, msg.sender, deadline, v, r, s);
+        bet.gameStatus = Status.Started;
+        games[betId] = bet;
+        emit UpDownAccepted(betId, msg.sender, !bet.willGoUp, bet.betAmount);
+    }
+
+    /**
      * Changes bet status if opponent refuses to play
      * @param betId game id
      */

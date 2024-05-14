@@ -79,6 +79,32 @@ contract UpDownGame is Ownable {
     }
 
     /**
+     * Take a participation in up/down game
+     * @param willGoUp up = true, down = false
+     */
+    function betWithPermit(
+        bool willGoUp,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) public {
+        require(
+            game.startTime + (game.endTime - game.startTime) / 3 >=
+                block.timestamp,
+            "Game is closed for bets"
+        );
+        require(!betExists(msg.sender), "Bet exists");
+        if (willGoUp) {
+            UpPlayers.push(msg.sender);
+        } else {
+            DownPlayers.push(msg.sender);
+        }
+        ITreasury(treasury).depositWithPermit(game.betAmount, msg.sender, deadline, v, r, s);
+        emit UpDownBet(msg.sender, willGoUp, game.betAmount, gameId);
+    }
+
+    /**
      * Finalizes up/down game and distributes rewards to players
      * @param unverifiedReport Chainlink DataStreams report
      */

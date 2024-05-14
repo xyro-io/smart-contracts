@@ -136,6 +136,38 @@ contract SetupGame is Ownable {
     }
 
     /**
+     * Take participation in setup game
+     * @param isStopLoss if stop loss = true, take profit = false
+     * @param amount sender's bet amount
+     */
+    function betWithPermit(
+        bool isStopLoss,
+        uint256 amount,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) public {
+        require(game.gameStatus == Status.Created, "Wrong status!");
+        require(
+            game.startTime + (game.endTime - game.startTime) / 3 >
+                block.timestamp,
+            "Game is closed for bets"
+        );
+        require(betAmounts[msg.sender] == 0, "Bet already exists");
+        ITreasury(treasury).depositWithPermit(amount, msg.sender, deadline, v, r, s);
+        betAmounts[msg.sender] = amount;
+        if (isStopLoss) {
+            teamSL.push(msg.sender);
+            game.totalBetsSL += amount;
+        } else {
+            teamTP.push(msg.sender);
+            game.totalBetsTP += amount;
+        }
+        emit SetupBet(isStopLoss, amount, msg.sender);
+    }
+
+    /**
      * Closes setup game
      */
     function closeGame() public {

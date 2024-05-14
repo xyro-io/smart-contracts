@@ -154,6 +154,48 @@ contract ExactPriceStandalone is Ownable {
     }
 
     /**
+     * Accepts 1vs1 exact price mode game
+     * @param betId game id
+     * @param opponentPrice picked asset price
+     */
+    function acceptBetWithPermit(
+        uint256 betId, 
+        int192 opponentPrice, 
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) public {
+        BetInfo memory bet = games[betId];
+        require(bet.gameStatus == Status.Created, "Wrong status!");
+        require(
+            bet.startTime + (bet.endTime - bet.startTime) / 3 >=
+                block.timestamp,
+            "Game is closed for bets"
+        );
+        require(bet.initiatorPrice != opponentPrice, "Same asset prices");
+        // If game is not private address should be 0
+        if (bet.opponent != address(0)) {
+            require(
+                msg.sender == bet.opponent,
+                "Only certain account can accept"
+            );
+            if (opponentPrice == 0) {
+                bet.gameStatus = Status.Refused;
+                games[betId] = bet;
+                return;
+            }
+        } else {
+            bet.opponent == msg.sender;
+        }
+        bet.opponentPrice = opponentPrice;
+        ITreasury(treasury).depositWithPermit(bet.betAmount, msg.sender, deadline, v, r, s);
+        bet.gameStatus = Status.Started;
+        games[betId] = bet;
+        emit ExactPriceAccepted(betId, msg.sender, opponentPrice);
+    }
+
+    /**
      * Closes game and refunds tokens
      * @param betId game id
      */

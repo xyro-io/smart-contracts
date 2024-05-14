@@ -72,6 +72,30 @@ contract BullseyeGame is Ownable {
     }
 
     /**
+     * Participate in bullseye game with permit
+     * @param assetPrice player's picked asset price
+     */
+    function betWithPermit(
+        int192 assetPrice,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) public {
+        require(
+            game.startTime + (game.endTime - game.startTime) / 3 >=
+                block.timestamp,
+            "Game is closed for bets"
+        );
+        require(assetPrices[msg.sender] == 0, "Bet already exists");
+        betTimestamp[msg.sender] = block.timestamp;
+        players.push(msg.sender);
+        assetPrices[msg.sender] = assetPrice;
+        ITreasury(treasury).depositWithPermit(game.betAmount, msg.sender, deadline, v, r, s);
+        emit BullseyeBet(msg.sender, assetPrice, game.betAmount, gameId);
+    }
+
+    /**
      * Finalizes bullseye game and distributes rewards to players
      * @param unverifiedReport Chainlink DataStreams report
      */

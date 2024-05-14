@@ -5,11 +5,14 @@
     "hardhat": "^2.21.0"
   },
   "dependencies": {
+    "@chainlink/contracts": "^1.1.0",
+    "@chainlink/contracts-ccip": "^1.4.0",
     "@openzeppelin/contracts": "^5.0.2",
     "@openzeppelin/contracts-upgradeable": "^5.0.2",
     "@uniswap/v3-core": "^1.0.1",
     "@uniswap/v3-periphery": "^1.4.4",
     "erc721a-upgradeable": "^4.3.0",
-    "solady": "^0.0.181"
+    "solady": "^0.0.181",
+    "solidity-coverage": "^0.8.12"
   }
 }

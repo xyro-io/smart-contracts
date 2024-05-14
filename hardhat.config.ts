@@ -4,13 +4,14 @@ import { HardhatUserConfig } from "hardhat/config";
 import "hardhat-gas-reporter";
 // import "@nomicfoundation/hardhat-ethers";
 // import "@typechain/hardhat";
+import 'solidity-coverage'
 import "@nomicfoundation/hardhat-toolbox";
 import "./scripts/task.ts";
 
 const config: HardhatUserConfig = {
   networks: {
-    mumbai: {
-      url: "https://polygon-mumbai.blockpi.network/v1/rpc/public",
+    arbsepolia: {
+      url: "https://arbitrum-sepolia.infura.io/v3/e835b1abe0dc4e7283a019b732e34366",
       accounts: [
         "4e4057af8c1e669a4a912b96b598c8ce1728454fdb9b6e961b522c23d0c7b513",
       ],
@@ -53,7 +54,7 @@ const config: HardhatUserConfig = {
         },
       },
       {
-        version: "0.5.16",
+        version: "0.8.19",
         settings: {
           optimizer: {
             enabled: true,
@@ -80,6 +81,11 @@ const config: HardhatUserConfig = {
         },
       },
     ],
+  },
+  etherscan: {
+    apiKey: {
+      arbitrumSepolia: "9AR42Q41ANB6QNX2493XMV46TTNV971H8B",
+    },
   },
   gasReporter: {
     enabled: true,

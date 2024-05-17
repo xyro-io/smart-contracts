@@ -46,6 +46,7 @@ contract UpDownGame is Ownable {
         bytes memory unverifiedReport,
         bytes32 feedId
     ) public onlyOwner {
+        require(game.startTime == 0, "Finish previous game first");
         address upkeep = ITreasury(treasury).upkeep();
         game.startingPrice = IMockUpkeep(upkeep).verifyReport(
             unverifiedReport,

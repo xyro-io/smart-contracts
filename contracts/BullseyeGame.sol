@@ -46,6 +46,7 @@ contract BullseyeGame is Ownable {
         uint256 depositAmount,
         bytes32 feedId
     ) public onlyOwner {
+        require(game.startTime == 0, "Finish previous game first");
         game.feedId = feedId;
         game.startTime = startTime;
         game.endTime = endTime;

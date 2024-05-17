@@ -9,5 +9,5 @@ interface IMockUpkeep {
     function verifyReport(
         bytes memory unverifiedReport,
         bytes32 feedId
-    ) external pure returns (int192);
+    ) external returns (int192);
 }

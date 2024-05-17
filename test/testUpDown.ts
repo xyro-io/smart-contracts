@@ -64,7 +64,7 @@ describe("UpDown", () => {
       mockFeedId
     );
     let bet = await Game.game();
-    expect(bet.betAmount).to.equal(parse18("100"));
+    expect(bet.depositAmount).to.equal(parse18("100"));
   });
 
   it("should bet down", async function () {
@@ -72,7 +72,7 @@ describe("UpDown", () => {
       Treasury.getAddress(),
       ethers.MaxUint256
     );
-    await Game.connect(opponent).bet(false);
+    await Game.connect(opponent).play(false);
     expect(await USDT.balanceOf(Treasury.getAddress())).to.equal(
       parse18("100")
     );
@@ -80,7 +80,7 @@ describe("UpDown", () => {
 
   it("should bet up", async function () {
     await USDT.connect(alice).approve(Treasury.getAddress(), ethers.MaxUint256);
-    await Game.connect(alice).bet(true);
+    await Game.connect(alice).play(true);
     expect(await USDT.balanceOf(Treasury.getAddress())).to.equal(
       parse18("200")
     );

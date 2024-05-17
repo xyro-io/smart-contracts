@@ -20,7 +20,7 @@ contract Treasury is AccessControlEnumerable {
     mapping(address => uint256) public earnedRakeback;
 
     /**
-     * @param newApprovedToken stable token used for betting in games
+     * @param newApprovedToken stable token used in games
      * @param xyroTokenAdr Xyro's token
      */
     constructor(address newApprovedToken, address xyroTokenAdr) {
@@ -30,7 +30,7 @@ contract Treasury is AccessControlEnumerable {
     }
 
     /**
-     * Set new token for betting in games
+     * Set new token for in game usage
      * @param token new token address
      */
     function setToken(address token) public {
@@ -133,13 +133,13 @@ contract Treasury is AccessControlEnumerable {
      * Distribute reward
      * @param amount token amount
      * @param to token reciever
-     * @param initialBet initial bet amount
+     * @param initialDeposit initial deposit amount
      * @param gameFee game mode fees in bp
      */
     function distribute(
         uint256 amount,
         address to,
-        uint256 initialBet,
+        uint256 initialDeposit,
         uint256 gameFee
     ) public {
         require(hasRole(DISTRIBUTOR_ROLE, msg.sender), "Invalid role");
@@ -150,8 +150,8 @@ contract Treasury is AccessControlEnumerable {
                 FEE_DENOMINATOR);
         collectedFee += withdrawnFees;
         SafeERC20.safeTransfer(IERC20(approvedToken), to, wonAmount);
-        if (getRakebackAmount(to, initialBet) != 0) {
-            earnedRakeback[to] += getRakebackAmount(to, initialBet);
+        if (getRakebackAmount(to, initialDeposit) != 0) {
+            earnedRakeback[to] += getRakebackAmount(to, initialDeposit);
         }
     }
 
@@ -159,41 +159,41 @@ contract Treasury is AccessControlEnumerable {
      * Distribute reward without fees
      * @param rate reward rate in bp
      * @param to token reciever
-     * @param initialBet initial bet amount
+     * @param initialDeposit initial deposit amount
      */
     function distributeWithoutFee(
         uint256 rate,
         address to,
-        uint256 initialBet
+        uint256 initialDeposit
     ) public {
         require(hasRole(DISTRIBUTOR_ROLE, msg.sender), "Invalid role");
-        uint256 withdrawnFees = (initialBet * fee) / FEE_DENOMINATOR;
-        uint256 wonAmount = (initialBet - withdrawnFees) +
-            ((initialBet - withdrawnFees) * rate) /
+        uint256 withdrawnFees = (initialDeposit * fee) / FEE_DENOMINATOR;
+        uint256 wonAmount = (initialDeposit - withdrawnFees) +
+            ((initialDeposit - withdrawnFees) * rate) /
             FEE_DENOMINATOR;
         IERC20(approvedToken).approve(to, wonAmount);
         SafeERC20.safeTransfer(IERC20(approvedToken), to, wonAmount);
-        if (getRakebackAmount(to, initialBet) != 0) {
-            earnedRakeback[to] += getRakebackAmount(to, initialBet);
+        if (getRakebackAmount(to, initialDeposit) != 0) {
+            earnedRakeback[to] += getRakebackAmount(to, initialDeposit);
         }
     }
 
     /**
      * Calculates setup reward rate and distributes fee for setup creator
-     * @param lostTeamBets total amount of lost team bets
-     * @param wonTeamBets total amount of won team bets
+     * @param lostTeamTotal summ of lost team deposits
+     * @param wonTeamTotal summ of won team deposits
      * @param initiator game initiator address
      */
     function calculateSetupRate(
-        uint256 lostTeamBets,
-        uint256 wonTeamBets,
+        uint256 lostTeamTotal,
+        uint256 wonTeamTotal,
         address initiator
     ) external returns (uint256 rate) {
-        uint256 withdrawnFee = (lostTeamBets * fee) / FEE_DENOMINATOR;
+        uint256 withdrawnFee = (lostTeamTotal * fee) / FEE_DENOMINATOR;
         collectedFee += withdrawnFee;
-        uint256 lostTeamFee = (lostTeamBets * setupInitiatorFee) /
+        uint256 lostTeamFee = (lostTeamTotal * setupInitiatorFee) /
             FEE_DENOMINATOR;
-        uint256 wonTeamFee = (wonTeamBets * setupInitiatorFee) /
+        uint256 wonTeamFee = (wonTeamTotal * setupInitiatorFee) /
             FEE_DENOMINATOR;
         SafeERC20.safeTransfer(
             IERC20(approvedToken),
@@ -202,8 +202,8 @@ contract Treasury is AccessControlEnumerable {
         );
         //collect dust
         rate =
-            ((lostTeamBets - withdrawnFee - lostTeamFee) * FEE_DENOMINATOR) /
-            (wonTeamBets - wonTeamFee);
+            ((lostTeamTotal - withdrawnFee - lostTeamFee) * FEE_DENOMINATOR) /
+            (wonTeamTotal - wonTeamFee);
     }
 
     /**
@@ -222,17 +222,17 @@ contract Treasury is AccessControlEnumerable {
     /**
      * Counts earned rakeback amount
      * @param target player address
-     * @param initialBet initial bet amount
+     * @param initialDeposit initial deposit amount
      */
     function getRakebackAmount(
         address target,
-        uint256 initialBet
+        uint256 initialDeposit
     ) internal view returns (uint256) {
         uint256 targetBalance = IERC20(xyroToken).balanceOf(target);
         uint256 tier = targetBalance / (2500 * 10 ** 18) >= 4
             ? 4
             : targetBalance / (2500 * 10 ** 18);
-        return (initialBet * 500 * tier) / FEE_DENOMINATOR;
+        return (initialDeposit * 500 * tier) / FEE_DENOMINATOR;
     }
 
     /**

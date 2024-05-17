@@ -13,6 +13,8 @@ import { BullseyeGame__factory } from "../typechain-types/factories/contracts/Bu
 import { MockUpkeep } from "../typechain-types/contracts/MockUpkeep";
 import { MockUpkeep__factory } from "../typechain-types/factories/contracts/MockUpkeep__factory";
 import { abiEncodeInt192 } from "../scripts/helper";
+import { FrontHelper } from "../typechain-types/contracts/FrontHelper";
+import { FrontHelper__factory } from "../typechain-types/factories/contracts/FrontHelper__factory";
 const parse18 = ethers.parseEther;
 
 describe("BullseyeGame", () => {
@@ -24,9 +26,12 @@ describe("BullseyeGame", () => {
   let Treasury: Treasury;
   let Game: BullseyeGame;
   let Upkeep: MockUpkeep;
+  let FrontHelper:FrontHelper;
+  const feedId = "0x00037da06d56d083fe599397a4769a042d63aa73dc4ef57709d31e9971a5b439";
   const assetPrice = parse18("2310");
   before(async () => {
     [owner, opponent, alice] = await ethers.getSigners();
+    FrontHelper = await new FrontHelper__factory(owner).deploy();
     USDT = await new MockToken__factory(owner).deploy(
       parse18((1e13).toString())
     );
@@ -53,10 +58,12 @@ describe("BullseyeGame", () => {
     await Game.startGame(
       await time.latest(),
       (await time.latest()) + 2700,
-      parse18("100")
+      parse18("100"),
+      feedId
     );
     let bet = await Game.game();
-    expect(bet.betAmount).to.equal(parse18("100"));
+    console.log(bet)
+    expect(bet.depositAmount).to.equal(parse18("100"));
   });
 
   it("should bet", async function () {
@@ -64,7 +71,7 @@ describe("BullseyeGame", () => {
       Treasury.getAddress(),
       ethers.MaxUint256
     );
-    await Game.connect(opponent).bet((assetPrice / BigInt(100)) * BigInt(105));
+    await Game.connect(opponent).play((assetPrice / BigInt(100)) * BigInt(105));
     expect(await USDT.balanceOf(Treasury.getAddress())).to.equal(
       parse18("100")
     );
@@ -72,17 +79,19 @@ describe("BullseyeGame", () => {
 
   it("should bet", async function () {
     await USDT.connect(alice).approve(Treasury.getAddress(), ethers.MaxUint256);
-    await Game.connect(alice).bet((assetPrice / BigInt(100)) * BigInt(95));
+    await Game.connect(alice).play((assetPrice / BigInt(100)) * BigInt(95));
     expect(await USDT.balanceOf(Treasury.getAddress())).to.equal(
       parse18("200")
     );
   });
 
   it("should end bullseye game", async function () {
+    const data = await FrontHelper.getBullseyeData(await Game.getAddress())
+    console.log("data: ", data);
     let oldBalance = await USDT.balanceOf(alice.getAddress());
     await time.increase(2700);
     const finalPrice = abiEncodeInt192(
-      ((assetPrice / BigInt(100)) * BigInt(95)).toString()
+      ((assetPrice / BigInt(100)) * BigInt(95)).toString(),feedId
     );
     await Game.finalizeGame(finalPrice);
     let newBalance = await USDT.balanceOf(alice.getAddress());

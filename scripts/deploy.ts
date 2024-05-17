@@ -27,6 +27,8 @@ let contracts: {
   MockUpkeep,
   DAO,
   UpDown,
+  RealUpkeep,
+  FrontHelper,
   factory: any;
 let deployer: HardhatEthersSigner;
 if (fs.existsSync("./contracts.json")) {
@@ -44,6 +46,18 @@ async function deployUSDC() {
     console.log("MockUSDC deployed");
   } else {
     console.log("MockUSDC already deployed skipping...");
+  }
+}
+
+async function deployFrontHelper() {
+  factory = await ethers.getContractFactory("FrontHelper");
+  if (contracts.FrontHelper?.address == undefined || contracts.FrontHelper?.address == "") {
+    FrontHelper = await wrapFnc([], factory);
+    contracts.FrontHelper = { address: "", url: "" };
+    contracts.FrontHelper.address = FrontHelper.target;
+    console.log("FrontHelper deployed");
+  } else {
+    console.log("FrontHelper already deployed skipping...");
   }
 }
 
@@ -146,8 +160,8 @@ async function deployBullseye() {
   }
 }
 
-async function deployExactPriceStandalone() {
-  factory = await ethers.getContractFactory("ExactPriceStandalone");
+async function deployOneVsOneExactPrice() {
+  factory = await ethers.getContractFactory("OneVsOneExactPrice");
   if (
     contracts.ExactPriceOneVsOne?.address == undefined ||
     contracts.ExactPriceOneVsOne?.address == ""
@@ -161,8 +175,8 @@ async function deployExactPriceStandalone() {
   }
 }
 
-async function deployUpDownStandalone() {
-  factory = await ethers.getContractFactory("UpDownStandalone");
+async function deployOneVsOneUpDown() {
+  factory = await ethers.getContractFactory("OneVsOneUpDown");
   if (
     contracts.UpDownOneVsOne?.address == undefined ||
     contracts.UpDownOneVsOne?.address == ""
@@ -221,7 +235,7 @@ async function deployTimeLock(deployer: HardhatEthersSigner) {
   }
 }
 
-async function deployUpkeep() {
+async function deployMockUpkeep() {
   factory = await ethers.getContractFactory("MockUpkeep");
   if (
     contracts.MockUpkeep?.address == undefined ||
@@ -233,6 +247,21 @@ async function deployUpkeep() {
     console.log("MockUpkeep deployed");
   } else {
     console.log("MockUpkeep already deployed skipping...");
+  }
+}
+
+async function deployUpkeep() {
+  factory = await ethers.getContractFactory("ClientReportsVerifier");
+  if (
+    contracts.RealUpkeep?.address == undefined ||
+    contracts.RealUpkeep?.address == ""
+  ) {
+    RealUpkeep = await wrapFnc([], factory);
+    contracts.RealUpkeep = { address: "", url: "" };
+    contracts.RealUpkeep.address = RealUpkeep.target;
+    console.log("RealUpkeep deployed");
+  } else {
+    console.log("RealUpkeep already deployed skipping...");
   }
 }
 
@@ -255,19 +284,21 @@ async function main() {
   [deployer] = await ethers.getSigners();
   console.log("Deployer = ", deployer.address);
   try {
-    await deployGovernanceToken();
-    await deployTimeLock(deployer);
-    await deployDAO();
+    // await deployGovernanceToken();
+    // await deployTimeLock(deployer);
+    // await deployDAO();
     await deployUSDC();
     await deployXyroToken();
     await deployTreasury();
-    await deployStaking();
-    await deployExactPriceStandalone();
-    await deployUpDownStandalone();
+    // await deployStaking();
+    await deployOneVsOneExactPrice();
+    await deployOneVsOneUpDown();
     await deployGameFactory();
     await deployBullseye();
-    await deployUpkeep();
+    await deployMockUpkeep();
+    await deployFrontHelper();
     await deployUpDown();
+    await deployUpkeep();
   } catch (e) {
     const json = JSON.stringify(contracts);
     fs.writeFileSync("./contracts.json", json);

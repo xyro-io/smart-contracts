@@ -28,7 +28,7 @@ async function setupBullseye() {
 
 async function setupUpDownOneVsOne() {
   const contract = await ethers.getContractAt(
-    "UpDownStandalone",
+    "OneVsOneUpDown",
     contracts.UpDownOneVsOne.address
   );
   await wrapFnc([contracts.Treasury.address], contract.setTreasury);
@@ -44,7 +44,7 @@ async function setupUpDown() {
 
 async function setupExactPriceOneVsOne() {
   const contract = await ethers.getContractAt(
-    "ExactPriceStandalone",
+    "OneVsOneExactPrice",
     contracts.ExactPriceOneVsOne.address
   );
   await wrapFnc([contracts.Treasury.address], contract.setTreasury);

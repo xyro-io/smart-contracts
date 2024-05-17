@@ -8,24 +8,24 @@ contract UpDownGame is Ownable {
     event UpDownStart(
         uint48 startTime,
         uint48 endTime,
-        uint256 betAmount,
+        uint256 depositAmount,
         int192 startingPrice,
         uint256 indexed gameId
     );
-    event UpDownBet(address player, bool willGoUp, uint256 betAmount, uint256 indexed gameId);
+    event UpDownNewPlayer(address player, bool willGoUp, uint256 depositAmount, uint256 indexed gameId);
     event UpDownFinalized(int192 finalPrice, uint256 wonAmount, uint256 indexed gameId);
 
-    struct BetInfo {
+    struct GameInfo {
         uint48 startTime;
         uint48 endTime;
         int192 startingPrice;
-        uint256 betAmount;
+        uint256 depositAmount;
         bytes32 feedId;
     }
 
     address[] public UpPlayers;
     address[] public DownPlayers;
-    BetInfo public game;
+    GameInfo public game;
     address public treasury;
     uint256 public fee = 100;
     uint256 public gameId;
@@ -36,13 +36,13 @@ contract UpDownGame is Ownable {
      * Creates up/down game
      * @param startTime when the game will start
      * @param endTime when the game will end
-     * @param betAmount amount to enter the game
+     * @param depositAmount amount to enter the game
      * @param unverifiedReport Chainlink DataStreams report
      */
     function startGame(
         uint48 startTime,
         uint48 endTime,
-        uint256 betAmount,
+        uint256 depositAmount,
         bytes memory unverifiedReport,
         bytes32 feedId
     ) public onlyOwner {
@@ -54,35 +54,35 @@ contract UpDownGame is Ownable {
         game.feedId = feedId;
         game.startTime = startTime;
         game.endTime = endTime;
-        game.betAmount = betAmount;
-        emit UpDownStart(startTime, endTime, betAmount, game.startingPrice, gameId);
+        game.depositAmount = depositAmount;
+        emit UpDownStart(startTime, endTime, depositAmount, game.startingPrice, gameId);
     }
 
     /**
      * Take a participation in up/down game
      * @param willGoUp up = true, down = false
      */
-    function bet(bool willGoUp) public {
+    function play(bool willGoUp) public {
         require(
             game.startTime + (game.endTime - game.startTime) / 3 >=
                 block.timestamp,
-            "Game is closed for bets"
+            "Game is closed for new players"
         );
-        require(!betExists(msg.sender), "Bet exists");
+        require(!isParticipating(msg.sender), "You are already in the game");
         if (willGoUp) {
             UpPlayers.push(msg.sender);
         } else {
             DownPlayers.push(msg.sender);
         }
-        ITreasury(treasury).deposit(game.betAmount, msg.sender);
-        emit UpDownBet(msg.sender, willGoUp, game.betAmount, gameId);
+        ITreasury(treasury).deposit(game.depositAmount, msg.sender);
+        emit UpDownNewPlayer(msg.sender, willGoUp, game.depositAmount, gameId);
     }
 
     /**
      * Take a participation in up/down game
      * @param willGoUp up = true, down = false
      */
-    function betWithPermit(
+    function playWithPermit(
         bool willGoUp,
         uint256 deadline,
         uint8 v,
@@ -92,16 +92,16 @@ contract UpDownGame is Ownable {
         require(
             game.startTime + (game.endTime - game.startTime) / 3 >=
                 block.timestamp,
-            "Game is closed for bets"
+            "Game is closed for new players"
         );
-        require(!betExists(msg.sender), "Bet exists");
+        require(!isParticipating(msg.sender), "You are already in the game");
         if (willGoUp) {
             UpPlayers.push(msg.sender);
         } else {
             DownPlayers.push(msg.sender);
         }
-        ITreasury(treasury).depositWithPermit(game.betAmount, msg.sender, deadline, v, r, s);
-        emit UpDownBet(msg.sender, willGoUp, game.betAmount, gameId);
+        ITreasury(treasury).depositWithPermit(game.depositAmount, msg.sender, deadline, v, r, s);
+        emit UpDownNewPlayer(msg.sender, willGoUp, game.depositAmount, gameId);
     }
 
     /**
@@ -114,34 +114,34 @@ contract UpDownGame is Ownable {
             unverifiedReport,
             game.feedId
         );
-        BetInfo memory _game = game;
+        GameInfo memory _game = game;
         require(
             UpPlayers.length > 0 && DownPlayers.length > 0,
             "Can't end"
         );
         require(block.timestamp >= game.endTime, "Too early to finish");
         if (finalPrice > _game.startingPrice) {
-            uint256 wonAmount = _game.betAmount +
-                ((_game.betAmount * DownPlayers.length) /
+            uint256 wonAmount = _game.depositAmount +
+                ((_game.depositAmount * DownPlayers.length) /
                     UpPlayers.length);
             for (uint i = 0; i < UpPlayers.length; i++) {
                 ITreasury(treasury).distribute(
                     wonAmount,
                     UpPlayers[i],
-                    _game.betAmount,
+                    _game.depositAmount,
                     fee
                 );
             }
             emit UpDownFinalized(finalPrice, wonAmount, gameId);
         } else {
-            uint256 wonAmount = _game.betAmount +
-                ((_game.betAmount * UpPlayers.length) /
+            uint256 wonAmount = _game.depositAmount +
+                ((_game.depositAmount * UpPlayers.length) /
                     DownPlayers.length);
             for (uint i = 0; i < DownPlayers.length; i++) {
                 ITreasury(treasury).distribute(
                     wonAmount,
                     DownPlayers[i],
-                    _game.betAmount,
+                    _game.depositAmount,
                     fee
                 );
             }
@@ -162,7 +162,7 @@ contract UpDownGame is Ownable {
      * Check if player is participating in the game
      * @param player player address
      */
-    function betExists(address player) internal view returns (bool) {
+    function isParticipating(address player) internal view returns (bool) {
         for (uint i = 0; i < UpPlayers.length; i++) {
             if (UpPlayers[i] == player) {
                 return true;
@@ -180,8 +180,8 @@ contract UpDownGame is Ownable {
      * onlyDAO
      * Do we need this?
      */
-    function changeBetAmount(uint256 newBetAmount) public {
-        game.betAmount = newBetAmount;
+    function changeDepositAmount(uint256 newDepositAmount) public {
+        game.depositAmount = newDepositAmount;
     }
 
     /**

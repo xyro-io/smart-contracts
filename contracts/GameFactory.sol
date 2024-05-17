@@ -17,13 +17,13 @@ contract GameFactory is Ownable {
         uint48 endTime,
         int192 takeProfitPrice,
         int192 stopLossPrice,
-        uint256 betAmount,
+        uint256 depositAmount,
         bool isStopLoss,
         address creator
     );
 
     address public treasury;
-    uint256 betId;
+    uint256 gameId;
     uint256 public minDuration = 30 minutes;
     uint256 public maxDuration = 24 weeks;
     mapping(uint256 => address) public games;
@@ -41,7 +41,7 @@ contract GameFactory is Ownable {
      * @param endTime when the game will end
      * @param takeProfitPrice take profit price
      * @param stopLossPrice stop loss price
-     * @param betAmount amount to enter the game
+     * @param depositAmount amount to enter the game
      * @param isStopLoss if stop loss = true, take profit = false
      * @param unverifiedReport Chainlink DataStreams report
      */
@@ -50,21 +50,21 @@ contract GameFactory is Ownable {
         uint48 endTime,
         int192 takeProfitPrice,
         int192 stopLossPrice,
-        uint256 betAmount,
+        uint256 depositAmount,
         bool isStopLoss,
         bytes32 feedId,
         bytes memory unverifiedReport
     ) public returns (address newGame) {
         require(
             endTime - startTime >= minDuration,
-            "Min bet duration must be higher"
+            "Min game duration must be higher"
         );
         require(
             endTime - startTime <= maxDuration,
-            "Max bet duration must be lower"
+            "Max game duration must be lower"
         );
-        if (betAmount != 0) {
-            ITreasury(treasury).deposit(betAmount, msg.sender);
+        if (depositAmount != 0) {
+            ITreasury(treasury).deposit(depositAmount, msg.sender);
         }
         newGame = Create2.deploy(
             0,
@@ -78,7 +78,7 @@ contract GameFactory is Ownable {
                     takeProfitPrice,
                     stopLossPrice,
                     msg.sender,
-                    betAmount,
+                    depositAmount,
                     unverifiedReport,
                     feedId,
                     treasury
@@ -90,12 +90,12 @@ contract GameFactory is Ownable {
             endTime,
             takeProfitPrice,
             stopLossPrice,
-            betAmount,
+            depositAmount,
             isStopLoss,
             msg.sender
         );
         IGame(newGame).transferOwnership(owner());
-        games[betId++] = newGame;
+        games[gameId++] = newGame;
     }
 
     /**
@@ -107,9 +107,9 @@ contract GameFactory is Ownable {
         returns (SetupGame.Status[] memory status)
     {
         SetupGame setup;
-        status = new SetupGame.Status[](betId);
+        status = new SetupGame.Status[](gameId);
 
-        for (uint256 i; i < betId; i++) {
+        for (uint256 i; i < gameId; i++) {
             setup = SetupGame(games[i]);
             (, , , , , , , , , , , SetupGame.Status current) = setup.game();
             status[i] = current;
@@ -122,7 +122,7 @@ contract GameFactory is Ownable {
      * @param newMaxDuration new max game duration
      * @param newMinDuration new min game duration
      */
-    function changeBetDuration(
+    function changeGameDuration(
         uint256 newMaxDuration,
         uint256 newMinDuration
     ) public {

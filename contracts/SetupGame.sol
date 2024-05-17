@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/IERC20.sol";
 
 contract SetupGame is Ownable {
-    event SetupBet(bool isStopLoss, uint256 amount, address player);
+    event SetupNewPlayer(bool isStopLoss, uint256 depositAmount, address player);
     event SetupCancelled(
         address gameAdress,
         address initiator,
@@ -14,8 +14,8 @@ contract SetupGame is Ownable {
     );
     event SetupEnd(
         bool takeProfitWon,
-        uint256 totalBetsTP,
-        uint256 totalBetsSL,
+        uint256 totalDepositsTP,
+        uint256 totalDepositsSL,
         bool isStopLoss,
         int192 takeProfitPrice,
         int192 stopLossPrice,
@@ -39,14 +39,14 @@ contract SetupGame is Ownable {
         Finished
     }
 
-    struct BetInfo {
+    struct GameInfo {
         bytes32 feedId;
         address initiator;
         uint48 startTime;
         uint48 endTime;
         bool isStopLoss;
-        uint256 totalBetsSL;
-        uint256 totalBetsTP;
+        uint256 totalDepositsSL;
+        uint256 totalDepositsTP;
         int192 takeProfitPrice;
         int192 stopLossPrice;
         int192 startingAssetPrice;
@@ -56,9 +56,9 @@ contract SetupGame is Ownable {
 
     address[] public teamSL;
     address[] public teamTP;
-    mapping(address => uint256) public betAmounts;
+    mapping(address => uint256) public depositAmounts;
 
-    BetInfo public game;
+    GameInfo public game;
     address public treasury;
 
     /**
@@ -68,7 +68,7 @@ contract SetupGame is Ownable {
      * @param takeProfitPrice take profit price
      * @param stopLossPrice stop loss price
      * @param initiator game creator
-     * @param initiator's bet amount
+     * @param initiator's deposit depositAmount
      * @param unverifiedReport Chainlink DataStreams report
      * @param newTreasury new treasury address
      */
@@ -79,7 +79,7 @@ contract SetupGame is Ownable {
         int192 takeProfitPrice,
         int192 stopLossPrice,
         address initiator,
-        uint256 amount,
+        uint256 depositAmount,
         bytes memory unverifiedReport,
         bytes32 feedId,
         address newTreasury
@@ -98,14 +98,14 @@ contract SetupGame is Ownable {
             unverifiedReport,
             feedId
         );
-        if (amount != 0) {
-            betAmounts[msg.sender] = amount;
+        if (depositAmount != 0) {
+            depositAmounts[msg.sender] = depositAmount;
             if (isStopLoss) {
                 teamSL.push(msg.sender);
-                game.totalBetsSL = amount;
+                game.totalDepositsSL = depositAmount;
             } else {
                 teamTP.push(msg.sender);
-                game.totalBetsTP = amount;
+                game.totalDepositsTP = depositAmount;
             }
         }
     }
@@ -113,36 +113,36 @@ contract SetupGame is Ownable {
     /**
      * Take participation in setup game
      * @param isStopLoss if stop loss = true, take profit = false
-     * @param amount sender's bet amount
+     * @param depositAmount sender's deposit amount
      */
-    function bet(bool isStopLoss, uint256 amount) public {
+    function play(bool isStopLoss, uint256 depositAmount) public {
         require(game.gameStatus == Status.Created, "Wrong status!");
         require(
             game.startTime + (game.endTime - game.startTime) / 3 >
                 block.timestamp,
-            "Game is closed for bets"
+            "Game is closed for new players"
         );
-        require(betAmounts[msg.sender] == 0, "Bet already exists");
-        ITreasury(treasury).deposit(amount, msg.sender);
-        betAmounts[msg.sender] = amount;
+        require(depositAmounts[msg.sender] == 0, "You are already in the game");
+        ITreasury(treasury).deposit(depositAmount, msg.sender);
+        depositAmounts[msg.sender] = depositAmount;
         if (isStopLoss) {
             teamSL.push(msg.sender);
-            game.totalBetsSL += amount;
+            game.totalDepositsSL += depositAmount;
         } else {
             teamTP.push(msg.sender);
-            game.totalBetsTP += amount;
+            game.totalDepositsTP += depositAmount;
         }
-        emit SetupBet(isStopLoss, amount, msg.sender);
+        emit SetupNewPlayer(isStopLoss, depositAmount, msg.sender);
     }
 
     /**
      * Take participation in setup game
      * @param isStopLoss if stop loss = true, take profit = false
-     * @param amount sender's bet amount
+     * @param depositAmount sender's deposit amount
      */
-    function betWithPermit(
+    function playWithPermit(
         bool isStopLoss,
-        uint256 amount,
+        uint256 depositAmount,
         uint256 deadline,
         uint8 v,
         bytes32 r,
@@ -152,19 +152,19 @@ contract SetupGame is Ownable {
         require(
             game.startTime + (game.endTime - game.startTime) / 3 >
                 block.timestamp,
-            "Game is closed for bets"
+            "Game is closed for new players"
         );
-        require(betAmounts[msg.sender] == 0, "Bet already exists");
-        ITreasury(treasury).depositWithPermit(amount, msg.sender, deadline, v, r, s);
-        betAmounts[msg.sender] = amount;
+        require(depositAmounts[msg.sender] == 0, "You are already in the game");
+        ITreasury(treasury).depositWithPermit(depositAmount, msg.sender, deadline, v, r, s);
+        depositAmounts[msg.sender] = depositAmount;
         if (isStopLoss) {
             teamSL.push(msg.sender);
-            game.totalBetsSL += amount;
+            game.totalDepositsSL += depositAmount;
         } else {
             teamTP.push(msg.sender);
-            game.totalBetsTP += amount;
+            game.totalDepositsTP += depositAmount;
         }
-        emit SetupBet(isStopLoss, amount, msg.sender);
+        emit SetupNewPlayer(isStopLoss, depositAmount, msg.sender);
     }
 
     /**
@@ -179,10 +179,10 @@ contract SetupGame is Ownable {
             "Wrong status!"
         );
         for (uint i; i < teamSL.length; i++) {
-            ITreasury(treasury).refund(betAmounts[teamSL[i]], teamSL[i]);
+            ITreasury(treasury).refund(depositAmounts[teamSL[i]], teamSL[i]);
         }
         for (uint i; i < teamTP.length; i++) {
-            ITreasury(treasury).refund(betAmounts[teamTP[i]], teamTP[i]);
+            ITreasury(treasury).refund(depositAmounts[teamTP[i]], teamTP[i]);
         }
 
         game.gameStatus = Status.Cancelled;
@@ -211,8 +211,8 @@ contract SetupGame is Ownable {
             if (finalPrice <= game.stopLossPrice) {
                 // sl team wins
                 uint256 finalRate = ITreasury(treasury).calculateSetupRate(
-                    game.totalBetsTP,
-                    game.totalBetsSL,
+                    game.totalDepositsTP,
+                    game.totalDepositsSL,
                     game.initiator
                 );
 
@@ -220,20 +220,20 @@ contract SetupGame is Ownable {
                     ITreasury(treasury).distributeWithoutFee(
                         finalRate,
                         teamSL[i],
-                        betAmounts[teamSL[i]]
+                        depositAmounts[teamSL[i]]
                     );
                 }
             } else {
                 uint256 finalRate = ITreasury(treasury).calculateSetupRate(
-                    game.totalBetsSL,
-                    game.totalBetsTP,
+                    game.totalDepositsSL,
+                    game.totalDepositsTP,
                     game.initiator
                 );
                 for (uint i; i < teamTP.length; i++) {
                     ITreasury(treasury).distributeWithoutFee(
                         finalRate,
                         teamTP[i],
-                        betAmounts[teamTP[i]]
+                        depositAmounts[teamTP[i]]
                     );
                 }
                 takeProfitWon = true;
@@ -242,30 +242,30 @@ contract SetupGame is Ownable {
             if (finalPrice >= game.takeProfitPrice) {
                 // tp team wins
                 uint256 finalRate = ITreasury(treasury).calculateSetupRate(
-                    game.totalBetsSL,
-                    game.totalBetsTP,
+                    game.totalDepositsSL,
+                    game.totalDepositsTP,
                     game.initiator
                 );
                 for (uint i; i < teamTP.length; i++) {
                     ITreasury(treasury).distributeWithoutFee(
                         finalRate,
                         teamTP[i],
-                        betAmounts[teamTP[i]]
+                        depositAmounts[teamTP[i]]
                     );
                 }
                 takeProfitWon = true;
             } else {
                 // sl team wins
                 uint256 finalRate = ITreasury(treasury).calculateSetupRate(
-                    game.totalBetsTP,
-                    game.totalBetsSL,
+                    game.totalDepositsTP,
+                    game.totalDepositsSL,
                     game.initiator
                 );
                 for (uint i; i < teamSL.length; i++) {
                     ITreasury(treasury).distributeWithoutFee(
                         finalRate,
                         teamSL[i],
-                        betAmounts[teamSL[i]]
+                        depositAmounts[teamSL[i]]
                     );
                 }
             }
@@ -274,8 +274,8 @@ contract SetupGame is Ownable {
         game.gameStatus = Status.Finished;
         emit SetupEnd(
             takeProfitWon,
-            game.totalBetsTP,
-            game.totalBetsSL,
+            game.totalDepositsTP,
+            game.totalDepositsSL,
             game.isStopLoss,
             game.takeProfitPrice,
             game.stopLossPrice,

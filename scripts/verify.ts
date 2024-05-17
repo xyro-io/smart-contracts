@@ -131,7 +131,7 @@ async function verifyGameFactory() {
   }
 }
 
-async function verifyExactPriceStandalone() {
+async function verifyOneVsOneExactPrice() {
   if (contracts.ExactPriceOneVsOne.address !== undefined) {
     let targetAddress = contracts.ExactPriceOneVsOne.address;
     try {
@@ -147,7 +147,7 @@ async function verifyExactPriceStandalone() {
   }
 }
 
-async function verifyUpDownStandalone() {
+async function verifyOneVsOneUpDown() {
   if (contracts.UpDownOneVsOne.address !== undefined) {
     let targetAddress = contracts.UpDownOneVsOne.address;
     try {
@@ -179,15 +179,66 @@ async function verifyUpDown() {
   }
 }
 
+async function verifyFrontHelper() {
+  if (contracts.FrontHelper.address !== undefined) {
+    let targetAddress = contracts.FrontHelper.address;
+    try {
+      await hre.run("verify:verify", {
+        address: targetAddress,
+        constructorArguments: [],
+      });
+      contracts.FrontHelper.url = getVerifiedUrl(targetAddress);
+    } catch (e) {
+      if (isAlreadyVerified(e, targetAddress))
+        contracts.FrontHelper.url = getVerifiedUrl(targetAddress);
+    }
+  }
+}
+
+async function verifyUpkeep() {
+  if (contracts.MockUpkeep.address !== undefined) {
+    let targetAddress = contracts.MockUpkeep.address;
+    try {
+      await hre.run("verify:verify", {
+        address: targetAddress,
+        constructorArguments: [],
+      });
+      contracts.MockUpkeep.url = getVerifiedUrl(targetAddress);
+    } catch (e) {
+      if (isAlreadyVerified(e, targetAddress))
+        contracts.MockUpkeep.url = getVerifiedUrl(targetAddress);
+    }
+  }
+}
+
+async function verifyRealUpkeep() {
+  if (contracts.RealUpkeep.address !== undefined) {
+    let targetAddress = contracts.RealUpkeep.address;
+    try {
+      await hre.run("verify:verify", {
+        address: targetAddress,
+        constructorArguments: [],
+      });
+      contracts.RealUpkeep.url = getVerifiedUrl(targetAddress);
+    } catch (e) {
+      if (isAlreadyVerified(e, targetAddress))
+        contracts.RealUpkeep.url = getVerifiedUrl(targetAddress);
+    }
+  }
+}
+
 async function verify() {
   await verifyXyroToken();
   await verifyMockUSDC();
   await verifyTreasury();
-  await verifyExactPriceStandalone();
-  await verifyUpDownStandalone();
+  await verifyOneVsOneExactPrice();
+  await verifyOneVsOneUpDown();
   await verifyGameFactory();
   await verifyBullseye();
   await verifyUpDown();
+  await verifyFrontHelper();
+  await verifyUpkeep();
+  await verifyRealUpkeep();
   // await verifySetups();
   const json = JSON.stringify(contracts);
   fs.writeFileSync("./contracts.json", json);

@@ -20,7 +20,7 @@ interface ITreasury {
     function distribute(
         uint256 amount,
         address to,
-        uint256 initialBet,
+        uint256 initialDeposit,
         uint256 gameFee
     ) external;
 
@@ -29,12 +29,12 @@ interface ITreasury {
     function distributeWithoutFee(
         uint256 rate,
         address to,
-        uint256 initialBet
+        uint256 initialDeposit
     ) external;
 
     function calculateSetupRate(
-        uint256 lostTeamBets,
-        uint256 wonTeamBets,
+        uint256 lostTeamTotal,
+        uint256 wonTeamTotal,
         address initiator
     ) external returns (uint256 rate);
 }

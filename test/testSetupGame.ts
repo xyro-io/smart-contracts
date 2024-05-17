@@ -27,6 +27,7 @@ describe("Setup Game", () => {
   let Game: SetupGame;
   let Factory: GameFactory;
   let Upkeep: MockUpkeep;
+  const feedId = "0x00037da06d56d083fe599397a4769a042d63aa73dc4ef57709d31e9971a5b439";
   const assetPrice = parse18("2310");
   before(async () => {
     [owner, bob, alice] = await ethers.getSigners();
@@ -58,7 +59,8 @@ describe("Setup Game", () => {
       (assetPrice / BigInt(100)) * BigInt(97),
       parse18("100"),
       true,
-      abiEncodeInt192(assetPrice.toString())
+      feedId,
+      abiEncodeInt192(assetPrice.toString(),feedId)
     );
     let gameAddress = await Factory.games(0);
     Game = SetupGame__factory.connect(gameAddress, owner);
@@ -66,7 +68,6 @@ describe("Setup Game", () => {
       await Treasury.DISTRIBUTOR_ROLE(),
       await Factory.games(0)
     );
-    await Game.setPrice(abiEncodeInt192(assetPrice.toString()));
     let bet = await Game.game();
     expect(bet.initiator).to.equal(owner.address);
     expect(bet.gameStatus).to.equal(0);
@@ -77,9 +78,9 @@ describe("Setup Game", () => {
       await Treasury.getAddress(),
       ethers.MaxUint256
     );
-    await Game.connect(bob).bet(true, parse18("100"));
+    await Game.connect(bob).play(true, parse18("100"));
     let bet = await Game.game();
-    expect(bet.totalBetsSL).to.equal(parse18("200"));
+    expect(bet.totalDepositsSL).to.equal(parse18("200"));
   });
 
   it("should create TP bet", async function () {
@@ -87,16 +88,16 @@ describe("Setup Game", () => {
       await Treasury.getAddress(),
       ethers.MaxUint256
     );
-    await Game.connect(alice).bet(false, parse18("300"));
+    await Game.connect(alice).play(false, parse18("300"));
     let bet = await Game.game();
-    expect(bet.totalBetsTP).to.equal(parse18("300"));
+    expect(bet.totalDepositsTP).to.equal(parse18("300"));
   });
 
   it("should end setup game", async function () {
     let oldBalance = await USDT.balanceOf(bob.address);
     await time.increase(2700);
     await Game.finalizeGame(
-      abiEncodeInt192(((assetPrice / BigInt(100)) * BigInt(95)).toString())
+      abiEncodeInt192(((assetPrice / BigInt(100)) * BigInt(95)).toString(),feedId)
     );
     let newBalance = await USDT.balanceOf(bob.address);
     expect(newBalance).to.be.above(oldBalance);
@@ -110,7 +111,8 @@ describe("Setup Game", () => {
       (assetPrice / BigInt(100)) * BigInt(90),
       parse18("100"),
       false,
-      abiEncodeInt192(assetPrice.toString())
+      feedId,
+      abiEncodeInt192(assetPrice.toString(),feedId)
     );
     Game = Game = SetupGame__factory.connect(await Factory.games(1), owner);
     await Treasury.grantRole(
@@ -127,9 +129,9 @@ describe("Setup Game", () => {
       await Treasury.getAddress(),
       parse18("10000000")
     );
-    await Game.connect(bob).bet(true, parse18("500"));
+    await Game.connect(bob).play(true, parse18("500"));
     let bet = await Game.game();
-    expect(bet.totalBetsSL).to.equal(parse18("500"));
+    expect(bet.totalDepositsSL).to.equal(parse18("500"));
   });
 
   it("should create TP bet", async function () {
@@ -137,16 +139,16 @@ describe("Setup Game", () => {
       await Treasury.getAddress(),
       parse18("10000000")
     );
-    await Game.connect(alice).bet(false, parse18("125"));
+    await Game.connect(alice).play(false, parse18("125"));
     let bet = await Game.game();
-    expect(bet.totalBetsTP).to.equal(parse18("225"));
+    expect(bet.totalDepositsTP).to.equal(parse18("225"));
   });
 
   it("should end setup game", async function () {
     let oldBalance = await USDT.balanceOf(alice.address);
     await time.increase(2700);
     await Game.finalizeGame(
-      abiEncodeInt192(((assetPrice / BigInt(100)) * BigInt(120)).toString())
+      abiEncodeInt192(((assetPrice / BigInt(100)) * BigInt(120)).toString(),feedId)
     );
     let newBalance = await USDT.balanceOf(alice.address);
     expect(newBalance).to.be.above(oldBalance);

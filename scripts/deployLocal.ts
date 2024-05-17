@@ -96,16 +96,16 @@ async function deployBullseye() {
   console.log("BullseyeGame deployed");
 }
 
-async function deployExactPriceStandalone() {
-  factory = await ethers.getContractFactory("ExactPriceStandalone");
+async function deployOneVsOneExactPrice() {
+  factory = await ethers.getContractFactory("OneVsOneExactPrice");
   ExactPriceOneVsOne = await wrapFnc([], factory);
   contracts.ExactPriceOneVsOne = { address: "", url: "" };
   contracts.ExactPriceOneVsOne.address = ExactPriceOneVsOne.target;
   console.log("ExactPriceOneVsOne deployed");
 }
 
-async function deployUpDownStandalone() {
-  factory = await ethers.getContractFactory("UpDownStandalone");
+async function deployOneVsOneUpDown() {
+  factory = await ethers.getContractFactory("OneVsOneUpDown");
   UpDownOneVsOne = await wrapFnc([], factory);
   contracts.UpDownOneVsOne = { address: "", url: "" };
   contracts.UpDownOneVsOne.address = UpDownOneVsOne.target;
@@ -166,8 +166,8 @@ async function main() {
     await deployXyroToken();
     await deployTreasury();
     await deployStaking();
-    await deployExactPriceStandalone();
-    await deployUpDownStandalone();
+    await deployOneVsOneExactPrice();
+    await deployOneVsOneUpDown();
     await deployGameFactory();
     await deployBullseye();
     await deployUpkeep();

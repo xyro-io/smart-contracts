@@ -90,8 +90,9 @@ const config: HardhatUserConfig = {
   gasReporter: {
     enabled: true,
     currency: "USD",
-    gasPrice: 25,
-    showTimeSpent: true,
+    // gasPrice: 25,
+    L2:"arbitrum",
+    L2Etherscan:"9AR42Q41ANB6QNX2493XMV46TTNV971H8B",
     token: "ETH",
     gasPriceApi: "https://api.bscscan.com/api?module=proxy&action=eth_gasPrice",
     coinmarketcap: "d64e6644-6472-4b53-8375-5ae706aec3eb",

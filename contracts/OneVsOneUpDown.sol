@@ -11,14 +11,14 @@ contract OneVsOneUpDown is Ownable {
         address opponent,
         uint48 startTime,
         uint48 endTime,
-        bool willGoUp,
+        bool isLong,
         uint256 depositAmount,
         address initiator
     );
     event UpDownAccepted(
         uint256 gameId,
         address opponent,
-        bool willGoUp,
+        bool isLong,
         uint256 depositAmount
     );
     event UpDownRefused(uint256 gameId);
@@ -33,7 +33,7 @@ contract OneVsOneUpDown is Ownable {
     event UpDownFinalized(
         uint256 gameId,
         address winner,
-        bool willGoUp,
+        bool isLong,
         address loser,
         uint256 depositAmount,
         int192 startingAssetPrice,
@@ -56,7 +56,7 @@ contract OneVsOneUpDown is Ownable {
         uint48 startTime;
         uint48 endTime;
         address opponent;
-        bool willGoUp; //Initiator choise
+        bool isLong; //Initiator choise
         uint256 depositAmount;
         int192 startingAssetPrice;
         int192 finalAssetPrice;
@@ -75,7 +75,7 @@ contract OneVsOneUpDown is Ownable {
     //@param opponent address of the opponent
     //@param startTime when the game will start
     //@param endTime when the game will end
-    //@param willGoUp up = true, down = false
+    //@param isLong up = true, down = false
     //@param depositAmount amount to enter the game
     //@param unverifiedReport Chainlink DataStreams report
     */
@@ -83,7 +83,7 @@ contract OneVsOneUpDown is Ownable {
         address opponent,
         uint48 startTime,
         uint48 endTime,
-        bool willGoUp,
+        bool isLong,
         uint256 depositAmount,
         bytes memory unverifiedReport,
         bytes32 feedId
@@ -110,15 +110,15 @@ contract OneVsOneUpDown is Ownable {
         ITreasury(treasury).deposit(depositAmount, msg.sender);
         newGame.depositAmount = depositAmount;
         newGame.opponent = opponent;
-        newGame.willGoUp = willGoUp;
+        newGame.isLong = isLong;
         newGame.gameStatus = Status.Created;
         games.push(newGame);
         emit UpDownCreated(
-            games.length,
+            games.length - 1,
             opponent,
             startTime,
             endTime,
-            willGoUp,
+            isLong,
             depositAmount,
             msg.sender
         );
@@ -128,7 +128,7 @@ contract OneVsOneUpDown is Ownable {
     //@param opponent address of the opponent
     //@param startTime when the game will start
     //@param endTime when the game will end
-    //@param willGoUp up = true, down = false
+    //@param isLong up = true, down = false
     //@param depositAmount amount to enter the game
     //@param unverifiedReport Chainlink DataStreams report
     */
@@ -136,7 +136,7 @@ contract OneVsOneUpDown is Ownable {
         address opponent,
         uint48 startTime,
         uint48 endTime,
-        bool willGoUp,
+        bool isLong,
         uint256 depositAmount,
         bytes memory unverifiedReport,
         bytes32 feedId,
@@ -167,7 +167,7 @@ contract OneVsOneUpDown is Ownable {
         ITreasury(treasury).depositWithPermit(depositAmount, msg.sender, deadline, v, r, s);
         newGame.depositAmount = depositAmount;
         newGame.opponent = opponent;
-        newGame.willGoUp = willGoUp;
+        newGame.isLong = isLong;
         newGame.gameStatus = Status.Created;
         games.push(newGame);
         emit UpDownCreated(
@@ -175,7 +175,7 @@ contract OneVsOneUpDown is Ownable {
             opponent,
             startTime,
             endTime,
-            willGoUp,
+            isLong,
             depositAmount,
             msg.sender
         );
@@ -205,7 +205,7 @@ contract OneVsOneUpDown is Ownable {
         ITreasury(treasury).deposit(game.depositAmount, msg.sender);
         game.gameStatus = Status.Started;
         games[gameId] = game;
-        emit UpDownAccepted(gameId, msg.sender, !game.willGoUp, game.depositAmount);
+        emit UpDownAccepted(gameId, msg.sender, !game.isLong, game.depositAmount);
     }
 
     /**
@@ -238,7 +238,7 @@ contract OneVsOneUpDown is Ownable {
         ITreasury(treasury).depositWithPermit(game.depositAmount, msg.sender, deadline, v, r, s);
         game.gameStatus = Status.Started;
         games[gameId] = game;
-        emit UpDownAccepted(gameId, msg.sender, !game.willGoUp, game.depositAmount);
+        emit UpDownAccepted(gameId, msg.sender, !game.isLong, game.depositAmount);
     }
 
     /**
@@ -299,7 +299,7 @@ contract OneVsOneUpDown is Ownable {
             game.feedId
         );
         if (
-            game.willGoUp
+            game.isLong
                 ? game.startingAssetPrice < finalPrice
                 : game.startingAssetPrice > finalPrice
         ) {
@@ -312,7 +312,7 @@ contract OneVsOneUpDown is Ownable {
             emit UpDownFinalized(
                 gameId,
                 game.initiator,
-                game.willGoUp,
+                game.isLong,
                 game.opponent,
                 game.depositAmount,
                 game.startingAssetPrice,
@@ -331,7 +331,7 @@ contract OneVsOneUpDown is Ownable {
             emit UpDownFinalized(
                 gameId,
                 game.opponent,
-                !game.willGoUp,
+                !game.isLong,
                 game.initiator,
                 game.depositAmount,
                 game.startingAssetPrice,

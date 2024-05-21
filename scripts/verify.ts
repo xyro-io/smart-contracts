@@ -85,17 +85,17 @@ async function verifyTreasury() {
 }
 
 async function verifyBullseye() {
-  if (contracts.BullseyeGame.address !== undefined) {
-    let targetAddress = contracts.BullseyeGame.address;
+  if (contracts.Bullseye.address !== undefined) {
+    let targetAddress = contracts.Bullseye.address;
     try {
       await hre.run("verify:verify", {
         address: targetAddress,
         constructorArguments: [],
       });
-      contracts.BullseyeGame.url = getVerifiedUrl(targetAddress);
+      contracts.Bullseye.url = getVerifiedUrl(targetAddress);
     } catch (e) {
       if (isAlreadyVerified(e, targetAddress))
-        contracts.BullseyeGame.url = getVerifiedUrl(targetAddress);
+        contracts.Bullseye.url = getVerifiedUrl(targetAddress);
     }
   }
 }
@@ -115,18 +115,18 @@ async function verifyBullseye() {
 //   });
 // }
 
-async function verifyGameFactory() {
-  if (contracts.GameFactory.address !== undefined) {
-    let targetAddress = contracts.GameFactory.address;
+async function verifySetupsGameFactory() {
+  if (contracts.SetupsGameFactory.address !== undefined) {
+    let targetAddress = contracts.SetupsGameFactory.address;
     try {
       await hre.run("verify:verify", {
         address: targetAddress,
         constructorArguments: [contracts.Treasury.address],
       });
-      contracts.GameFactory.url = getVerifiedUrl(targetAddress);
+      contracts.SetupsGameFactory.url = getVerifiedUrl(targetAddress);
     } catch (e) {
       if (isAlreadyVerified(e, targetAddress))
-        contracts.GameFactory.url = getVerifiedUrl(targetAddress);
+        contracts.SetupsGameFactory.url = getVerifiedUrl(targetAddress);
     }
   }
 }
@@ -233,12 +233,12 @@ async function verify() {
   await verifyTreasury();
   await verifyOneVsOneExactPrice();
   await verifyOneVsOneUpDown();
-  await verifyGameFactory();
+  await verifySetupsGameFactory();
   await verifyBullseye();
   await verifyUpDown();
   await verifyFrontHelper();
   await verifyUpkeep();
-  await verifyRealUpkeep();
+  // await verifyRealUpkeep();
   // await verifySetups();
   const json = JSON.stringify(contracts);
   fs.writeFileSync("./contracts.json", json);

@@ -43,8 +43,8 @@ task("startBullseye", "Starts bullseye game")
   .addParam("feedid", "Pair feed id")
   .setAction(async (taskArgs: any) => {
     const contract = await ethers.getContractAt(
-      "BullseyeGame",
-      contracts.BullseyeGame.address
+      "Bullseye",
+      contracts.Bullseye.address
     );
     await contract.startGame(
       (
@@ -63,8 +63,8 @@ task("betBullseye", "Bullseye bet")
   .setAction(async (taskArgs: any) => {
     const signer = await ethers.getSigner(taskArgs.better);
     const contract = await ethers.getContractAt(
-      "BullseyeGame",
-      contracts.BullseyeGame.address
+      "Bullseye",
+      contracts.Bullseye.address
     );
     await contract.connect(signer).play(taskArgs.price);
   });
@@ -74,8 +74,8 @@ task("finalizeBullseye", "Finishes bullseye game")
 .setAction(
   async (taskArgs: any) => {
     const contract = await ethers.getContractAt(
-      "BullseyeGame",
-      contracts.BullseyeGame.address
+      "Bullseye",
+      contracts.Bullseye.address
     );
     const price = await getPrice();
     await contract.finalizeGame(abiEncodeInt192(price, taskArgs.feedid));
@@ -242,13 +242,13 @@ task("createSetup", "Create setup game")
   .addParam("feedid", "Price feed id")
   .setAction(async (taskArgs: any) => {
     const contract = await ethers.getContractAt(
-      "GameFactory",
-      contracts.GameFactory.address
+      "SetupsGameFactory",
+      contracts.SetupsGameFactory.address
     );
 
     const price = await getPrice();
 
-    await contract.createSetupGame(
+    await contract.createSetups(
       (
         await ethers.provider.getBlock("latest")
       ).timestamp,
@@ -279,8 +279,8 @@ task("getSetupAddress", "Returns setup address by id")
   .addParam("id", "Game id")
   .setAction(async (taskArgs: any) => {
     const contract = await ethers.getContractAt(
-      "GameFactory",
-      contracts.GameFactory.address
+      "SetupsGameFactory",
+      contracts.SetupsGameFactory.address
     );
     const setupAddress = await contract.games(taskArgs.id);
     console.log("Setup address: ", setupAddress);
@@ -293,7 +293,7 @@ task("betSetup", "Setup bet")
   .addParam("betamount", "Bet amount")
   .setAction(async (taskArgs: any) => {
     const signer = await ethers.getSigner(taskArgs.better);
-    const contract = await ethers.getContractAt("SetupGame", taskArgs.address);
+    const contract = await ethers.getContractAt("Setups", taskArgs.address);
     await contract
       .connect(signer)
       .bet(taskArgs.sl === "true", ethers.parseEther(taskArgs.betamount));
@@ -304,7 +304,7 @@ task("finalizeSetup", "Finalize up down one vs one game")
   .addParam("price", "Final price")
   .addParam("feedid", "Price feed id")
   .setAction(async (taskArgs: any) => {
-    const contract = await ethers.getContractAt("SetupGame", taskArgs.address);
+    const contract = await ethers.getContractAt("Setups", taskArgs.address);
     const price = await getPrice();
     await contract.finalizeGame(abiEncodeInt192(price, taskArgs.feedid));
   });

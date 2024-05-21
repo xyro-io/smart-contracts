@@ -8,10 +8,10 @@ import { MockToken } from "../typechain-types/contracts/mock/MockERC20.sol/MockT
 import { MockToken__factory } from "../typechain-types/factories/contracts/mock/MockERC20.sol/MockToken__factory";
 import { Treasury } from "../typechain-types/contracts/Treasury.sol/Treasury";
 import { Treasury__factory } from "../typechain-types/factories/contracts/Treasury.sol/Treasury__factory";
-import { GameFactory } from "../typechain-types/contracts/GameFactory.sol/GameFactory";
-import { GameFactory__factory } from "../typechain-types/factories/contracts/GameFactory.sol/GameFactory__factory";
-import { SetupGame } from "../typechain-types/contracts/SetupGame";
-import { SetupGame__factory } from "../typechain-types/factories/contracts/SetupGame__factory";
+import { SetupsGameFactory } from "../typechain-types/contracts/SetupsGameFactory.sol/SetupsGameFactory";
+import { SetupsGameFactory__factory } from "../typechain-types/factories/contracts/SetupsGameFactory.sol/SetupsGameFactory__factory";
+import { Setups } from "../typechain-types/contracts/Setups";
+import { Setups__factory } from "../typechain-types/factories/contracts/Setups__factory";
 import { MockUpkeep } from "../typechain-types/contracts/MockUpkeep";
 import { MockUpkeep__factory } from "../typechain-types/factories/contracts/MockUpkeep__factory";
 import { abiEncodeInt192 } from "../scripts/helper";
@@ -24,8 +24,8 @@ describe("Setup Game", () => {
   let USDT: MockToken;
   let XyroToken: XyroToken;
   let Treasury: Treasury;
-  let Game: SetupGame;
-  let Factory: GameFactory;
+  let Game: Setups;
+  let Factory: SetupsGameFactory;
   let Upkeep: MockUpkeep;
   const feedId = "0x00037da06d56d083fe599397a4769a042d63aa73dc4ef57709d31e9971a5b439";
   const assetPrice = parse18("2310");
@@ -40,7 +40,7 @@ describe("Setup Game", () => {
       await USDT.getAddress(),
       await XyroToken.getAddress()
     );
-    Factory = await new GameFactory__factory(owner).deploy(
+    Factory = await new SetupsGameFactory__factory(owner).deploy(
       Treasury.getAddress()
     );
     Upkeep = await new MockUpkeep__factory(owner).deploy();
@@ -52,18 +52,16 @@ describe("Setup Game", () => {
   });
 
   it("should create SL setup game", async function () {
-    await Factory.createSetupGame(
+    await Factory.createSetups(
       await time.latest(),
       (await time.latest()) + 2700,
       (assetPrice / BigInt(100)) * BigInt(103),
       (assetPrice / BigInt(100)) * BigInt(97),
-      parse18("100"),
       true,
       feedId,
-      abiEncodeInt192(assetPrice.toString(),feedId)
     );
     let gameAddress = await Factory.games(0);
-    Game = SetupGame__factory.connect(gameAddress, owner);
+    Game = Setups__factory.connect(gameAddress, owner);
     await Treasury.grantRole(
       await Treasury.DISTRIBUTOR_ROLE(),
       await Factory.games(0)
@@ -80,7 +78,7 @@ describe("Setup Game", () => {
     );
     await Game.connect(bob).play(true, parse18("100"));
     let bet = await Game.game();
-    expect(bet.totalDepositsSL).to.equal(parse18("200"));
+    expect(bet.totalDepositsSL).to.equal(parse18("100"));
   });
 
   it("should create TP bet", async function () {
@@ -104,17 +102,15 @@ describe("Setup Game", () => {
   });
 
   it("should create TP setup game", async function () {
-    await Factory.createSetupGame(
+    await Factory.createSetups(
       await time.latest(),
       (await time.latest()) + 2700,
       (assetPrice / BigInt(100)) * BigInt(107),
       (assetPrice / BigInt(100)) * BigInt(90),
-      parse18("100"),
       false,
       feedId,
-      abiEncodeInt192(assetPrice.toString(),feedId)
     );
-    Game = Game = SetupGame__factory.connect(await Factory.games(1), owner);
+    Game = Game = Setups__factory.connect(await Factory.games(1), owner);
     await Treasury.grantRole(
       await Treasury.DISTRIBUTOR_ROLE(),
       await Factory.games(1)
@@ -141,7 +137,7 @@ describe("Setup Game", () => {
     );
     await Game.connect(alice).play(false, parse18("125"));
     let bet = await Game.game();
-    expect(bet.totalDepositsTP).to.equal(parse18("225"));
+    expect(bet.totalDepositsTP).to.equal(parse18("125"));
   });
 
   it("should end setup game", async function () {

@@ -8,8 +8,8 @@ async function setupTreasury() {
     contracts.Treasury.address
   );
   const role = await contract.DISTRIBUTOR_ROLE();
-  await wrapFnc([contracts.MockUpkeep.address], contract.setUpkeep);
-  await wrapFnc([role, contracts.BullseyeGame.address], contract.grantRole);
+  await wrapFnc([contracts.RealUpkeep.address], contract.setUpkeep);
+  await wrapFnc([role, contracts.Bullseye.address], contract.grantRole);
   await wrapFnc(
     [role, contracts.ExactPriceOneVsOne.address],
     contract.grantRole
@@ -20,8 +20,8 @@ async function setupTreasury() {
 
 async function setupBullseye() {
   const contract = await ethers.getContractAt(
-    "BullseyeGame",
-    contracts.BullseyeGame.address
+    "Bullseye",
+    contracts.Bullseye.address
   );
   await wrapFnc([contracts.Treasury.address], contract.setTreasury);
 }

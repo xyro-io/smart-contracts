@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
-import { BullseyeGame } from "./BullseyeGame.sol";
+import { Bullseye } from "./Bullseye.sol";
 import { UpDownGame } from "./UpDown.sol";
 import { OneVsOneExactPrice } from "./OneVsOneExactPrice.sol";
 import { OneVsOneUpDown } from "./OneVsOneUpDown.sol";
@@ -43,7 +43,7 @@ contract FrontHelper {
         uint48 enteranceClosedAt;
         uint48 endTime;
         address opponent;
-        bool willGoUp;
+        bool isLong;
         uint256 depositAmount;
         int192 startingAssetPrice;
         int192 finalAssetPrice;
@@ -64,8 +64,8 @@ contract FrontHelper {
     }
 
     function getBullseyeData(address game) public view returns (BullseyeInfo memory data, address[] memory, int192[] memory, uint256[] memory) {
-        BullseyeGame bullseye = BullseyeGame(game);
-        (bytes32 feedId, uint48 startTime, uint48 endTime, uint256 depositAmount) = bullseye.game();
+        Bullseye bullseye = Bullseye(game);
+        (bytes32 feedId, ,uint48 startTime,uint48 endTime, uint256 depositAmount) = bullseye.game();
         uint256 totalPlayers = bullseye.getTotalPlayers();
         address[] memory players = new address[](totalPlayers);
         int192[] memory assetPrices = new int192[](totalPlayers);
@@ -84,7 +84,7 @@ contract FrontHelper {
     }
 
     function getBullseyeGuesses(address game) public view returns (BullseyeGuesses[] memory) {
-        BullseyeGame bullseye = BullseyeGame(game);
+        Bullseye bullseye = Bullseye(game);
         uint256 totalPlayers = bullseye.getTotalPlayers();
         BullseyeGuesses[] memory data = new BullseyeGuesses[](totalPlayers);
         address[] memory players = new address[](totalPlayers);
@@ -96,7 +96,7 @@ contract FrontHelper {
     }
 
     function getBullseyePlayerInfo(address player, address game) public view returns (int192) {
-        return BullseyeGame(game).assetPrices(player);
+        return Bullseye(game).assetPrices(player);
     }
 
     function getUpDownPlayerInfo(address player, address game) public view returns (UpDownGameStatus) {
@@ -132,7 +132,7 @@ contract FrontHelper {
             downPlayers[i] = updown.DownPlayers(i);
         }
 
-        (uint48 startTime,uint48 endTime,int192 startingPrice,uint256 depositAmount,bytes32 feedId) = updown.game();
+        (uint48 startTime,uint48 endTime,int192 startingPrice,uint256 depositAmount,bytes32 feedId,) = updown.game();
         data.startTime = startTime; 
         data.enteranceClosedAt = startTime + (endTime - startTime) / 3;
         data.endTime = endTime;
@@ -325,7 +325,7 @@ contract FrontHelper {
             uint48 startTime,
             uint48 endTime,
             address opponent,
-            bool willGoUp,
+            bool isLong,
             uint256 depositAmount,
             int192 startingAssetPrice,
             int192 finalAssetPrice,
@@ -336,7 +336,7 @@ contract FrontHelper {
             allGames[i].enteranceClosedAt = startTime + (endTime - startTime) / 3;
             allGames[i].endTime = endTime;
             allGames[i].opponent = opponent;
-            allGames[i].willGoUp = willGoUp;
+            allGames[i].isLong = isLong;
             allGames[i].depositAmount = depositAmount;
             allGames[i].startingAssetPrice = startingAssetPrice;
             allGames[i].finalAssetPrice = finalAssetPrice;
@@ -355,7 +355,7 @@ contract FrontHelper {
             uint48 startTime,
             uint48 endTime,
             address opponent,
-            bool willGoUp,
+            bool isLong,
             uint256 depositAmount,
             int192 startingAssetPrice,
             int192 finalAssetPrice,
@@ -367,7 +367,7 @@ contract FrontHelper {
                 allGames[i].enteranceClosedAt = startTime + (endTime - startTime) / 3;
                 allGames[i].endTime = endTime;
                 allGames[i].opponent = opponent;
-                allGames[i].willGoUp = willGoUp;
+                allGames[i].isLong = isLong;
                 allGames[i].depositAmount = depositAmount;
                 allGames[i].startingAssetPrice = startingAssetPrice;
                 allGames[i].finalAssetPrice = finalAssetPrice;
@@ -387,7 +387,7 @@ contract FrontHelper {
             uint48 startTime,
             uint48 endTime,
             address opponent,
-            bool willGoUp,
+            bool isLong,
             uint256 depositAmount,
             int192 startingAssetPrice,
             int192 finalAssetPrice,
@@ -399,7 +399,7 @@ contract FrontHelper {
                 allGames[i].enteranceClosedAt = startTime + (endTime - startTime) / 3;
                 allGames[i].endTime = endTime;
                 allGames[i].opponent = opponent;
-                allGames[i].willGoUp = willGoUp;
+                allGames[i].isLong = isLong;
                 allGames[i].depositAmount = depositAmount;
                 allGames[i].startingAssetPrice = startingAssetPrice;
                 allGames[i].finalAssetPrice = finalAssetPrice;
@@ -419,7 +419,7 @@ contract FrontHelper {
             uint48 startTime,
             uint48 endTime,
             address opponent,
-            bool willGoUp,
+            bool isLong,
             uint256 depositAmount,
             int192 startingAssetPrice,
             int192 finalAssetPrice,
@@ -431,7 +431,7 @@ contract FrontHelper {
                 allGames[i].enteranceClosedAt = startTime + (endTime - startTime) / 3;
                 allGames[i].endTime = endTime;
                 allGames[i].opponent = opponent;
-                allGames[i].willGoUp = willGoUp;
+                allGames[i].isLong = isLong;
                 allGames[i].depositAmount = depositAmount;
                 allGames[i].startingAssetPrice = startingAssetPrice;
                 allGames[i].finalAssetPrice = finalAssetPrice;

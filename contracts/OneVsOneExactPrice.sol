@@ -108,7 +108,7 @@ contract OneVsOneExactPrice is Ownable {
         game.gameStatus = Status.Created;
         games.push(game);
         emit ExactPriceCreated(
-            games.length,
+            games.length - 1,
             opponent,
             startTime,
             endTime,

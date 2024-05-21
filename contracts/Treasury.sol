@@ -123,10 +123,10 @@ contract Treasury is AccessControlEnumerable {
      * Withrad earned fees
      * @param amount amount to withdraw
      */
-    function withdrawFees(uint256 amount) public {
+    function withdrawFees(uint256 amount, address to) public {
         require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Invalid role");
-        IERC20(approvedToken).approve(msg.sender, amount);
-        SafeERC20.safeTransfer(IERC20(approvedToken), msg.sender, amount);
+        IERC20(approvedToken).approve(to, amount);
+        SafeERC20.safeTransfer(IERC20(approvedToken), to, amount);
     }
 
     /**

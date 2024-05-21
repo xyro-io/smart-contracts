@@ -18,10 +18,10 @@ let contracts: {
   Treasury,
   Vesting,
   Staking,
-  GameFactory,
+  SetupsGameFactory,
   ExactPriceOneVsOne,
   UpDownOneVsOne,
-  BullseyeGame,
+  Bullseye,
   GovernanceToken,
   TimeLock,
   MockUpkeep,
@@ -130,33 +130,33 @@ async function deployStaking() {
   }
 }
 
-async function deployGameFactory() {
-  factory = await ethers.getContractFactory("GameFactory");
+async function deploySetupsGameFactory() {
+  factory = await ethers.getContractFactory("SetupsGameFactory");
   if (
-    contracts.GameFactory?.address == undefined ||
-    contracts.GameFactory?.address == ""
+    contracts.SetupsGameFactory?.address == undefined ||
+    contracts.SetupsGameFactory?.address == ""
   ) {
-    GameFactory = await wrapFnc([contracts.Treasury.address], factory);
-    contracts.GameFactory = { address: "", url: "" };
-    contracts.GameFactory.address = GameFactory.target;
-    console.log("GameFactory deployed");
+    SetupsGameFactory = await wrapFnc([contracts.Treasury.address], factory);
+    contracts.SetupsGameFactory = { address: "", url: "" };
+    contracts.SetupsGameFactory.address = SetupsGameFactory.target;
+    console.log("SetupsGameFactory deployed");
   } else {
-    console.log("GameFactory already deployed skipping...");
+    console.log("SetupsGameFactory already deployed skipping...");
   }
 }
 
 async function deployBullseye() {
-  factory = await ethers.getContractFactory("BullseyeGame");
+  factory = await ethers.getContractFactory("Bullseye");
   if (
-    contracts.BullseyeGame?.address == undefined ||
-    contracts.BullseyeGame?.address == ""
+    contracts.Bullseye?.address == undefined ||
+    contracts.Bullseye?.address == ""
   ) {
-    BullseyeGame = await wrapFnc([], factory);
-    contracts.BullseyeGame = { address: "", url: "" };
-    contracts.BullseyeGame.address = BullseyeGame.target;
-    console.log("BullseyeGame deployed");
+    Bullseye = await wrapFnc([], factory);
+    contracts.Bullseye = { address: "", url: "" };
+    contracts.Bullseye.address = Bullseye.target;
+    console.log("Bullseye deployed");
   } else {
-    console.log("BullseyeGame already deployed skipping...");
+    console.log("Bullseye already deployed skipping...");
   }
 }
 
@@ -293,12 +293,12 @@ async function main() {
     // await deployStaking();
     await deployOneVsOneExactPrice();
     await deployOneVsOneUpDown();
-    await deployGameFactory();
+    await deploySetupsGameFactory();
     await deployBullseye();
     await deployMockUpkeep();
     await deployFrontHelper();
     await deployUpDown();
-    await deployUpkeep();
+    // await deployUpkeep();
   } catch (e) {
     const json = JSON.stringify(contracts);
     fs.writeFileSync("./contracts.json", json);

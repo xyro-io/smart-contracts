@@ -18,10 +18,10 @@
 // import { OneVsOneExactPrice__factory } from "../typechain-types/factories/contracts/OneVsOneExactPrice__factory";
 // import { OneVsOneUpDown } from "../typechain-types/contracts/OneVsOneUpDown";
 // import { OneVsOneUpDown__factory } from "../typechain-types/factories/contracts/OneVsOneUpDown__factory";
-// import { BullseyeGame } from "../typechain-types/contracts/BullseyeGame";
-// import { BullseyeGame__factory } from "../typechain-types/factories/contracts/BullseyeGame__factory";
-// import { GameFactory } from "../typechain-types/contracts/GameFactory.sol/GameFactory";
-// import { GameFactory__factory } from "../typechain-types/factories/contracts/GameFactory.sol/GameFactory__factory";
+// import { Bullseye } from "../typechain-types/contracts/Bullseye";
+// import { Bullseye__factory } from "../typechain-types/factories/contracts/Bullseye__factory";
+// import { SetupsGameFactory } from "../typechain-types/contracts/SetupsGameFactory.sol/SetupsGameFactory";
+// import { SetupsGameFactory__factory } from "../typechain-types/factories/contracts/SetupsGameFactory.sol/SetupsGameFactory__factory";
 // import { XyroVesting } from "../typechain-types/contracts/Vesting.sol/XyroVesting";
 // import { XyroVesting__factory } from "../typechain-types/factories/contracts/Vesting.sol/XyroVesting__factory";
 // const parse18 = ethers.parseEther;
@@ -36,8 +36,8 @@
 //   let GovernanceToken: XyroGovernanceToken;
 //   let TimeLock: TimeLock;
 //   let DAO: GovernorContract;
-//   let GameFactory: GameFactory;
-//   let BullseyeGame: BullseyeGame;
+//   let SetupsGameFactory: SetupsGameFactory;
+//   let Bullseye: Bullseye;
 //   let OneVsOneExactPrice: OneVsOneExactPrice;
 //   let OneVsOneUpDown: OneVsOneUpDown;
 //   let XyroVesting: XyroVesting;
@@ -245,17 +245,17 @@
 
 //   it("should vote to change setup time limit", async function () {
 //     //prepare contract
-//     GameFactory = await new GameFactory__factory(owner).deploy(
+//     SetupsGameFactory = await new SetupsGameFactory__factory(owner).deploy(
 //       await Treasury.getAddress()
 //     );
 //     //function to call
-//     encodedFunctionCall = GameFactory.interface.encodeFunctionData(
+//     encodedFunctionCall = SetupsGameFactory.interface.encodeFunctionData(
 //       "changeGameDuration",
 //       [year, month]
 //     );
 //     //create proposal for time gaps change
 //     await DAO.propose(
-//       [await GameFactory.getAddress()],
+//       [await SetupsGameFactory.getAddress()],
 //       [0],
 //       [encodedFunctionCall],
 //       proposalDescription_2
@@ -265,7 +265,7 @@
 //     const voteWay = 1; //yes
 //     await DAO.castVote(
 //       await DAO.hashProposal(
-//         [await GameFactory.getAddress()],
+//         [await SetupsGameFactory.getAddress()],
 //         [0],
 //         [encodedFunctionCall],
 //         ethers.keccak256(ethers.toUtf8Bytes(proposalDescription_2))
@@ -274,21 +274,21 @@
 //     );
 //     await mine(4);
 //     await DAO.queue(
-//       [await GameFactory.getAddress()],
+//       [await SetupsGameFactory.getAddress()],
 //       [0],
 //       [encodedFunctionCall],
 //       ethers.keccak256(ethers.toUtf8Bytes(proposalDescription_2))
 //     );
 //     await mine(2);
 //     const executeTx = await DAO.execute(
-//       [await GameFactory.getAddress()],
+//       [await SetupsGameFactory.getAddress()],
 //       [0],
 //       [encodedFunctionCall],
 //       ethers.keccak256(ethers.toUtf8Bytes(proposalDescription_2))
 //     );
 //     await executeTx.wait(1);
-//     const minDuration = await GameFactory.minDuration();
-//     const maxDuration = await GameFactory.maxDuration();
+//     const minDuration = await SetupsGameFactory.minDuration();
+//     const maxDuration = await SetupsGameFactory.maxDuration();
 //     expect(minDuration).to.be.equal(month);
 //     expect(maxDuration).to.be.equal(year);
 //   });
@@ -340,15 +340,15 @@
 //   it("should vote to change bullseye betAmount", async function () {
 //     const newBetAmount = parse18("1000");
 //     //prepare contract
-//     BullseyeGame = await new BullseyeGame__factory(owner).deploy();
+//     Bullseye = await new Bullseye__factory(owner).deploy();
 //     //function to call
-//     encodedFunctionCall = BullseyeGame.interface.encodeFunctionData(
+//     encodedFunctionCall = Bullseye.interface.encodeFunctionData(
 //       "changeBetAmount",
 //       [newBetAmount]
 //     );
 //     //create proposal for time gaps change
 //     await DAO.propose(
-//       [await BullseyeGame.getAddress()],
+//       [await Bullseye.getAddress()],
 //       [0],
 //       [encodedFunctionCall],
 //       proposalDescription_4
@@ -358,7 +358,7 @@
 //     const voteWay = 1; //yes
 //     await DAO.castVote(
 //       await DAO.hashProposal(
-//         [await BullseyeGame.getAddress()],
+//         [await Bullseye.getAddress()],
 //         [0],
 //         [encodedFunctionCall],
 //         ethers.keccak256(ethers.toUtf8Bytes(proposalDescription_4))
@@ -367,33 +367,33 @@
 //     );
 //     await mine(4);
 //     await DAO.queue(
-//       [await BullseyeGame.getAddress()],
+//       [await Bullseye.getAddress()],
 //       [0],
 //       [encodedFunctionCall],
 //       ethers.keccak256(ethers.toUtf8Bytes(proposalDescription_4))
 //     );
 //     await mine(2);
 //     const executeTx = await DAO.execute(
-//       [await BullseyeGame.getAddress()],
+//       [await Bullseye.getAddress()],
 //       [0],
 //       [encodedFunctionCall],
 //       ethers.keccak256(ethers.toUtf8Bytes(proposalDescription_4))
 //     );
 //     await executeTx.wait(1);
-//     const game = await BullseyeGame.game();
+//     const game = await Bullseye.game();
 //     expect(game[2]).to.be.equal(newBetAmount);
 //   });
 
 //   it("should vote to change bullseye winner's rate", async function () {
 //     const newRate = [7000, 1500, 500, 100];
 //     //function to call
-//     encodedFunctionCall = BullseyeGame.interface.encodeFunctionData(
+//     encodedFunctionCall = Bullseye.interface.encodeFunctionData(
 //       "setRates",
 //       [newRate]
 //     );
 //     //create proposal for time gaps change
 //     await DAO.propose(
-//       [await BullseyeGame.getAddress()],
+//       [await Bullseye.getAddress()],
 //       [0],
 //       [encodedFunctionCall],
 //       proposalDescription_5
@@ -403,7 +403,7 @@
 //     const voteWay = 1; //yes
 //     await DAO.castVote(
 //       await DAO.hashProposal(
-//         [await BullseyeGame.getAddress()],
+//         [await Bullseye.getAddress()],
 //         [0],
 //         [encodedFunctionCall],
 //         ethers.keccak256(ethers.toUtf8Bytes(proposalDescription_5))
@@ -412,20 +412,20 @@
 //     );
 //     await mine(4);
 //     await DAO.queue(
-//       [await BullseyeGame.getAddress()],
+//       [await Bullseye.getAddress()],
 //       [0],
 //       [encodedFunctionCall],
 //       ethers.keccak256(ethers.toUtf8Bytes(proposalDescription_5))
 //     );
 //     await mine(2);
 //     const executeTx = await DAO.execute(
-//       [await BullseyeGame.getAddress()],
+//       [await Bullseye.getAddress()],
 //       [0],
 //       [encodedFunctionCall],
 //       ethers.keccak256(ethers.toUtf8Bytes(proposalDescription_5))
 //     );
 //     await executeTx.wait(1);
-//     const value = await BullseyeGame.rate(0);
+//     const value = await Bullseye.rate(0);
 //     expect(value).to.be.equal(newRate[0]);
 //   });
 

@@ -5,21 +5,21 @@ import "./interfaces/IMockUpkeep.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/IERC20.sol";
 
-contract BullseyeGame is Ownable {
+contract Bullseye is Ownable {
     uint256 constant DENOMINATOR = 10000;
     uint256 public fee = 100;
     uint256[3] public rate = [5000, 3500, 1500];
     uint256[3] public exactRate = [7500, 1500, 1000];
     uint256[2] public twoPlayersRate = [7500, 2500];
     uint256[2] public twoPlayersExactRate = [8000, 2000];
-    uint256 public gameId;
-    event BullseyeStart(uint48 startTime, uint48 endTime, uint256 depositAmount, uint256 indexed gameId);
-    event BullseyeNewPlayer(address player, int192 assetPrice, uint256 depositAmount, uint256 indexed gameId);
-    event BullseyeFinalized(address[3] topPlayers, uint256[3] wonAmount, uint256 indexed gameId);
-    event BullseyeFinalized(address firstPlace, address secondPlace, uint256 wonAmountFirst, uint256 wonAmountSecond, uint256 indexed gameId);
+    event BullseyeStart(uint48 startTime, uint48 endTime, uint256 depositAmount, bytes32 indexed gameId);
+    event BullseyeNewPlayer(address player, int192 assetPrice, uint256 depositAmount, bytes32 indexed gameId);
+    event BullseyeFinalized(address[3] topPlayers, uint256[3] wonAmount, int192[3] assetPrices, bytes32 indexed gameId);
+    event BullseyeFinalized(address firstPlace, address secondPlace, uint256 wonAmountFirst, uint256 wonAmountSecond, bytes32 indexed gameId);
 
     struct GameInfo {
         bytes32 feedId;
+        bytes32 gameId;
         uint48 startTime;
         uint48 endTime;
         uint256 depositAmount;
@@ -51,7 +51,8 @@ contract BullseyeGame is Ownable {
         game.startTime = startTime;
         game.endTime = endTime;
         game.depositAmount = depositAmount;
-        emit BullseyeStart(startTime, endTime, depositAmount, gameId);
+        game.gameId = keccak256(abi.encodePacked(startTime, block.timestamp, address(this)));
+        emit BullseyeStart(startTime, endTime, depositAmount, game.gameId);
     }
 
     /**
@@ -69,7 +70,7 @@ contract BullseyeGame is Ownable {
         players.push(msg.sender);
         assetPrices[msg.sender] = assetPrice;
         ITreasury(treasury).deposit(game.depositAmount, msg.sender);
-        emit BullseyeNewPlayer(msg.sender, assetPrice, game.depositAmount, gameId);
+        emit BullseyeNewPlayer(msg.sender, assetPrice, game.depositAmount, game.gameId);
     }
 
     /**
@@ -93,7 +94,7 @@ contract BullseyeGame is Ownable {
         players.push(msg.sender);
         assetPrices[msg.sender] = assetPrice;
         ITreasury(treasury).depositWithPermit(game.depositAmount, msg.sender, deadline, v, r, s);
-        emit BullseyeNewPlayer(msg.sender, assetPrice, game.depositAmount, gameId);
+        emit BullseyeNewPlayer(msg.sender, assetPrice, game.depositAmount, game.gameId);
     }
 
     /**
@@ -101,7 +102,7 @@ contract BullseyeGame is Ownable {
      * @param unverifiedReport Chainlink DataStreams report
      */
     function finalizeGame(bytes memory unverifiedReport) public onlyOwner {
-        require(players.length > 0, "Can't end");
+        require(players.length > 0 && block.timestamp > game.endTime, "Can't end");
         require(block.timestamp >= game.endTime, "Too early to finish");
         address upkeep = ITreasury(treasury).upkeep();
         int192 finalPrice = IMockUpkeep(upkeep).verifyReport(
@@ -145,7 +146,7 @@ contract BullseyeGame is Ownable {
                     game.depositAmount,
                     fee
                 );
-                emit BullseyeFinalized(playerOne, playerTwo, wonAmountFirst, wonAmountSecond, gameId);
+                emit BullseyeFinalized(playerOne, playerTwo, wonAmountFirst, wonAmountSecond, game.gameId);
             } else {
                 // player 2 closer
                 uint256 wonAmountFirst = (2 *
@@ -174,7 +175,7 @@ contract BullseyeGame is Ownable {
                     game.depositAmount,
                     fee
                 );
-                emit BullseyeFinalized(playerTwo, playerOne, wonAmountFirst, wonAmountSecond, gameId);
+                emit BullseyeFinalized(playerTwo, playerOne, wonAmountFirst, wonAmountSecond, game.gameId);
             }
         } else {
             address[3] memory topPlayers;
@@ -230,7 +231,7 @@ contract BullseyeGame is Ownable {
                     totalDeposited -= wonAmount[i];
                 }
             }
-            emit BullseyeFinalized(topPlayers, wonAmount, gameId);
+            emit BullseyeFinalized(topPlayers, wonAmount, [assetPrices[topPlayers[0]], assetPrices[topPlayers[1]], assetPrices[topPlayers[2]]], game.gameId);
         }
         for (uint256 i = 0; i < players.length; i++) {
             assetPrices[players[i]] = 0;
@@ -238,7 +239,6 @@ contract BullseyeGame is Ownable {
         }
         delete game;
         delete players;
-        gameId++;
     }
 
     function getTotalPlayers() public view returns (uint256) {

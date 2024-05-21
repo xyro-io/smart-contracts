@@ -18,10 +18,10 @@ let contracts: {
   Treasury,
   Vesting,
   Staking,
-  GameFactory,
+  SetupsGameFactory,
   ExactPriceOneVsOne,
   UpDownOneVsOne,
-  BullseyeGame,
+  Bullseye,
   GovernanceToken,
   TimeLock,
   MockUpkeep,
@@ -80,20 +80,20 @@ async function deployStaking() {
   console.log("Staking deployed");
 }
 
-async function deployGameFactory() {
-  factory = await ethers.getContractFactory("GameFactory");
-  GameFactory = await wrapFnc([contracts.Treasury.address], factory);
-  contracts.GameFactory = { address: "", url: "" };
-  contracts.GameFactory.address = GameFactory.target;
-  console.log("GameFactory deployed");
+async function deploySetupsGameFactory() {
+  factory = await ethers.getContractFactory("SetupsGameFactory");
+  SetupsGameFactory = await wrapFnc([contracts.Treasury.address], factory);
+  contracts.SetupsGameFactory = { address: "", url: "" };
+  contracts.SetupsGameFactory.address = SetupsGameFactory.target;
+  console.log("SetupsGameFactory deployed");
 }
 
 async function deployBullseye() {
-  factory = await ethers.getContractFactory("BullseyeGame");
-  BullseyeGame = await wrapFnc([], factory);
-  contracts.BullseyeGame = { address: "", url: "" };
-  contracts.BullseyeGame.address = BullseyeGame.target;
-  console.log("BullseyeGame deployed");
+  factory = await ethers.getContractFactory("Bullseye");
+  Bullseye = await wrapFnc([], factory);
+  contracts.Bullseye = { address: "", url: "" };
+  contracts.Bullseye.address = Bullseye.target;
+  console.log("Bullseye deployed");
 }
 
 async function deployOneVsOneExactPrice() {
@@ -168,7 +168,7 @@ async function main() {
     await deployStaking();
     await deployOneVsOneExactPrice();
     await deployOneVsOneUpDown();
-    await deployGameFactory();
+    await deploySetupsGameFactory();
     await deployBullseye();
     await deployUpkeep();
     await deployUpDown();

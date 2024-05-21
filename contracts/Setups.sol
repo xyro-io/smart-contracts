@@ -5,7 +5,7 @@ import "./interfaces/IMockUpkeep.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/IERC20.sol";
 
-contract SetupGame is Ownable {
+contract Setups is Ownable {
     event SetupNewPlayer(bool isStopLoss, uint256 depositAmount, address player);
     event SetupCancelled(
         address gameAdress,
@@ -68,8 +68,6 @@ contract SetupGame is Ownable {
      * @param takeProfitPrice take profit price
      * @param stopLossPrice stop loss price
      * @param initiator game creator
-     * @param initiator's deposit depositAmount
-     * @param unverifiedReport Chainlink DataStreams report
      * @param newTreasury new treasury address
      */
     constructor(
@@ -79,8 +77,6 @@ contract SetupGame is Ownable {
         int192 takeProfitPrice,
         int192 stopLossPrice,
         address initiator,
-        uint256 depositAmount,
-        bytes memory unverifiedReport,
         bytes32 feedId,
         address newTreasury
     ) Ownable(msg.sender) {
@@ -93,21 +89,6 @@ contract SetupGame is Ownable {
         game.gameStatus = Status.Created;
         game.feedId = feedId;
         treasury = newTreasury;
-        address upkeep = ITreasury(newTreasury).upkeep();
-        game.startingAssetPrice = IMockUpkeep(upkeep).verifyReport(
-            unverifiedReport,
-            feedId
-        );
-        if (depositAmount != 0) {
-            depositAmounts[msg.sender] = depositAmount;
-            if (isStopLoss) {
-                teamSL.push(msg.sender);
-                game.totalDepositsSL = depositAmount;
-            } else {
-                teamTP.push(msg.sender);
-                game.totalDepositsTP = depositAmount;
-            }
-        }
     }
 
     /**

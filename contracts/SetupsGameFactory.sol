@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 import "./interfaces/ITreasury.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./SetupGame.sol";
+import "./Setups.sol";
 import "@openzeppelin/contracts/utils/Create2.sol";
 
 interface IGame {
@@ -11,13 +11,12 @@ interface IGame {
     function transferOwnership(address newOwner) external;
 }
 
-contract GameFactory is Ownable {
+contract SetupsGameFactory is Ownable {
     event SetupCreated(
         uint48 startTime,
         uint48 endTime,
         int192 takeProfitPrice,
         int192 stopLossPrice,
-        uint256 depositAmount,
         bool isStopLoss,
         address creator
     );
@@ -41,19 +40,15 @@ contract GameFactory is Ownable {
      * @param endTime when the game will end
      * @param takeProfitPrice take profit price
      * @param stopLossPrice stop loss price
-     * @param depositAmount amount to enter the game
      * @param isStopLoss if stop loss = true, take profit = false
-     * @param unverifiedReport Chainlink DataStreams report
      */
-    function createSetupGame(
+    function createSetups(
         uint48 startTime,
         uint48 endTime,
         int192 takeProfitPrice,
         int192 stopLossPrice,
-        uint256 depositAmount,
         bool isStopLoss,
-        bytes32 feedId,
-        bytes memory unverifiedReport
+        bytes32 feedId
     ) public returns (address newGame) {
         require(
             endTime - startTime >= minDuration,
@@ -63,14 +58,11 @@ contract GameFactory is Ownable {
             endTime - startTime <= maxDuration,
             "Max game duration must be lower"
         );
-        if (depositAmount != 0) {
-            ITreasury(treasury).deposit(depositAmount, msg.sender);
-        }
         newGame = Create2.deploy(
             0,
             keccak256(abi.encodePacked(startTime, takeProfitPrice)),
             abi.encodePacked(
-                type(SetupGame).creationCode,
+                type(Setups).creationCode,
                 abi.encode(
                     isStopLoss,
                     startTime,
@@ -78,8 +70,6 @@ contract GameFactory is Ownable {
                     takeProfitPrice,
                     stopLossPrice,
                     msg.sender,
-                    depositAmount,
-                    unverifiedReport,
                     feedId,
                     treasury
                 )
@@ -90,7 +80,6 @@ contract GameFactory is Ownable {
             endTime,
             takeProfitPrice,
             stopLossPrice,
-            depositAmount,
             isStopLoss,
             msg.sender
         );
@@ -104,14 +93,14 @@ contract GameFactory is Ownable {
     function getStatus()
         public
         view
-        returns (SetupGame.Status[] memory status)
+        returns (Setups.Status[] memory status)
     {
-        SetupGame setup;
-        status = new SetupGame.Status[](gameId);
+        Setups setup;
+        status = new Setups.Status[](gameId);
 
         for (uint256 i; i < gameId; i++) {
-            setup = SetupGame(games[i]);
-            (, , , , , , , , , , , SetupGame.Status current) = setup.game();
+            setup = Setups(games[i]);
+            (, , , , , , , , , , , Setups.Status current) = setup.game();
             status[i] = current;
         }
     }

@@ -10,10 +10,10 @@ contract UpDownGame is Ownable {
         uint48 endTime,
         uint256 depositAmount,
         int192 startingPrice,
-        uint256 indexed gameId
+        bytes32 indexed gameId
     );
-    event UpDownNewPlayer(address player, bool willGoUp, uint256 depositAmount, uint256 indexed gameId);
-    event UpDownFinalized(int192 finalPrice, uint256 wonAmount, uint256 indexed gameId);
+    event UpDownNewPlayer(address player, bool isLong, uint256 depositAmount, bytes32 indexed gameId);
+    event UpDownFinalized(int192 finalPrice, uint256 wonAmount, bytes32 indexed gameId);
 
     struct GameInfo {
         uint48 startTime;
@@ -21,6 +21,7 @@ contract UpDownGame is Ownable {
         int192 startingPrice;
         uint256 depositAmount;
         bytes32 feedId;
+        bytes32 gameId;
     }
 
     address[] public UpPlayers;
@@ -56,35 +57,36 @@ contract UpDownGame is Ownable {
         game.startTime = startTime;
         game.endTime = endTime;
         game.depositAmount = depositAmount;
-        emit UpDownStart(startTime, endTime, depositAmount, game.startingPrice, gameId);
+        game.gameId = keccak256(abi.encodePacked(startTime, block.timestamp, address(this)));
+        emit UpDownStart(startTime, endTime, depositAmount, game.startingPrice, game.gameId);
     }
 
     /**
      * Take a participation in up/down game
-     * @param willGoUp up = true, down = false
+     * @param isLong up = true, down = false
      */
-    function play(bool willGoUp) public {
+    function play(bool isLong) public {
         require(
             game.startTime + (game.endTime - game.startTime) / 3 >=
                 block.timestamp,
             "Game is closed for new players"
         );
         require(!isParticipating(msg.sender), "You are already in the game");
-        if (willGoUp) {
+        if (isLong) {
             UpPlayers.push(msg.sender);
         } else {
             DownPlayers.push(msg.sender);
         }
         ITreasury(treasury).deposit(game.depositAmount, msg.sender);
-        emit UpDownNewPlayer(msg.sender, willGoUp, game.depositAmount, gameId);
+        emit UpDownNewPlayer(msg.sender, isLong, game.depositAmount, game.gameId);
     }
 
     /**
      * Take a participation in up/down game
-     * @param willGoUp up = true, down = false
+     * @param isLong up = true, down = false
      */
     function playWithPermit(
-        bool willGoUp,
+        bool isLong,
         uint256 deadline,
         uint8 v,
         bytes32 r,
@@ -96,13 +98,13 @@ contract UpDownGame is Ownable {
             "Game is closed for new players"
         );
         require(!isParticipating(msg.sender), "You are already in the game");
-        if (willGoUp) {
+        if (isLong) {
             UpPlayers.push(msg.sender);
         } else {
             DownPlayers.push(msg.sender);
         }
         ITreasury(treasury).depositWithPermit(game.depositAmount, msg.sender, deadline, v, r, s);
-        emit UpDownNewPlayer(msg.sender, willGoUp, game.depositAmount, gameId);
+        emit UpDownNewPlayer(msg.sender, isLong, game.depositAmount, game.gameId);
     }
 
     /**
@@ -133,7 +135,7 @@ contract UpDownGame is Ownable {
                     fee
                 );
             }
-            emit UpDownFinalized(finalPrice, wonAmount, gameId);
+            emit UpDownFinalized(finalPrice, wonAmount, game.gameId);
         } else {
             uint256 wonAmount = _game.depositAmount +
                 ((_game.depositAmount * UpPlayers.length) /
@@ -146,7 +148,7 @@ contract UpDownGame is Ownable {
                     fee
                 );
             }
-            emit UpDownFinalized(finalPrice, wonAmount, gameId);
+            emit UpDownFinalized(finalPrice, wonAmount, game.gameId);
         }
 
         delete DownPlayers;

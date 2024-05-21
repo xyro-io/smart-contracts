@@ -98,6 +98,21 @@ contract Bullseye is Ownable {
     }
 
     /**
+    * Resets bullseye game and refunds deposit to players
+    */
+    function forceResolve() public onlyOwner {
+        if(players.length != 0) {
+            for (uint256 i = 0; i < players.length; i++) {
+                ITreasury(treasury).refund(game.depositAmount, players[i]);
+                assetPrices[players[i]] = 0;
+                playerTimestamp[players[i]] = 0;
+            }   
+        }
+        delete game;
+        delete players;
+    }
+
+    /**
      * Finalizes bullseye game and distributes rewards to players
      * @param unverifiedReport Chainlink DataStreams report
      */

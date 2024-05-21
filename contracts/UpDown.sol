@@ -107,6 +107,26 @@ contract UpDownGame is Ownable {
         emit UpDownNewPlayer(msg.sender, isLong, game.depositAmount, game.gameId);
     }
 
+     /**
+    * Resets updown game and refunds deposit to players
+    */
+    function forceResolve() public onlyOwner {
+        if(DownPlayers.length != 0) {
+            for (uint256 i = 0; i < DownPlayers.length; i++) {
+                ITreasury(treasury).refund(game.depositAmount, DownPlayers[i]);
+            }  
+          delete DownPlayers;  
+        }
+        if(UpPlayers.length != 0) {
+            for (uint256 i = 0; i < UpPlayers.length; i++) {
+                ITreasury(treasury).refund(game.depositAmount, UpPlayers[i]);
+            }  
+          delete UpPlayers;  
+        }
+        delete game;
+        gameId++;
+    }
+
     /**
      * Finalizes up/down game and distributes rewards to players
      * @param unverifiedReport Chainlink DataStreams report

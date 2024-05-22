@@ -15,7 +15,8 @@ contract Bullseye is Ownable {
     event BullseyeStart(uint48 startTime, uint48 endTime, uint256 depositAmount, bytes32 indexed gameId);
     event BullseyeNewPlayer(address player, int192 assetPrice, uint256 depositAmount, bytes32 indexed gameId);
     event BullseyeFinalized(address[3] topPlayers, uint256[3] wonAmount, int192[3] assetPrices, bytes32 indexed gameId);
-    event BullseyeFinalized(address firstPlace, address secondPlace, uint256 wonAmountFirst, uint256 wonAmountSecond, bytes32 indexed gameId);
+    event BullseyeFinalized(address firstPlace, address secondPlace, int192 firstPlaceGuess, int192 secondPlaceGuess, uint256 wonAmountFirst, uint256 wonAmountSecond, bytes32 indexed gameId);
+    event BullseyeCancelled(address player, uint48 startTime, uint48 endTime, uint256 depositAmount, bytes32 indexed gameId);
 
     struct GameInfo {
         bytes32 feedId;
@@ -98,27 +99,25 @@ contract Bullseye is Ownable {
     }
 
     /**
-    * Resets bullseye game and refunds deposit to players
-    */
-    function forceResolve() public onlyOwner {
-        if(players.length != 0) {
-            for (uint256 i = 0; i < players.length; i++) {
-                ITreasury(treasury).refund(game.depositAmount, players[i]);
-                assetPrices[players[i]] = 0;
-                playerTimestamp[players[i]] = 0;
-            }   
-        }
-        delete game;
-        delete players;
-    }
-
-    /**
      * Finalizes bullseye game and distributes rewards to players
      * @param unverifiedReport Chainlink DataStreams report
      */
     function finalizeGame(bytes memory unverifiedReport) public onlyOwner {
-        require(players.length > 0 && block.timestamp > game.endTime, "Can't end");
         require(block.timestamp >= game.endTime, "Too early to finish");
+        if(players.length < 2) {
+            address player;
+            if(players.length == 1) {
+                player = players[0];
+                ITreasury(treasury).refund(game.depositAmount, players[0]);
+                assetPrices[players[0]] = 0;
+                playerTimestamp[players[0]] = 0;
+                delete players;
+            }
+            emit BullseyeCancelled(player, game.startTime, game.endTime, game.depositAmount, game.gameId);
+            delete game;
+            return;
+        }
+        
         address upkeep = ITreasury(treasury).upkeep();
         int192 finalPrice = IMockUpkeep(upkeep).verifyReport(
             unverifiedReport,
@@ -161,7 +160,7 @@ contract Bullseye is Ownable {
                     game.depositAmount,
                     fee
                 );
-                emit BullseyeFinalized(playerOne, playerTwo, wonAmountFirst, wonAmountSecond, game.gameId);
+                emit BullseyeFinalized(playerOne, playerTwo, assetPrices[playerOne], assetPrices[playerTwo], wonAmountFirst, wonAmountSecond, game.gameId);
             } else {
                 // player 2 closer
                 uint256 wonAmountFirst = (2 *
@@ -190,7 +189,7 @@ contract Bullseye is Ownable {
                     game.depositAmount,
                     fee
                 );
-                emit BullseyeFinalized(playerTwo, playerOne, wonAmountFirst, wonAmountSecond, game.gameId);
+                emit BullseyeFinalized(playerTwo, playerOne, assetPrices[playerTwo], assetPrices[playerOne], wonAmountFirst, wonAmountSecond, game.gameId);
             }
         } else {
             address[3] memory topPlayers;

@@ -14,6 +14,7 @@ contract UpDownGame is Ownable {
     );
     event UpDownNewPlayer(address player, bool isLong, uint256 depositAmount, bytes32 indexed gameId);
     event UpDownFinalized(int192 finalPrice, uint256 wonAmount, bytes32 indexed gameId);
+    event UpDownCancelled(uint48 startTime, uint48 endTime, bytes32 indexed gameId);
 
     struct GameInfo {
         uint48 startTime;
@@ -29,7 +30,6 @@ contract UpDownGame is Ownable {
     GameInfo public game;
     address public treasury;
     uint256 public fee = 100;
-    uint256 public gameId;
 
     constructor() Ownable(msg.sender) {}
 
@@ -65,13 +65,12 @@ contract UpDownGame is Ownable {
      * Take a participation in up/down game
      * @param isLong up = true, down = false
      */
-    function play(bool isLong) public {
+    function play(bool isLong) isParticipating(msg.sender) public {
         require(
             game.startTime + (game.endTime - game.startTime) / 3 >=
                 block.timestamp,
             "Game is closed for new players"
         );
-        require(!isParticipating(msg.sender), "You are already in the game");
         if (isLong) {
             UpPlayers.push(msg.sender);
         } else {
@@ -91,13 +90,12 @@ contract UpDownGame is Ownable {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) public {
+    ) public isParticipating(msg.sender) {
         require(
             game.startTime + (game.endTime - game.startTime) / 3 >=
                 block.timestamp,
             "Game is closed for new players"
         );
-        require(!isParticipating(msg.sender), "You are already in the game");
         if (isLong) {
             UpPlayers.push(msg.sender);
         } else {
@@ -107,42 +105,30 @@ contract UpDownGame is Ownable {
         emit UpDownNewPlayer(msg.sender, isLong, game.depositAmount, game.gameId);
     }
 
-     /**
-    * Resets updown game and refunds deposit to players
-    */
-    function forceResolve() public onlyOwner {
-        if(DownPlayers.length != 0) {
-            for (uint256 i = 0; i < DownPlayers.length; i++) {
-                ITreasury(treasury).refund(game.depositAmount, DownPlayers[i]);
-            }  
-          delete DownPlayers;  
-        }
-        if(UpPlayers.length != 0) {
-            for (uint256 i = 0; i < UpPlayers.length; i++) {
-                ITreasury(treasury).refund(game.depositAmount, UpPlayers[i]);
-            }  
-          delete UpPlayers;  
-        }
-        delete game;
-        gameId++;
-    }
-
     /**
      * Finalizes up/down game and distributes rewards to players
      * @param unverifiedReport Chainlink DataStreams report
      */
     function finalizeGame(bytes memory unverifiedReport) public onlyOwner {
+        require(block.timestamp >= game.endTime, "Too early to finish");
+        if(UpPlayers.length + DownPlayers.length < 2) {
+            if(UpPlayers.length == 1) {
+                ITreasury(treasury).refund(game.depositAmount, UpPlayers[0]);
+                delete UpPlayers;
+            } else if (DownPlayers.length == 1) {
+                ITreasury(treasury).refund(game.depositAmount, UpPlayers[0]);
+                delete DownPlayers;
+            }
+            emit UpDownCancelled(game.startTime, game.endTime, game.gameId);
+            delete game;
+            return;
+        }
         address upkeep = ITreasury(treasury).upkeep();
         int192 finalPrice = IMockUpkeep(upkeep).verifyReport(
             unverifiedReport,
             game.feedId
         );
         GameInfo memory _game = game;
-        require(
-            UpPlayers.length > 0 && DownPlayers.length > 0,
-            "Can't end"
-        );
-        require(block.timestamp >= game.endTime, "Too early to finish");
         if (finalPrice > _game.startingPrice) {
             uint256 wonAmount = _game.depositAmount +
                 ((_game.depositAmount * DownPlayers.length) /
@@ -174,7 +160,6 @@ contract UpDownGame is Ownable {
         delete DownPlayers;
         delete UpPlayers;
         delete game;
-        gameId++;
     }
 
     function getTotalPlayers() public view returns(uint256, uint256) {
@@ -182,21 +167,17 @@ contract UpDownGame is Ownable {
     }
 
     /**
-     * Check if player is participating in the game
+     * Checks if player is participating in the game
      * @param player player address
      */
-    function isParticipating(address player) internal view returns (bool) {
+    modifier isParticipating(address player) {
         for (uint i = 0; i < UpPlayers.length; i++) {
-            if (UpPlayers[i] == player) {
-                return true;
-            }
+            require(UpPlayers[i] != player, "Already participating");
         }
         for (uint i = 0; i < DownPlayers.length; i++) {
-            if (DownPlayers[i] == player) {
-                return true;
-            }
+            require(DownPlayers[i] != player, "Already participating");
         }
-        return false;
+        _;
     }
 
     /**

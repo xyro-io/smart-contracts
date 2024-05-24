@@ -161,7 +161,7 @@ contract Bullseye is AccessControl {
                     game.depositAmount,
                     fee
                 );
-                emit BullseyeFinalized([assetPrices[playerOne], assetPrices[playerTwo]], game.gameId);
+                emit BullseyeTwoPlayersFinalized([assetPrices[playerOne], assetPrices[playerTwo]], game.gameId);
             } else {
                 // player 2 closer
                 uint256 wonAmountFirst = (2 *
@@ -190,7 +190,7 @@ contract Bullseye is AccessControl {
                     game.depositAmount,
                     fee
                 );
-                emit BullseyeFinalized([assetPrices[playerTwo], assetPrices[playerOne]], game.gameId);
+                emit BullseyeTwoPlayersFinalized([assetPrices[playerTwo], assetPrices[playerOne]], game.gameId);
             }
         } else {
             address[3] memory topPlayers;

@@ -14,9 +14,9 @@ contract Bullseye is AccessControl {
     uint256[2] public twoPlayersExactRate = [8000, 2000];
     event BullseyeStart(uint256 startTime, uint48 stopPredictAt, uint48 endTime, uint256 depositAmount, bytes32 indexed gameId);
     event BullseyeNewPlayer(address player, int192 assetPrice, uint256 depositAmount, bytes32 indexed gameId);
-    event BullseyeFinalized(int192[3] assetPrices, bytes32 indexed gameId);
-    event BullseyeTwoPlayersFinalized(int192[2] assetPrices, bytes32 indexed gameId);
-    event BullseyeCancelled(address player, uint256 startTime, uint48 endTime, uint256 depositAmount, bytes32 indexed gameId);
+    event BullseyeFinalized(address[3] players, int192 finalPrice, bytes32 indexed gameId);
+    event BullseyeTwoPlayersFinalized(address[2] players, int192 finalPrice, bytes32 indexed gameId);
+    event BullseyeCancelled(bytes32 indexed gameId);
 
     struct GameInfo {
         bytes32 feedId;

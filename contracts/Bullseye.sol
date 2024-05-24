@@ -14,8 +14,8 @@ contract Bullseye is AccessControl {
     uint256[2] public twoPlayersExactRate = [8000, 2000];
     event BullseyeStart(uint256 startTime, uint48 stopPredictAt, uint48 endTime, uint256 depositAmount, bytes32 indexed gameId);
     event BullseyeNewPlayer(address player, int192 assetPrice, uint256 depositAmount, bytes32 indexed gameId);
-    event BullseyeFinalized(address[3] topPlayers, uint256[3] wonAmount, int192[3] assetPrices, bytes32 indexed gameId);
-    event BullseyeFinalized(address firstPlace, address secondPlace, int192 firstPlaceGuess, int192 secondPlaceGuess, uint256 wonAmountFirst, uint256 wonAmountSecond, bytes32 indexed gameId);
+    event BullseyeFinalized(int192[3] assetPrices, bytes32 indexed gameId);
+    event BullseyeFinalized(int192[2] assetPrices, bytes32 indexed gameId);
     event BullseyeCancelled(address player, uint256 startTime, uint48 endTime, uint256 depositAmount, bytes32 indexed gameId);
 
     struct GameInfo {
@@ -161,7 +161,7 @@ contract Bullseye is AccessControl {
                     game.depositAmount,
                     fee
                 );
-                emit BullseyeFinalized(playerOne, playerTwo, assetPrices[playerOne], assetPrices[playerTwo], wonAmountFirst, wonAmountSecond, game.gameId);
+                emit BullseyeFinalized([assetPrices[playerOne], assetPrices[playerTwo]], game.gameId);
             } else {
                 // player 2 closer
                 uint256 wonAmountFirst = (2 *
@@ -190,7 +190,7 @@ contract Bullseye is AccessControl {
                     game.depositAmount,
                     fee
                 );
-                emit BullseyeFinalized(playerTwo, playerOne, assetPrices[playerTwo], assetPrices[playerOne], wonAmountFirst, wonAmountSecond, game.gameId);
+                emit BullseyeFinalized([assetPrices[playerTwo], assetPrices[playerOne]], game.gameId);
             }
         } else {
             address[3] memory topPlayers;
@@ -246,7 +246,7 @@ contract Bullseye is AccessControl {
                     totalDeposited -= wonAmount[i];
                 }
             }
-            emit BullseyeFinalized(topPlayers, wonAmount, [assetPrices[topPlayers[0]], assetPrices[topPlayers[1]], assetPrices[topPlayers[2]]], game.gameId);
+            emit BullseyeFinalized([assetPrices[topPlayers[0]], assetPrices[topPlayers[1]], assetPrices[topPlayers[2]]], game.gameId);
         }
         for (uint256 i = 0; i < players.length; i++) {
             assetPrices[players[i]] = 0;

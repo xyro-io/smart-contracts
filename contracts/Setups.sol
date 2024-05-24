@@ -197,7 +197,7 @@ contract Setups is AccessControl {
                 }
             }
         } else {
-            if (finalPrice <= game.stopLossPrice) {
+            if (finalPrice >= game.stopLossPrice) {
                 // sl team wins
                 uint256 finalRate = ITreasury(treasury).calculateSetupRate(
                     game.totalDepositsTP,
@@ -212,7 +212,7 @@ contract Setups is AccessControl {
                         depositAmounts[teamSL[i]]
                     );
                 }
-            } else if (finalPrice >= game.takeProfitPrice) {
+            } else if (finalPrice <= game.takeProfitPrice) {
                 uint256 finalRate = ITreasury(treasury).calculateSetupRate(
                     game.totalDepositsSL,
                     game.totalDepositsTP,

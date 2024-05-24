@@ -6,7 +6,7 @@ import {ITreasury} from  "./interfaces/ITreasury.sol";
 import {IMockUpkeep} from  "./interfaces/IMockUpkeep.sol";
 
 contract Setups is AccessControl {
-    event SetupNewPlayer(bool isTakeProfit, uint256 depositAmount, address player);
+    event SetupNewPlayer(bool isLong, uint256 depositAmount, address player);
     event SetupCancelled(
         address gameAdress,
         address initiator,
@@ -29,7 +29,7 @@ contract Setups is AccessControl {
         address initiator;
         uint256 startTime;
         uint48 endTime;
-        bool isTakeProfit;
+        bool isLong;
         uint256 totalDepositsSL;
         uint256 totalDepositsTP;
         int192 takeProfitPrice;
@@ -46,7 +46,7 @@ contract Setups is AccessControl {
     address public treasury;
 
     /**
-     * @param isTakeProfit if stop loss = false, take profit = true
+     * @param isLong if stop loss = false, take profit = true
      * @param endTime when the game will end
      * @param takeProfitPrice take profit price
      * @param stopLossPrice stop loss price
@@ -54,7 +54,7 @@ contract Setups is AccessControl {
      * @param newTreasury new treasury address
      */
     constructor(
-        bool isTakeProfit,
+        bool isLong,
         uint48 endTime,
         int192 takeProfitPrice,
         int192 stopLossPrice,
@@ -63,7 +63,7 @@ contract Setups is AccessControl {
         address newTreasury
     ) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        game.isTakeProfit = isTakeProfit;
+        game.isLong = isLong;
         game.initiator = initiator;
         game.startTime = block.timestamp;
         game.endTime = endTime;
@@ -76,10 +76,10 @@ contract Setups is AccessControl {
 
     /**
      * Take participation in setup game
-     * @param isTakeProfit if stop loss = false, take profit = true
+     * @param isLong if stop loss = false, take profit = true
      * @param depositAmount sender's deposit amount
      */
-    function play(bool isTakeProfit, uint256 depositAmount) public {
+    function play(bool isLong, uint256 depositAmount) public {
         require(game.gameStatus == Status.Created, "Wrong status!");
         require(
             game.startTime + (game.endTime - game.startTime) / 3 >
@@ -89,23 +89,23 @@ contract Setups is AccessControl {
         require(depositAmounts[msg.sender] == 0, "You are already in the game");
         ITreasury(treasury).deposit(depositAmount, msg.sender);
         depositAmounts[msg.sender] = depositAmount;
-        if (isTakeProfit) {
+        if (isLong) {
             teamTP.push(msg.sender);
             game.totalDepositsTP += depositAmount;
         } else {
             teamSL.push(msg.sender);
             game.totalDepositsSL += depositAmount;
         }
-        emit SetupNewPlayer(isTakeProfit, depositAmount, msg.sender);
+        emit SetupNewPlayer(isLong, depositAmount, msg.sender);
     }
 
     /**
      * Take participation in setup game
-     * @param isTakeProfit if stop loss = false, take profit = true
+     * @param isLong if stop loss = false, take profit = true
      * @param depositAmount sender's deposit amount
      */
     function playWithPermit(
-        bool isTakeProfit,
+        bool isLong,
         uint256 depositAmount,
         uint256 deadline,
         uint8 v,
@@ -121,14 +121,14 @@ contract Setups is AccessControl {
         require(depositAmounts[msg.sender] == 0, "You are already in the game");
         ITreasury(treasury).depositWithPermit(depositAmount, msg.sender, deadline, v, r, s);
         depositAmounts[msg.sender] = depositAmount;
-       if (isTakeProfit) {
+       if (isLong) {
             teamTP.push(msg.sender);
             game.totalDepositsTP += depositAmount;
         } else {
             teamSL.push(msg.sender);
             game.totalDepositsSL += depositAmount;
         }
-        emit SetupNewPlayer(isTakeProfit, depositAmount, msg.sender);
+        emit SetupNewPlayer(isLong, depositAmount, msg.sender);
     }
 
     /**
@@ -165,7 +165,7 @@ contract Setups is AccessControl {
         );
         require(finalPrice <= game.stopLossPrice || finalPrice >= game.takeProfitPrice, "Can't end");
         bool takeProfitWon;
-        if (game.isTakeProfit) {
+        if (game.isLong) {
             if (finalPrice <= game.takeProfitPrice) {
                 // tp team wins
                 uint256 finalRate = ITreasury(treasury).calculateSetupRate(

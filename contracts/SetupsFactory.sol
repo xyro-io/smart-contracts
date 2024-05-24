@@ -19,7 +19,7 @@ contract SetupsFactory is AccessControl {
         uint48 endTime,
         int192 takeProfitPrice,
         int192 stopLossPrice,
-        bool isStopLoss,
+        bool isLong,
         address creator
     );
 
@@ -44,13 +44,13 @@ contract SetupsFactory is AccessControl {
      * @param endTime when the game will end
      * @param takeProfitPrice take profit price
      * @param stopLossPrice stop loss price
-     * @param isStopLoss if stop loss = true, take profit = false
+     * @param isLong if stop loss = true, take profit = false
      */
     function createSetups(
         uint48 endTime,
         int192 takeProfitPrice,
         int192 stopLossPrice,
-        bool isStopLoss,
+        bool isLong,
         bytes32 feedId
     ) public returns (address newGame) {
         require(
@@ -67,7 +67,7 @@ contract SetupsFactory is AccessControl {
             abi.encodePacked(
                 type(Setups).creationCode,
                 abi.encode(
-                    isStopLoss,
+                    isLong,
                     endTime,
                     takeProfitPrice,
                     stopLossPrice,
@@ -82,7 +82,7 @@ contract SetupsFactory is AccessControl {
             endTime,
             takeProfitPrice,
             stopLossPrice,
-            isStopLoss,
+            isLong,
             msg.sender
         );
         //??

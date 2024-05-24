@@ -44,7 +44,7 @@ async function setupUpDownOneVsOne() {
 
 async function setupUpDown() {
   const contract = await ethers.getContractAt(
-    "UpDownGame",
+    "UpDown",
     contracts.UpDown.address
   );
   await wrapFnc([contracts.Treasury.address], contract.setTreasury);

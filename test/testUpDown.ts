@@ -8,8 +8,8 @@ import { MockToken } from "../typechain-types/contracts/mock/MockERC20.sol/MockT
 import { MockToken__factory } from "../typechain-types/factories/contracts/mock/MockERC20.sol/MockToken__factory";
 import { Treasury } from "../typechain-types/contracts/Treasury.sol/Treasury";
 import { Treasury__factory } from "../typechain-types/factories/contracts/Treasury.sol/Treasury__factory";
-import { UpDownGame } from "../typechain-types/contracts/UpDown.sol/UpDownGame";
-import { UpDownGame__factory } from "../typechain-types/factories/contracts/UpDown.sol/UpDownGame__factory";
+import { UpDown } from "../typechain-types/contracts/UpDown.sol/UpDown";
+import { UpDown__factory } from "../typechain-types/factories/contracts/UpDown.sol/UpDown__factory";
 import { MockUpkeep } from "../typechain-types/contracts/MockUpkeep";
 import { MockUpkeep__factory } from "../typechain-types/factories/contracts/MockUpkeep__factory";
 import { abiEncodeInt192 } from "../scripts/helper";
@@ -22,7 +22,7 @@ describe("UpDown", () => {
   let USDT: MockToken;
   let XyroToken: XyroToken;
   let Treasury: Treasury;
-  let Game: UpDownGame;
+  let Game: UpDown;
   let Upkeep: MockUpkeep;
   const assetPrice = parse18("2310");
   const finalPrice = parse18("3000");
@@ -42,7 +42,7 @@ describe("UpDown", () => {
       await USDT.getAddress(),
       await XyroToken.getAddress()
     );
-    Game = await new UpDownGame__factory(owner).deploy();
+    Game = await new UpDown__factory(owner).deploy();
     Upkeep = await new MockUpkeep__factory(owner).deploy();
     await Game.setTreasury(await Treasury.getAddress());
     await Treasury.setFee(100);

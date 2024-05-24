@@ -7,7 +7,7 @@ import {IMockUpkeep} from  "./interfaces/IMockUpkeep.sol";
 
 contract OneVsOneExactPrice is AccessControl {
     event ExactPriceCreated(
-        uint256 gameId,
+        bytes32 gameId,
         address opponent,
         uint256 startTime,
         uint48 endTime,
@@ -16,13 +16,13 @@ contract OneVsOneExactPrice is AccessControl {
         address initiator
     );
     event ExactPriceAccepted(
-        uint256 gameId,
+        bytes32 gameId,
         address opponent,
         int192 opponentPrice
     );
-    event ExactPriceRefused(uint256 gameId);
+    event ExactPriceRefused(bytes32 gameId);
     event ExactPriceCancelled(
-        uint256 gameId,
+        bytes32 gameId,
         address initiator,
         uint256 depositAmount,
         uint256 startTime,
@@ -30,7 +30,7 @@ contract OneVsOneExactPrice is AccessControl {
         Status gameStatus
     );
     event ExactPriceFinalized(
-        uint256 gameId,
+        bytes32 gameId,
         int192 winnerGuessPrice,
         int192 loserGuessPrice,
         int192 finalAssetPrice,
@@ -58,7 +58,7 @@ contract OneVsOneExactPrice is AccessControl {
         Status gameStatus;
     }
 
-    GameInfo[] public games;
+    mapping(bytes32 => GameInfo) public games;
     address public treasury;
     uint256 public fee = 100;
     uint256 public minDuration = 30 minutes;
@@ -91,19 +91,20 @@ contract OneVsOneExactPrice is AccessControl {
             "Max game duration must be lower"
         );
         require(depositAmount >= 1e19, "Wrong deposit amount");
-        GameInfo memory game;
-        game.initiator = msg.sender;
-        game.startTime = block.timestamp;
-        game.endTime = endTime;
-        game.feedId = feedId;
+        GameInfo memory newGame;
+        newGame.initiator = msg.sender;
+        newGame.startTime = block.timestamp;
+        newGame.endTime = endTime;
+        newGame.feedId = feedId;
         ITreasury(treasury).deposit(depositAmount, msg.sender);
-        game.initiatorPrice = initiatorPrice;
-        game.depositAmount = depositAmount;
-        game.opponent = opponent;
-        game.gameStatus = Status.Created;
-        games.push(game);
+        newGame.initiatorPrice = initiatorPrice;
+        newGame.depositAmount = depositAmount;
+        newGame.opponent = opponent;
+        newGame.gameStatus = Status.Created;
+        bytes32 gameId = keccak256(abi.encodePacked(endTime, block.timestamp, msg.sender, opponent));
+        games[gameId] = newGame;
         emit ExactPriceCreated(
-            games.length - 1,
+            gameId,
             opponent,
             block.timestamp,
             endTime,
@@ -140,19 +141,20 @@ contract OneVsOneExactPrice is AccessControl {
             "Max game duration must be lower"
         );
         require(depositAmount >= 1e19, "Wrong deposit amount");
-        GameInfo memory game;
-        game.initiator = msg.sender;
-        game.startTime = block.timestamp;
-        game.endTime = endTime;
-        game.feedId = feedId;
+        GameInfo memory newGame;
+        newGame.initiator = msg.sender;
+        newGame.startTime = block.timestamp;
+        newGame.endTime = endTime;
+        newGame.feedId = feedId;
         ITreasury(treasury).depositWithPermit(depositAmount, msg.sender, deadline, v, r, s);
-        game.initiatorPrice = initiatorPrice;
-        game.depositAmount = depositAmount;
-        game.opponent = opponent;
-        game.gameStatus = Status.Created;
-        games.push(game);
+        newGame.initiatorPrice = initiatorPrice;
+        newGame.depositAmount = depositAmount;
+        newGame.opponent = opponent;
+        newGame.gameStatus = Status.Created;
+        bytes32 gameId = keccak256(abi.encodePacked(endTime, block.timestamp, msg.sender, opponent));
+        games[gameId] = newGame;
         emit ExactPriceCreated(
-            games.length,
+            gameId,
             opponent,
             block.timestamp,
             endTime,
@@ -167,7 +169,7 @@ contract OneVsOneExactPrice is AccessControl {
      * @param gameId game id
      * @param opponentPrice picked asset price
      */
-    function acceptGame(uint256 gameId, int192 opponentPrice) public {
+    function acceptGame(bytes32 gameId, int192 opponentPrice) public {
         GameInfo memory game = games[gameId];
         require(game.gameStatus == Status.Created, "Wrong status!");
         require(
@@ -203,7 +205,7 @@ contract OneVsOneExactPrice is AccessControl {
      * @param opponentPrice picked asset price
      */
     function acceptGameWithPermit(
-        uint256 gameId, 
+        bytes32 gameId, 
         int192 opponentPrice, 
         uint256 deadline,
         uint8 v,
@@ -243,7 +245,7 @@ contract OneVsOneExactPrice is AccessControl {
      * Closes game and refunds tokens
      * @param gameId game id
      */
-    function closeGame(uint256 gameId) public {
+    function closeGame(bytes32 gameId) public {
         GameInfo memory game = games[gameId];
         require(game.initiator == msg.sender, "Wrong sender");
         require(
@@ -270,7 +272,7 @@ contract OneVsOneExactPrice is AccessControl {
      * Changes game status if opponent refuses to play
      * @param gameId game id
      */
-    function refuseGame(uint256 gameId) public {
+    function refuseGame(bytes32 gameId) public {
         GameInfo memory game = games[gameId];
         require(game.gameStatus == Status.Created, "Wrong status!");
         require(msg.sender == game.opponent, "Only opponent can refuse");
@@ -285,7 +287,7 @@ contract OneVsOneExactPrice is AccessControl {
      * @param unverifiedReport Chainlink DataStreams report
      */
     function finalizeGame(
-        uint256 gameId,
+        bytes32 gameId,
         bytes memory unverifiedReport
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         address upkeep = ITreasury(treasury).upkeep();
@@ -349,13 +351,6 @@ contract OneVsOneExactPrice is AccessControl {
     ) public {
         minDuration = newMinDuration;
         maxDuration = newMaxDuration;
-    }
-
-    /**
-     * Returns amount of all games
-     */
-    function totalGames() public view returns (uint256) {
-        return games.length;
     }
 
     /**

@@ -7,13 +7,13 @@ import {IMockUpkeep} from  "./interfaces/IMockUpkeep.sol";
 import {Setups} from "./Setups.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
-interface IGame {
+interface ISetups {
     function setTreasury(address newTreasury) external;
     function grantRole(bytes32 role, address account) external;
     function transferOwnership(address newOwner) external;
 }
 
-contract SetupsGameFactory is AccessControl {
+contract SetupsFactory is AccessControl {
     event SetupCreated(
         uint256 startTime,
         uint48 endTime,
@@ -86,8 +86,8 @@ contract SetupsGameFactory is AccessControl {
             msg.sender
         );
         //??
-        IGame(newGame).grantRole(DEFAULT_ADMIN_ROLE, gameMaster);
-        // IGame(newGame).transferOwnership(owner());
+        ISetups(newGame).grantRole(DEFAULT_ADMIN_ROLE, gameMaster);
+        // ISetups(newGame).transferOwnership(owner());
         games[gameId++] = newGame;
     }
 

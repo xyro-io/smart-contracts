@@ -6,7 +6,7 @@ import {ITreasury} from  "./interfaces/ITreasury.sol";
 import {IMockUpkeep} from  "./interfaces/IMockUpkeep.sol";
 
 contract Setups is AccessControl {
-    event SetupNewPlayer(bool isStopLoss, uint256 depositAmount, address player);
+    event SetupNewPlayer(bool isTakeProfit, uint256 depositAmount, address player);
     event SetupCancelled(
         address gameAdress,
         address initiator,
@@ -29,7 +29,7 @@ contract Setups is AccessControl {
         address initiator;
         uint256 startTime;
         uint48 endTime;
-        bool isStopLoss;
+        bool isTakeProfit;
         uint256 totalDepositsSL;
         uint256 totalDepositsTP;
         int192 takeProfitPrice;
@@ -46,7 +46,7 @@ contract Setups is AccessControl {
     address public treasury;
 
     /**
-     * @param isStopLoss if stop loss = true, take profit = false
+     * @param isTakeProfit if stop loss = false, take profit = true
      * @param endTime when the game will end
      * @param takeProfitPrice take profit price
      * @param stopLossPrice stop loss price
@@ -54,7 +54,7 @@ contract Setups is AccessControl {
      * @param newTreasury new treasury address
      */
     constructor(
-        bool isStopLoss,
+        bool isTakeProfit,
         uint48 endTime,
         int192 takeProfitPrice,
         int192 stopLossPrice,
@@ -63,7 +63,7 @@ contract Setups is AccessControl {
         address newTreasury
     ) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        game.isStopLoss = isStopLoss;
+        game.isTakeProfit = isTakeProfit;
         game.initiator = initiator;
         game.startTime = block.timestamp;
         game.endTime = endTime;
@@ -76,10 +76,10 @@ contract Setups is AccessControl {
 
     /**
      * Take participation in setup game
-     * @param isStopLoss if stop loss = true, take profit = false
+     * @param isTakeProfit if stop loss = false, take profit = true
      * @param depositAmount sender's deposit amount
      */
-    function play(bool isStopLoss, uint256 depositAmount) public {
+    function play(bool isTakeProfit, uint256 depositAmount) public {
         require(game.gameStatus == Status.Created, "Wrong status!");
         require(
             game.startTime + (game.endTime - game.startTime) / 3 >
@@ -89,23 +89,23 @@ contract Setups is AccessControl {
         require(depositAmounts[msg.sender] == 0, "You are already in the game");
         ITreasury(treasury).deposit(depositAmount, msg.sender);
         depositAmounts[msg.sender] = depositAmount;
-        if (isStopLoss) {
-            teamSL.push(msg.sender);
-            game.totalDepositsSL += depositAmount;
-        } else {
+        if (isTakeProfit) {
             teamTP.push(msg.sender);
             game.totalDepositsTP += depositAmount;
+        } else {
+            teamSL.push(msg.sender);
+            game.totalDepositsSL += depositAmount;
         }
-        emit SetupNewPlayer(isStopLoss, depositAmount, msg.sender);
+        emit SetupNewPlayer(isTakeProfit, depositAmount, msg.sender);
     }
 
     /**
      * Take participation in setup game
-     * @param isStopLoss if stop loss = true, take profit = false
+     * @param isTakeProfit if stop loss = false, take profit = true
      * @param depositAmount sender's deposit amount
      */
     function playWithPermit(
-        bool isStopLoss,
+        bool isTakeProfit,
         uint256 depositAmount,
         uint256 deadline,
         uint8 v,
@@ -121,25 +121,24 @@ contract Setups is AccessControl {
         require(depositAmounts[msg.sender] == 0, "You are already in the game");
         ITreasury(treasury).depositWithPermit(depositAmount, msg.sender, deadline, v, r, s);
         depositAmounts[msg.sender] = depositAmount;
-        if (isStopLoss) {
-            teamSL.push(msg.sender);
-            game.totalDepositsSL += depositAmount;
-        } else {
+       if (isTakeProfit) {
             teamTP.push(msg.sender);
             game.totalDepositsTP += depositAmount;
+        } else {
+            teamSL.push(msg.sender);
+            game.totalDepositsSL += depositAmount;
         }
-        emit SetupNewPlayer(isStopLoss, depositAmount, msg.sender);
+        emit SetupNewPlayer(isTakeProfit, depositAmount, msg.sender);
     }
 
     /**
      * Closes setup game
      */
-    function closeGame() public {
-        require(game.initiator == msg.sender, "Wrong sender");
+    function closeGame() public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(
             (game.startTime + (game.endTime - game.startTime) / 3 <
                 block.timestamp &&
-                game.gameStatus == Status.Created),
+               teamTP.length + teamSL.length == 0 || block.timestamp > game.endTime),
             "Wrong status!"
         );
         for (uint i; i < teamSL.length; i++) {
@@ -166,7 +165,38 @@ contract Setups is AccessControl {
         );
         require(finalPrice <= game.stopLossPrice || finalPrice >= game.takeProfitPrice, "Can't end");
         bool takeProfitWon;
-        if (game.isStopLoss) {
+        if (game.isTakeProfit) {
+            if (finalPrice <= game.takeProfitPrice) {
+                // tp team wins
+                uint256 finalRate = ITreasury(treasury).calculateSetupRate(
+                    game.totalDepositsSL,
+                    game.totalDepositsTP,
+                    game.initiator
+                );
+                for (uint i; i < teamTP.length; i++) {
+                    ITreasury(treasury).distributeWithoutFee(
+                        finalRate,
+                        teamTP[i],
+                        depositAmounts[teamTP[i]]
+                    );
+                }
+                takeProfitWon = true;
+            } else if (finalPrice >= game.stopLossPrice) {
+                // sl team wins
+                uint256 finalRate = ITreasury(treasury).calculateSetupRate(
+                    game.totalDepositsTP,
+                    game.totalDepositsSL,
+                    game.initiator
+                );
+                for (uint i; i < teamSL.length; i++) {
+                    ITreasury(treasury).distributeWithoutFee(
+                        finalRate,
+                        teamSL[i],
+                        depositAmounts[teamSL[i]]
+                    );
+                }
+            }
+        } else {
             if (finalPrice <= game.stopLossPrice) {
                 // sl team wins
                 uint256 finalRate = ITreasury(treasury).calculateSetupRate(
@@ -196,37 +226,6 @@ contract Setups is AccessControl {
                     );
                 }
                 takeProfitWon = true;
-            }
-        } else {
-            if (finalPrice >= game.takeProfitPrice) {
-                // tp team wins
-                uint256 finalRate = ITreasury(treasury).calculateSetupRate(
-                    game.totalDepositsSL,
-                    game.totalDepositsTP,
-                    game.initiator
-                );
-                for (uint i; i < teamTP.length; i++) {
-                    ITreasury(treasury).distributeWithoutFee(
-                        finalRate,
-                        teamTP[i],
-                        depositAmounts[teamTP[i]]
-                    );
-                }
-                takeProfitWon = true;
-            } else if (finalPrice <= game.stopLossPrice) {
-                // sl team wins
-                uint256 finalRate = ITreasury(treasury).calculateSetupRate(
-                    game.totalDepositsTP,
-                    game.totalDepositsSL,
-                    game.initiator
-                );
-                for (uint i; i < teamSL.length; i++) {
-                    ITreasury(treasury).distributeWithoutFee(
-                        finalRate,
-                        teamSL[i],
-                        depositAmounts[teamSL[i]]
-                    );
-                }
             }
         }
         game.finalAssetPrice = finalPrice;

@@ -312,14 +312,9 @@ contract OneVsOneExactPrice is AccessControl {
             );
             emit ExactPriceFinalized(
                 gameId,
-                game.initiator,
-                game.opponent,
                 game.initiatorPrice,
                 game.opponentPrice,
-                game.depositAmount,
                 finalAssetPrice,
-                game.startTime,
-                game.endTime,
                 Status.Finished
             );
         } else {
@@ -331,14 +326,9 @@ contract OneVsOneExactPrice is AccessControl {
             );
             emit ExactPriceFinalized(
                 gameId,
-                game.opponent,
-                game.initiator,
                 game.opponentPrice,
                 game.initiatorPrice,
-                game.depositAmount,
                 finalAssetPrice,
-                game.startTime,
-                game.endTime,
                 Status.Finished
             );
         }

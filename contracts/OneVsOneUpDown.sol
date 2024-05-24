@@ -113,6 +113,7 @@ contract OneVsOneUpDown is AccessControl {
             opponent,
             block.timestamp,
             endTime,
+            newGame.startingAssetPrice,
             isLong,
             depositAmount,
             msg.sender
@@ -305,14 +306,8 @@ contract OneVsOneUpDown is AccessControl {
             );
             emit UpDownFinalized(
                 gameId,
-                game.initiator,
                 game.isLong,
-                game.opponent,
-                game.depositAmount,
-                game.startingAssetPrice,
                 finalPrice,
-                game.startTime,
-                game.endTime,
                 Status.Finished
             );
         } else {
@@ -324,14 +319,8 @@ contract OneVsOneUpDown is AccessControl {
             );
             emit UpDownFinalized(
                 gameId,
-                game.opponent,
                 !game.isLong,
-                game.initiator,
-                game.depositAmount,
-                game.startingAssetPrice,
                 finalPrice,
-                game.startTime,
-                game.endTime,
                 Status.Finished
             );
         }

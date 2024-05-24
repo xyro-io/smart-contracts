@@ -56,8 +56,8 @@ describe("Bullseye", () => {
   it("should create bullseye game", async function () {
     await USDT.approve(await Treasury.getAddress(), ethers.MaxUint256);
     await Game.startGame(
-      await time.latest(),
       (await time.latest()) + 2700,
+      (await time.latest()) + 900,
       parse18("100"),
       feedId
     );
@@ -93,8 +93,10 @@ describe("Bullseye", () => {
     const finalPrice = abiEncodeInt192(
       ((assetPrice / BigInt(100)) * BigInt(95)).toString(),feedId
     );
+    console.log("player",await Game.players(0))
     await Game.finalizeGame(finalPrice);
     let newBalance = await USDT.balanceOf(alice.getAddress());
+    // console.log("player",await Game.players(0))
     expect(newBalance).to.be.above(oldBalance);
   });
 });

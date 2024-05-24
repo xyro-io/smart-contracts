@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
-import "./interfaces/ITreasury.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "./interfaces/IERC20.sol";
-import "./interfaces/IMockUpkeep.sol";
 
-contract OneVsOneExactPrice is Ownable {
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {ITreasury} from  "./interfaces/ITreasury.sol";
+import {IMockUpkeep} from  "./interfaces/IMockUpkeep.sol";
+
+contract OneVsOneExactPrice is AccessControl {
     event ExactPriceCreated(
         uint256 gameId,
         address opponent,
-        uint48 startTime,
+        uint256 startTime,
         uint48 endTime,
         int192 initiatorPrice,
         uint256 depositAmount,
@@ -25,7 +25,7 @@ contract OneVsOneExactPrice is Ownable {
         uint256 gameId,
         address initiator,
         uint256 depositAmount,
-        uint48 startTime,
+        uint256 startTime,
         uint48 endTime,
         Status gameStatus
     );
@@ -37,7 +37,7 @@ contract OneVsOneExactPrice is Ownable {
         int192 loserAssetPrice,
         uint256 depositAmount,
         int192 finalAssetPrice,
-        uint48 startTime,
+        uint256 startTime,
         uint48 endTime,
         Status gameStatus
     );
@@ -53,7 +53,7 @@ contract OneVsOneExactPrice is Ownable {
     struct GameInfo {
         bytes32 feedId;
         address initiator;
-        uint48 startTime;
+        uint256 startTime;
         uint48 endTime;
         address opponent;
         uint256 depositAmount;
@@ -69,12 +69,13 @@ contract OneVsOneExactPrice is Ownable {
     uint256 public minDuration = 30 minutes;
     uint256 public maxDuration = 24 weeks;
 
-    constructor() Ownable(msg.sender) {}
+    constructor() {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    }
 
     /**
      * Creates 1vs1 exact price mode game
      * @param opponent address of the opponent
-     * @param startTime when the game will start
      * @param endTime when the game will end
      * @param initiatorPrice game initiator picked asset price
      * @param depositAmount amount to enter the game
@@ -82,23 +83,22 @@ contract OneVsOneExactPrice is Ownable {
     function createGame(
         bytes32 feedId,
         address opponent,
-        uint48 startTime,
         uint48 endTime,
         int192 initiatorPrice,
         uint256 depositAmount
     ) public {
         require(
-            endTime - startTime >= minDuration,
+            endTime - block.timestamp >= minDuration,
             "Min game duration must be higher"
         );
         require(
-            endTime - startTime <= maxDuration,
+            endTime - block.timestamp <= maxDuration,
             "Max game duration must be lower"
         );
         require(depositAmount >= 1e19, "Wrong deposit amount");
         GameInfo memory game;
         game.initiator = msg.sender;
-        game.startTime = startTime;
+        game.startTime = block.timestamp;
         game.endTime = endTime;
         game.feedId = feedId;
         ITreasury(treasury).deposit(depositAmount, msg.sender);
@@ -110,7 +110,7 @@ contract OneVsOneExactPrice is Ownable {
         emit ExactPriceCreated(
             games.length - 1,
             opponent,
-            startTime,
+            block.timestamp,
             endTime,
             initiatorPrice,
             depositAmount,
@@ -121,7 +121,6 @@ contract OneVsOneExactPrice is Ownable {
     /**
      * Creates 1vs1 exact price mode game
      * @param opponent address of the opponent
-     * @param startTime when the game will start
      * @param endTime when the game will end
      * @param initiatorPrice game initiator picked asset price
      * @param depositAmount amount to enter the game
@@ -129,7 +128,6 @@ contract OneVsOneExactPrice is Ownable {
     function createGameWithPermit(
         bytes32 feedId,
         address opponent,
-        uint48 startTime,
         uint48 endTime,
         int192 initiatorPrice,
         uint256 depositAmount,
@@ -139,17 +137,17 @@ contract OneVsOneExactPrice is Ownable {
         bytes32 s
     ) public {
         require(
-            endTime - startTime >= minDuration,
+            endTime - block.timestamp >= minDuration,
             "Min game duration must be higher"
         );
         require(
-            endTime - startTime <= maxDuration,
+            endTime - block.timestamp <= maxDuration,
             "Max game duration must be lower"
         );
         require(depositAmount >= 1e19, "Wrong deposit amount");
         GameInfo memory game;
         game.initiator = msg.sender;
-        game.startTime = startTime;
+        game.startTime = block.timestamp;
         game.endTime = endTime;
         game.feedId = feedId;
         ITreasury(treasury).depositWithPermit(depositAmount, msg.sender, deadline, v, r, s);
@@ -161,7 +159,7 @@ contract OneVsOneExactPrice is Ownable {
         emit ExactPriceCreated(
             games.length,
             opponent,
-            startTime,
+            block.timestamp,
             endTime,
             initiatorPrice,
             depositAmount,
@@ -294,7 +292,7 @@ contract OneVsOneExactPrice is Ownable {
     function finalizeGame(
         uint256 gameId,
         bytes memory unverifiedReport
-    ) public onlyOwner {
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         address upkeep = ITreasury(treasury).upkeep();
         GameInfo memory game = games[gameId];
         int192 finalAssetPrice = IMockUpkeep(upkeep).verifyReport(
@@ -379,7 +377,7 @@ contract OneVsOneExactPrice is Ownable {
      * Change treasury address
      * @param newTreasury new treasury address
      */
-    function setTreasury(address newTreasury) public onlyOwner {
+    function setTreasury(address newTreasury) public onlyRole(DEFAULT_ADMIN_ROLE) {
         treasury = newTreasury;
     }
 }

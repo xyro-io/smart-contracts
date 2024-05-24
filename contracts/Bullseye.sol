@@ -1,28 +1,29 @@
 //  SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
-import "./interfaces/ITreasury.sol";
-import "./interfaces/IMockUpkeep.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "./interfaces/IERC20.sol";
 
-contract Bullseye is Ownable {
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {ITreasury} from  "./interfaces/ITreasury.sol";
+import {IMockUpkeep} from  "./interfaces/IMockUpkeep.sol";
+
+contract Bullseye is AccessControl {
     uint256 constant DENOMINATOR = 10000;
     uint256 public fee = 100;
     uint256[3] public rate = [5000, 3500, 1500];
     uint256[3] public exactRate = [7500, 1500, 1000];
     uint256[2] public twoPlayersRate = [7500, 2500];
     uint256[2] public twoPlayersExactRate = [8000, 2000];
-    event BullseyeStart(uint48 startTime, uint48 endTime, uint256 depositAmount, bytes32 indexed gameId);
+    event BullseyeStart(uint256 startTime, uint48 stopPredictAt, uint48 endTime, uint256 depositAmount, bytes32 indexed gameId);
     event BullseyeNewPlayer(address player, int192 assetPrice, uint256 depositAmount, bytes32 indexed gameId);
     event BullseyeFinalized(address[3] topPlayers, uint256[3] wonAmount, int192[3] assetPrices, bytes32 indexed gameId);
     event BullseyeFinalized(address firstPlace, address secondPlace, int192 firstPlaceGuess, int192 secondPlaceGuess, uint256 wonAmountFirst, uint256 wonAmountSecond, bytes32 indexed gameId);
-    event BullseyeCancelled(address player, uint48 startTime, uint48 endTime, uint256 depositAmount, bytes32 indexed gameId);
+    event BullseyeCancelled(address player, uint256 startTime, uint48 endTime, uint256 depositAmount, bytes32 indexed gameId);
 
     struct GameInfo {
         bytes32 feedId;
         bytes32 gameId;
-        uint48 startTime;
+        uint256 startTime;
         uint48 endTime;
+        uint48 stopPredictAt;
         uint256 depositAmount;
     }
 
@@ -33,27 +34,29 @@ contract Bullseye is Ownable {
     GameInfo public game;
     address public treasury;
 
-    constructor() Ownable(msg.sender) {}
+    constructor() {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    }
 
     /**
      * Starts bullseye game
-     * @param startTime when the game iteration will start
      * @param endTime when the game iteration will end
      * @param depositAmount amount to enter the game
      */
     function startGame(
-        uint48 startTime,
         uint48 endTime,
+        uint48 stopPredictAt,
         uint256 depositAmount,
         bytes32 feedId
-    ) public onlyOwner {
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(game.startTime == 0, "Finish previous game first");
         game.feedId = feedId;
-        game.startTime = startTime;
+        game.startTime = block.timestamp;
+        game.stopPredictAt = stopPredictAt;
         game.endTime = endTime;
         game.depositAmount = depositAmount;
-        game.gameId = keccak256(abi.encodePacked(startTime, block.timestamp, address(this)));
-        emit BullseyeStart(startTime, endTime, depositAmount, game.gameId);
+        game.gameId = keccak256(abi.encodePacked(endTime, block.timestamp, address(this)));
+        emit BullseyeStart(block.timestamp, stopPredictAt, endTime, depositAmount, game.gameId);
     }
 
     /**
@@ -62,8 +65,7 @@ contract Bullseye is Ownable {
      */
     function play(int192 assetPrice) public {
         require(
-            game.startTime + (game.endTime - game.startTime) / 3 >=
-                block.timestamp,
+            game.stopPredictAt >= block.timestamp,
             "Game is closed for new players"
         );
         require(assetPrices[msg.sender] == 0, "You are already in the game");
@@ -86,8 +88,7 @@ contract Bullseye is Ownable {
         bytes32 s
     ) public {
         require(
-            game.startTime + (game.endTime - game.startTime) / 3 >=
-                block.timestamp,
+            game.stopPredictAt >= block.timestamp,
             "Game is closed for new players"
         );
         require(assetPrices[msg.sender] == 0, "You are already in the game");
@@ -102,7 +103,7 @@ contract Bullseye is Ownable {
      * Finalizes bullseye game and distributes rewards to players
      * @param unverifiedReport Chainlink DataStreams report
      */
-    function finalizeGame(bytes memory unverifiedReport) public onlyOwner {
+    function finalizeGame(bytes memory unverifiedReport) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(block.timestamp >= game.endTime, "Too early to finish");
         if(players.length < 2) {
             address player;
@@ -271,7 +272,7 @@ contract Bullseye is Ownable {
      * Change treasury address
      * @param newTreasury new treasury address
      */
-    function setTreasury(address newTreasury) public onlyOwner {
+    function setTreasury(address newTreasury) public onlyRole(DEFAULT_ADMIN_ROLE) {
         treasury = newTreasury;
     }
 }

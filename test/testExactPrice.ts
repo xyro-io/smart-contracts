@@ -76,7 +76,6 @@ describe("OneVsOneExactPrice", () => {
     await Game.createGame(
       feedId,
       await opponent.getAddress(),
-      await time.latest(),
       (await time.latest()) + 2700,
       initiatorPrice,
       betAmount
@@ -114,7 +113,6 @@ describe("OneVsOneExactPrice", () => {
     await Game.createGame(
       feedId,
       await opponent.getAddress(),
-      await time.latest(),
       (await time.latest()) + 2700,
       initiatorPrice,
       betAmount
@@ -135,7 +133,6 @@ describe("OneVsOneExactPrice", () => {
     await Game.createGame(
       feedId,
       ethers.ZeroAddress,
-      await time.latest(),
       (await time.latest()) + 2700,
       initiatorPrice,
       betAmount
@@ -153,7 +150,6 @@ describe("OneVsOneExactPrice", () => {
     await Game.createGame(
       feedId,
       await opponent.getAddress(),
-      await time.latest(),
       (await time.latest()) + 2700,
       initiatorPrice,
       betAmount
@@ -171,7 +167,6 @@ describe("OneVsOneExactPrice", () => {
     await Game.createGame(
       feedId,
       await opponent.getAddress(),
-      await time.latest(),
       (await time.latest()) + 2700,
       initiatorPrice,
       betAmount
@@ -188,7 +183,6 @@ describe("OneVsOneExactPrice", () => {
     await expect(Game.createGame(
       feedId,
       await opponent.getAddress(),
-      await time.latest(),
       (await time.latest()) + 1,
       initiatorPrice,
       betAmount
@@ -199,7 +193,6 @@ describe("OneVsOneExactPrice", () => {
     await expect(Game.createGame(
       feedId,
       await opponent.getAddress(),
-      await time.latest(),
       (await time.latest()) + monthUnix * 20,
       initiatorPrice,
       betAmount
@@ -210,7 +203,6 @@ describe("OneVsOneExactPrice", () => {
     await expect(Game.createGame(
       feedId,
       await opponent.getAddress(),
-      await time.latest(),
       (await time.latest()) + 2700,
       initiatorPrice,
       100
@@ -221,7 +213,6 @@ describe("OneVsOneExactPrice", () => {
     await Game.createGame(
       feedId,
       await opponent.getAddress(),
-      await time.latest(),
       (await time.latest()) + 2700,
       initiatorPrice,
       betAmount
@@ -235,7 +226,6 @@ describe("OneVsOneExactPrice", () => {
     await Game.createGame(
       feedId,
       await opponent.getAddress(),
-      await time.latest(),
       (await time.latest()) + 2700,
       initiatorPrice,
       betAmount
@@ -249,7 +239,6 @@ describe("OneVsOneExactPrice", () => {
     await Game.createGame(
       feedId,
       await opponent.getAddress(),
-      await time.latest(),
       (await time.latest()) + 2700,
       initiatorPrice,
       betAmount
@@ -262,7 +251,6 @@ describe("OneVsOneExactPrice", () => {
     await Game.createGame(
       feedId,
       await opponent.getAddress(),
-      await time.latest(),
       (await time.latest()) + 2700,
       initiatorPrice,
       betAmount
@@ -275,7 +263,6 @@ describe("OneVsOneExactPrice", () => {
     await Game.createGame(
       feedId,
       await opponent.getAddress(),
-      await time.latest(),
       (await time.latest()) + 2700,
       initiatorPrice,
       betAmount
@@ -288,7 +275,6 @@ describe("OneVsOneExactPrice", () => {
     await Game.createGame(
       feedId,
       await opponent.getAddress(),
-      await time.latest(),
       (await time.latest()) + 2700,
       initiatorPrice,
       betAmount
@@ -301,7 +287,6 @@ describe("OneVsOneExactPrice", () => {
     await Game.createGame(
       feedId,
       await opponent.getAddress(),
-      await time.latest(),
       (await time.latest()) + 2700,
       initiatorPrice,
       betAmount
@@ -314,7 +299,6 @@ describe("OneVsOneExactPrice", () => {
     await Game.createGame(
       feedId,
       await opponent.getAddress(),
-      await time.latest(),
       (await time.latest()) + 2700,
       initiatorPrice,
       betAmount
@@ -328,7 +312,6 @@ describe("OneVsOneExactPrice", () => {
     await Game.createGame(
       feedId,
       await opponent.getAddress(),
-      await time.latest(),
       (await time.latest()) + 2700,
       initiatorPrice,
       betAmount
@@ -341,7 +324,6 @@ describe("OneVsOneExactPrice", () => {
     await Game.createGame(
       feedId,
       await opponent.getAddress(),
-      await time.latest(),
       (await time.latest()) + 2700,
       initiatorPrice,
       betAmount

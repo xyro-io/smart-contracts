@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
-import "./interfaces/ITreasury.sol";
-import "./interfaces/IMockUpkeep.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "./interfaces/IERC20.sol";
 
-contract OneVsOneUpDown is Ownable {
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {ITreasury} from  "./interfaces/ITreasury.sol";
+import {IMockUpkeep} from  "./interfaces/IMockUpkeep.sol";
+
+contract OneVsOneUpDown is AccessControl {
     event UpDownCreated(
         uint256 gameId,
         address opponent,
-        uint48 startTime,
+        uint256 startTime,
         uint48 endTime,
         bool isLong,
         uint256 depositAmount,
@@ -26,7 +26,7 @@ contract OneVsOneUpDown is Ownable {
         uint256 gameId,
         address initiator,
         uint256 depositAmount,
-        uint48 startTime,
+        uint256 startTime,
         uint48 endTime,
         Status gameStatus
     );
@@ -38,7 +38,7 @@ contract OneVsOneUpDown is Ownable {
         uint256 depositAmount,
         int192 startingAssetPrice,
         int192 finalAssetPrice,
-        uint48 startTime,
+        uint256 startTime,
         uint48 endTime,
         Status gameStatus
     );
@@ -53,7 +53,7 @@ contract OneVsOneUpDown is Ownable {
     struct GameInfo {
         bytes32 feedId;
         address initiator;
-        uint48 startTime;
+        uint256 startTime;
         uint48 endTime;
         address opponent;
         bool isLong; //Initiator choise
@@ -67,13 +67,14 @@ contract OneVsOneUpDown is Ownable {
     address public treasury;
     uint256 public fee = 100;
     uint256 public minDuration = 30 minutes;
-    uint256 public maxDuration = 24 weeks;
+    uint256 public maxDuration = 4 weeks;
 
-    constructor() Ownable(msg.sender) {}
+    constructor() {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    }
 
     /** Creates 1vs1 up/down mode game
     //@param opponent address of the opponent
-    //@param startTime when the game will start
     //@param endTime when the game will end
     //@param isLong up = true, down = false
     //@param depositAmount amount to enter the game
@@ -81,7 +82,6 @@ contract OneVsOneUpDown is Ownable {
     */
     function createGame(
         address opponent,
-        uint48 startTime,
         uint48 endTime,
         bool isLong,
         uint256 depositAmount,
@@ -89,11 +89,11 @@ contract OneVsOneUpDown is Ownable {
         bytes32 feedId
     ) public {
         require(
-            endTime - startTime >= minDuration,
+            endTime - block.timestamp >= minDuration,
             "Min game duration must be higher"
         );
         require(
-            endTime - startTime <= maxDuration,
+            endTime - block.timestamp <= maxDuration,
             "Max game duration must be lower"
         );
         require(depositAmount >= 1e19, "Wrong deposit amount");
@@ -105,7 +105,7 @@ contract OneVsOneUpDown is Ownable {
         );
         newGame.feedId = feedId;
         newGame.initiator = msg.sender;
-        newGame.startTime = startTime;
+        newGame.startTime = block.timestamp;
         newGame.endTime = endTime;
         ITreasury(treasury).deposit(depositAmount, msg.sender);
         newGame.depositAmount = depositAmount;
@@ -116,7 +116,7 @@ contract OneVsOneUpDown is Ownable {
         emit UpDownCreated(
             games.length - 1,
             opponent,
-            startTime,
+            block.timestamp,
             endTime,
             isLong,
             depositAmount,
@@ -126,7 +126,6 @@ contract OneVsOneUpDown is Ownable {
 
     /** Creates 1vs1 up/down mode game
     //@param opponent address of the opponent
-    //@param startTime when the game will start
     //@param endTime when the game will end
     //@param isLong up = true, down = false
     //@param depositAmount amount to enter the game
@@ -134,7 +133,6 @@ contract OneVsOneUpDown is Ownable {
     */
     function createGameWithPermit(
         address opponent,
-        uint48 startTime,
         uint48 endTime,
         bool isLong,
         uint256 depositAmount,
@@ -146,11 +144,11 @@ contract OneVsOneUpDown is Ownable {
         bytes32 s
     ) public {
         require(
-            endTime - startTime >= minDuration,
+            endTime - block.timestamp >= minDuration,
             "Min game duration must be higher"
         );
         require(
-            endTime - startTime <= maxDuration,
+            endTime - block.timestamp <= maxDuration,
             "Max game duration must be lower"
         );
         require(depositAmount >= 1e19, "Wrong deposit amount");
@@ -162,7 +160,7 @@ contract OneVsOneUpDown is Ownable {
         );
         newGame.feedId = feedId;
         newGame.initiator = msg.sender;
-        newGame.startTime = startTime;
+        newGame.startTime = block.timestamp;
         newGame.endTime = endTime;
         ITreasury(treasury).depositWithPermit(depositAmount, msg.sender, deadline, v, r, s);
         newGame.depositAmount = depositAmount;
@@ -171,9 +169,9 @@ contract OneVsOneUpDown is Ownable {
         newGame.gameStatus = Status.Created;
         games.push(newGame);
         emit UpDownCreated(
-            games.length,
+            games.length - 1,
             opponent,
-            startTime,
+            block.timestamp,
             endTime,
             isLong,
             depositAmount,
@@ -289,7 +287,7 @@ contract OneVsOneUpDown is Ownable {
     function finalizeGame(
         uint256 gameId,
         bytes memory unverifiedReport
-    ) public onlyOwner {
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         GameInfo memory game = games[gameId];
         require(game.gameStatus == Status.Started, "Wrong status!");
         require(block.timestamp >= game.endTime, "Too early to finish");
@@ -369,7 +367,7 @@ contract OneVsOneUpDown is Ownable {
      * Change treasury address
      * @param newTreasury new treasury address
      */
-    function setTreasury(address newTreasury) public onlyOwner {
+    function setTreasury(address newTreasury) public onlyRole(DEFAULT_ADMIN_ROLE) {
         treasury = newTreasury;
     }
 }

@@ -57,14 +57,13 @@ describe("UpDown", () => {
 
   it("should create updown game", async function () {
     await Game.startGame(
-      await time.latest(),
       (await time.latest()) + 2700,
-      parse18("100"),
+      (await time.latest()) + 900,
       startingPriceBytes,
       mockFeedId
     );
     let bet = await Game.game();
-    expect(bet.depositAmount).to.equal(parse18("100"));
+    expect(bet.feedId).to.equal(mockFeedId);
   });
 
   it("should bet down", async function () {
@@ -72,7 +71,7 @@ describe("UpDown", () => {
       Treasury.getAddress(),
       ethers.MaxUint256
     );
-    await Game.connect(opponent).play(false);
+    await Game.connect(opponent).play(false, parse18("100"));
     expect(await USDT.balanceOf(Treasury.getAddress())).to.equal(
       parse18("100")
     );
@@ -80,7 +79,7 @@ describe("UpDown", () => {
 
   it("should bet up", async function () {
     await USDT.connect(alice).approve(Treasury.getAddress(), ethers.MaxUint256);
-    await Game.connect(alice).play(true);
+    await Game.connect(alice).play(true, parse18("100"));
     expect(await USDT.balanceOf(Treasury.getAddress())).to.equal(
       parse18("200")
     );

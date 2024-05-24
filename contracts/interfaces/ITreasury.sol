@@ -37,4 +37,10 @@ interface ITreasury {
         uint256 wonTeamTotal,
         address initiator
     ) external returns (uint256 rate);
+
+    function calculateUpDownRate(
+        uint256 lostTeamTotal,
+        uint256 wonTeamTotal,
+        uint256 updownFee
+    ) external returns (uint256 rate);
 }

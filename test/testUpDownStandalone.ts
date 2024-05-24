@@ -51,7 +51,6 @@ describe("OneVsOneUpDown", () => {
     await USDT.approve(Treasury.getAddress(), ethers.MaxUint256);
     await Game.createGame(
       await opponent.getAddress(),
-      await time.latest(),
       (await time.latest()) + 2700,
       false,
       parse18("100"),

@@ -2,11 +2,15 @@ import contracts from "../contracts.json";
 import { ethers } from "hardhat";
 import { wrapFnc } from "./helper";
 
+const GAME_MASTER = "0xec92e5d829f7ef4793620b47c1e3ecb705b95dab";
+
 async function setupTreasury() {
   const contract = await ethers.getContractAt(
     "Treasury",
     contracts.Treasury.address
   );
+  const defaultAdminRole = await contract.DEFAULT_ADMIN_ROLE();
+  await wrapFnc([defaultAdminRole, GAME_MASTER], contract.grantRole);
   const role = await contract.DISTRIBUTOR_ROLE();
   await wrapFnc([contracts.RealUpkeep.address], contract.setUpkeep);
   await wrapFnc([role, contracts.Bullseye.address], contract.grantRole);
@@ -24,6 +28,8 @@ async function setupBullseye() {
     contracts.Bullseye.address
   );
   await wrapFnc([contracts.Treasury.address], contract.setTreasury);
+  const defaultAdminRole = await contract.DEFAULT_ADMIN_ROLE();
+  await wrapFnc([defaultAdminRole, GAME_MASTER], contract.grantRole);
 }
 
 async function setupUpDownOneVsOne() {
@@ -32,6 +38,8 @@ async function setupUpDownOneVsOne() {
     contracts.UpDownOneVsOne.address
   );
   await wrapFnc([contracts.Treasury.address], contract.setTreasury);
+  const defaultAdminRole = await contract.DEFAULT_ADMIN_ROLE();
+  await wrapFnc([defaultAdminRole, GAME_MASTER], contract.grantRole);
 }
 
 async function setupUpDown() {
@@ -40,6 +48,8 @@ async function setupUpDown() {
     contracts.UpDown.address
   );
   await wrapFnc([contracts.Treasury.address], contract.setTreasury);
+  const defaultAdminRole = await contract.DEFAULT_ADMIN_ROLE();
+  await wrapFnc([defaultAdminRole, GAME_MASTER], contract.grantRole);
 }
 
 async function setupExactPriceOneVsOne() {
@@ -48,6 +58,8 @@ async function setupExactPriceOneVsOne() {
     contracts.ExactPriceOneVsOne.address
   );
   await wrapFnc([contracts.Treasury.address], contract.setTreasury);
+  const defaultAdminRole = await contract.DEFAULT_ADMIN_ROLE();
+  await wrapFnc([defaultAdminRole, GAME_MASTER], contract.grantRole);
 }
 
 async function main() {

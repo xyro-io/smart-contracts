@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
-import "./interfaces/ITreasury.sol";
-import "./interfaces/IMockUpkeep.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "./interfaces/IERC20.sol";
 
-contract Setups is Ownable {
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {ITreasury} from  "./interfaces/ITreasury.sol";
+import {IMockUpkeep} from  "./interfaces/IMockUpkeep.sol";
+
+contract Setups is AccessControl {
     event SetupNewPlayer(bool isStopLoss, uint256 depositAmount, address player);
     event SetupCancelled(
         address gameAdress,
@@ -14,22 +14,7 @@ contract Setups is Ownable {
     );
     event SetupEnd(
         bool takeProfitWon,
-        uint256 totalDepositsTP,
-        uint256 totalDepositsSL,
-        bool isStopLoss,
-        int192 takeProfitPrice,
-        int192 stopLossPrice,
-        uint48 startTime,
-        uint48 endTime,
-        int192 startingAssetPrice,
         int192 finalAssetPrice,
-        Status gameStatus
-    );
-    event SetupStartingPriceSet(
-        address gameAdress,
-        uint48 startTime,
-        uint48 endTime,
-        int192 assetPrice,
         Status gameStatus
     );
 
@@ -42,14 +27,13 @@ contract Setups is Ownable {
     struct GameInfo {
         bytes32 feedId;
         address initiator;
-        uint48 startTime;
+        uint256 startTime;
         uint48 endTime;
         bool isStopLoss;
         uint256 totalDepositsSL;
         uint256 totalDepositsTP;
         int192 takeProfitPrice;
         int192 stopLossPrice;
-        int192 startingAssetPrice;
         int192 finalAssetPrice;
         Status gameStatus;
     }
@@ -63,7 +47,6 @@ contract Setups is Ownable {
 
     /**
      * @param isStopLoss if stop loss = true, take profit = false
-     * @param startTime when the game will start
      * @param endTime when the game will end
      * @param takeProfitPrice take profit price
      * @param stopLossPrice stop loss price
@@ -72,17 +55,17 @@ contract Setups is Ownable {
      */
     constructor(
         bool isStopLoss,
-        uint48 startTime,
         uint48 endTime,
         int192 takeProfitPrice,
         int192 stopLossPrice,
         address initiator,
         bytes32 feedId,
         address newTreasury
-    ) Ownable(msg.sender) {
+    ) {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         game.isStopLoss = isStopLoss;
         game.initiator = initiator;
-        game.startTime = startTime;
+        game.startTime = block.timestamp;
         game.endTime = endTime;
         game.stopLossPrice = stopLossPrice;
         game.takeProfitPrice = takeProfitPrice;
@@ -174,19 +157,14 @@ contract Setups is Ownable {
      * Finalizes setup game
      * @param unverifiedReport Chainlink DataStreams report
      */
-    function finalizeGame(bytes memory unverifiedReport) public onlyOwner {
+    function finalizeGame(bytes memory unverifiedReport) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(game.gameStatus == Status.Created, "Wrong status!");
         address upkeep = ITreasury(treasury).upkeep();
         int192 finalPrice = IMockUpkeep(upkeep).verifyReport(
             unverifiedReport,
             game.feedId
         );
-        require(
-            block.timestamp >= game.endTime ||
-                game.stopLossPrice == finalPrice ||
-                game.takeProfitPrice == finalPrice,
-            "Too early to finish"
-        );
+        require(finalPrice <= game.stopLossPrice || finalPrice >= game.takeProfitPrice, "Can't end");
         bool takeProfitWon;
         if (game.isStopLoss) {
             if (finalPrice <= game.stopLossPrice) {
@@ -204,7 +182,7 @@ contract Setups is Ownable {
                         depositAmounts[teamSL[i]]
                     );
                 }
-            } else {
+            } else if (finalPrice >= game.takeProfitPrice) {
                 uint256 finalRate = ITreasury(treasury).calculateSetupRate(
                     game.totalDepositsSL,
                     game.totalDepositsTP,
@@ -235,7 +213,7 @@ contract Setups is Ownable {
                     );
                 }
                 takeProfitWon = true;
-            } else {
+            } else if (finalPrice <= game.stopLossPrice) {
                 // sl team wins
                 uint256 finalRate = ITreasury(treasury).calculateSetupRate(
                     game.totalDepositsTP,
@@ -255,14 +233,6 @@ contract Setups is Ownable {
         game.gameStatus = Status.Finished;
         emit SetupEnd(
             takeProfitWon,
-            game.totalDepositsTP,
-            game.totalDepositsSL,
-            game.isStopLoss,
-            game.takeProfitPrice,
-            game.stopLossPrice,
-            game.startTime,
-            game.endTime,
-            game.startingAssetPrice,
             finalPrice,
             Status.Finished
         );
@@ -272,7 +242,7 @@ contract Setups is Ownable {
      * Change treasury address
      * @param newTreasury new treasury address
      */
-    function setTreasury(address newTreasury) public onlyOwner {
+    function setTreasury(address newTreasury) public onlyRole(DEFAULT_ADMIN_ROLE) {
         treasury = newTreasury;
     }
 }

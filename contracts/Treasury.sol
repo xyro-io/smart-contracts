@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
-import "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+
 interface IERC20Mint {
     function mint(address to, uint256 value) external returns (bool);
 }
 
-contract Treasury is AccessControlEnumerable {
+contract Treasury is AccessControl {
     address public approvedToken;
     address public xyroToken;
     address public upkeep;
@@ -33,8 +35,7 @@ contract Treasury is AccessControlEnumerable {
      * Set new token for in game usage
      * @param token new token address
      */
-    function setToken(address token) public {
-        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Invalid role");
+    function setToken(address token) onlyRole(DEFAULT_ADMIN_ROLE) public {
         approvedToken = token;
     }
 
@@ -113,8 +114,7 @@ contract Treasury is AccessControlEnumerable {
      * @param amount token amount
      * @param to reciever address
      */
-    function refund(uint256 amount, address to) public {
-        require(hasRole(DISTRIBUTOR_ROLE, msg.sender), "Invalid role");
+    function refund(uint256 amount, address to) onlyRole(DEFAULT_ADMIN_ROLE) public {
         IERC20(approvedToken).approve(to, amount);
         SafeERC20.safeTransfer(IERC20(approvedToken), to, amount);
     }
@@ -123,8 +123,7 @@ contract Treasury is AccessControlEnumerable {
      * Withrad earned fees
      * @param amount amount to withdraw
      */
-    function withdrawFees(uint256 amount, address to) public {
-        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Invalid role");
+    function withdrawFees(uint256 amount, address to) onlyRole(DEFAULT_ADMIN_ROLE) public {
         IERC20(approvedToken).approve(to, amount);
         SafeERC20.safeTransfer(IERC20(approvedToken), to, amount);
     }
@@ -141,8 +140,7 @@ contract Treasury is AccessControlEnumerable {
         address to,
         uint256 initialDeposit,
         uint256 gameFee
-    ) public {
-        require(hasRole(DISTRIBUTOR_ROLE, msg.sender), "Invalid role");
+    ) public onlyRole(DISTRIBUTOR_ROLE) {
         uint256 withdrawnFees = (amount * gameFee) / FEE_DENOMINATOR;
         uint256 wonAmount = amount -
             (withdrawnFees -
@@ -165,8 +163,7 @@ contract Treasury is AccessControlEnumerable {
         uint256 rate,
         address to,
         uint256 initialDeposit
-    ) public {
-        require(hasRole(DISTRIBUTOR_ROLE, msg.sender), "Invalid role");
+    ) public onlyRole(DISTRIBUTOR_ROLE) {
         uint256 withdrawnFees = (initialDeposit * fee) / FEE_DENOMINATOR;
         uint256 wonAmount = (initialDeposit - withdrawnFees) +
             ((initialDeposit - withdrawnFees) * rate) /
@@ -203,6 +200,26 @@ contract Treasury is AccessControlEnumerable {
         //collect dust
         rate =
             ((lostTeamTotal - withdrawnFee - lostTeamFee) * FEE_DENOMINATOR) /
+            (wonTeamTotal - wonTeamFee);
+    }
+
+    /**
+     * Calculates updown reward rate and distributes fee for setup creator
+     * @param lostTeamTotal summ of lost team deposits
+     * @param wonTeamTotal summ of won team deposits
+     * @param updownFee updown game fee
+     */
+    function calculateUpDownRate(
+        uint256 lostTeamTotal,
+        uint256 wonTeamTotal,
+        uint256 updownFee
+    ) external returns (uint256 rate) {
+        uint256 lostTeamFee = (lostTeamTotal * updownFee) / FEE_DENOMINATOR;
+        uint256 wonTeamFee = (wonTeamTotal * updownFee) / FEE_DENOMINATOR;
+        collectedFee += lostTeamFee + wonTeamFee;
+        //collect dust
+        rate =
+            ((lostTeamTotal - lostTeamFee) * FEE_DENOMINATOR) /
             (wonTeamTotal - wonTeamFee);
     }
 
@@ -260,7 +277,7 @@ contract Treasury is AccessControlEnumerable {
      * Changes Chainlink upkeep address
      * @param newUpkeep new upkeep address
      */
-    function setUpkeep(address newUpkeep) public {
+    function setUpkeep(address newUpkeep) onlyRole(DEFAULT_ADMIN_ROLE) public {
         upkeep = newUpkeep;
     }
 }

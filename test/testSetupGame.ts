@@ -53,7 +53,6 @@ describe("Setup Game", () => {
 
   it("should create SL setup game", async function () {
     await Factory.createSetups(
-      await time.latest(),
       (await time.latest()) + 2700,
       (assetPrice / BigInt(100)) * BigInt(103),
       (assetPrice / BigInt(100)) * BigInt(97),
@@ -103,7 +102,6 @@ describe("Setup Game", () => {
 
   it("should create TP setup game", async function () {
     await Factory.createSetups(
-      await time.latest(),
       (await time.latest()) + 2700,
       (assetPrice / BigInt(100)) * BigInt(107),
       (assetPrice / BigInt(100)) * BigInt(90),

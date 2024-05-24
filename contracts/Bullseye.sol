@@ -15,7 +15,6 @@ contract Bullseye is AccessControl {
     event BullseyeStart(uint256 startTime, uint48 stopPredictAt, uint48 endTime, uint256 depositAmount, bytes32 indexed gameId);
     event BullseyeNewPlayer(address player, int192 assetPrice, uint256 depositAmount, bytes32 indexed gameId);
     event BullseyeFinalized(address[3] players, int192 finalPrice, bytes32 indexed gameId);
-    event BullseyeFinalized(address[2] players, int192 finalPrice, bytes32 indexed gameId);
     event BullseyeCancelled(bytes32 indexed gameId);
 
     struct GameInfo {
@@ -161,7 +160,7 @@ contract Bullseye is AccessControl {
                     game.depositAmount,
                     fee
                 );
-                emit BullseyeFinalized([playerOne, playerTwo], finalPrice, game.gameId);
+                emit BullseyeFinalized([playerOne, playerTwo, address(0)], finalPrice, game.gameId);
             } else {
                 // player 2 closer
                 uint256 wonAmountFirst = (2 *
@@ -190,7 +189,7 @@ contract Bullseye is AccessControl {
                     game.depositAmount,
                     fee
                 );
-                emit BullseyeFinalized([playerTwo, playerOne], finalPrice, game.gameId);
+                emit BullseyeFinalized([playerTwo, playerOne, address(0)], finalPrice, game.gameId);
             }
         } else {
             address[3] memory topPlayers;

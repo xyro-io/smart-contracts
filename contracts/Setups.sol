@@ -166,7 +166,7 @@ contract Setups is AccessControl {
         require(finalPrice <= game.stopLossPrice || finalPrice >= game.takeProfitPrice, "Can't end");
         bool takeProfitWon;
         if (game.isLong) {
-            if (finalPrice <= game.takeProfitPrice) {
+            if (finalPrice >= game.takeProfitPrice) {
                 // tp team wins
                 uint256 finalRate = ITreasury(treasury).calculateSetupRate(
                     game.totalDepositsSL,
@@ -181,7 +181,7 @@ contract Setups is AccessControl {
                     );
                 }
                 takeProfitWon = true;
-            } else if (finalPrice >= game.stopLossPrice) {
+            } else if (finalPrice <= game.stopLossPrice) {
                 // sl team wins
                 uint256 finalRate = ITreasury(treasury).calculateSetupRate(
                     game.totalDepositsTP,

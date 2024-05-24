@@ -11,6 +11,7 @@ contract OneVsOneUpDown is AccessControl {
         address opponent,
         uint256 startTime,
         uint48 endTime,
+        int192 startingAssetPrice,
         bool isLong,
         uint256 depositAmount,
         address initiator
@@ -32,14 +33,8 @@ contract OneVsOneUpDown is AccessControl {
     );
     event UpDownFinalized(
         uint256 gameId,
-        address winner,
-        bool isLong,
-        address loser,
-        uint256 depositAmount,
-        int192 startingAssetPrice,
+        bool isLongWon,
         int192 finalAssetPrice,
-        uint256 startTime,
-        uint48 endTime,
         Status gameStatus
     );
 
@@ -173,6 +168,7 @@ contract OneVsOneUpDown is AccessControl {
             opponent,
             block.timestamp,
             endTime,
+            newGame.startingAssetPrice,
             isLong,
             depositAmount,
             msg.sender

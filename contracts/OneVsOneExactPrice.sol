@@ -31,14 +31,9 @@ contract OneVsOneExactPrice is AccessControl {
     );
     event ExactPriceFinalized(
         uint256 gameId,
-        address winner,
-        address loser,
         int192 winnerGuessPrice,
-        int192 loserAssetPrice,
-        uint256 depositAmount,
+        int192 loserGuessPrice,
         int192 finalAssetPrice,
-        uint256 startTime,
-        uint48 endTime,
         Status gameStatus
     );
 
@@ -67,7 +62,7 @@ contract OneVsOneExactPrice is AccessControl {
     address public treasury;
     uint256 public fee = 100;
     uint256 public minDuration = 30 minutes;
-    uint256 public maxDuration = 24 weeks;
+    uint256 public maxDuration = 4 weeks;
 
     constructor() {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);

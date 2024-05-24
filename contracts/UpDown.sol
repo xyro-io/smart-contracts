@@ -5,7 +5,7 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ITreasury} from  "./interfaces/ITreasury.sol";
 import {IMockUpkeep} from  "./interfaces/IMockUpkeep.sol";
 
-contract UpDownGame is AccessControl {
+contract UpDown is AccessControl {
     event UpDownStart(
         uint256 startTime,
         uint48 stopPredictAt,
@@ -15,7 +15,7 @@ contract UpDownGame is AccessControl {
     );
     event UpDownNewPlayer(address player, bool isLong, uint256 depositAmount, bytes32 indexed gameId);
     event UpDownFinalized(int192 finalPrice, bytes32 indexed gameId);
-    event UpDownCancelled(uint256 startTime, uint48 endTime, bytes32 indexed gameId);
+    event UpDownCancelled(bytes32 indexed gameId);
 
     struct GameInfo {
         uint256 startTime;
@@ -126,7 +126,7 @@ contract UpDownGame is AccessControl {
                 ITreasury(treasury).refund(depositAmounts[DownPlayers[0]], DownPlayers[0]);
                 delete DownPlayers;
             }
-            emit UpDownCancelled(game.startTime, game.endTime, game.gameId);
+            emit UpDownCancelled(game.gameId);
             delete game;
             return;
         }

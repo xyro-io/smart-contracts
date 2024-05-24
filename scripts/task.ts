@@ -93,7 +93,7 @@ task("startUpDown", "Starts updown game")
   .addParam("betamount", "Bet amount")
   .setAction(async (taskArgs: any) => {
     const contract = await ethers.getContractAt(
-      "UpDownGame",
+      "UpDown",
       contracts.UpDown.address
     );
     // const price = await getPrice();
@@ -116,7 +116,7 @@ task("betUpDown", "UpDown bet")
   .setAction(async (taskArgs: any) => {
     const signer = await ethers.getSigner(taskArgs.better);
     const contract = await ethers.getContractAt(
-      "UpDownGame",
+      "UpDown",
       contracts.UpDown.address
     );
     await contract.connect(signer).play(taskArgs.up === "true");
@@ -127,7 +127,7 @@ task("finalizeUpDown", "Finishes UpDown game")
 .setAction(
   async (taskArgs: any) => {
     const contract = await ethers.getContractAt(
-      "UpDownGame",
+      "UpDown",
       contracts.UpDown.address
     );
     const price = await getPrice();
@@ -242,8 +242,8 @@ task("createSetup", "Create setup game")
   .addParam("feedid", "Price feed id")
   .setAction(async (taskArgs: any) => {
     const contract = await ethers.getContractAt(
-      "SetupsGameFactory",
-      contracts.SetupsGameFactory.address
+      "SetupsFactory",
+      contracts.SetupsFactory.address
     );
 
     const price = await getPrice();
@@ -279,8 +279,8 @@ task("getSetupAddress", "Returns setup address by id")
   .addParam("id", "Game id")
   .setAction(async (taskArgs: any) => {
     const contract = await ethers.getContractAt(
-      "SetupsGameFactory",
-      contracts.SetupsGameFactory.address
+      "SetupsFactory",
+      contracts.SetupsFactory.address
     );
     const setupAddress = await contract.games(taskArgs.id);
     console.log("Setup address: ", setupAddress);

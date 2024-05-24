@@ -7,19 +7,19 @@ import {IMockUpkeep} from  "./interfaces/IMockUpkeep.sol";
 import {Setups} from "./Setups.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
-interface IGame {
+interface ISetups {
     function setTreasury(address newTreasury) external;
     function grantRole(bytes32 role, address account) external;
     function transferOwnership(address newOwner) external;
 }
 
-contract SetupsGameFactory is AccessControl {
+contract SetupsFactory is AccessControl {
     event SetupCreated(
         uint256 startTime,
         uint48 endTime,
         int192 takeProfitPrice,
         int192 stopLossPrice,
-        bool isStopLoss,
+        bool isLong,
         address creator
     );
 
@@ -44,13 +44,13 @@ contract SetupsGameFactory is AccessControl {
      * @param endTime when the game will end
      * @param takeProfitPrice take profit price
      * @param stopLossPrice stop loss price
-     * @param isStopLoss if stop loss = true, take profit = false
+     * @param isLong if stop loss = true, take profit = false
      */
     function createSetups(
         uint48 endTime,
         int192 takeProfitPrice,
         int192 stopLossPrice,
-        bool isStopLoss,
+        bool isLong,
         bytes32 feedId
     ) public returns (address newGame) {
         require(
@@ -67,7 +67,7 @@ contract SetupsGameFactory is AccessControl {
             abi.encodePacked(
                 type(Setups).creationCode,
                 abi.encode(
-                    isStopLoss,
+                    isLong,
                     endTime,
                     takeProfitPrice,
                     stopLossPrice,
@@ -82,12 +82,12 @@ contract SetupsGameFactory is AccessControl {
             endTime,
             takeProfitPrice,
             stopLossPrice,
-            isStopLoss,
+            isLong,
             msg.sender
         );
         //??
-        IGame(newGame).grantRole(DEFAULT_ADMIN_ROLE, gameMaster);
-        // IGame(newGame).transferOwnership(owner());
+        ISetups(newGame).grantRole(DEFAULT_ADMIN_ROLE, gameMaster);
+        // ISetups(newGame).transferOwnership(owner());
         games[gameId++] = newGame;
     }
 

@@ -1,13 +1,13 @@
 // // SPDX-License-Identifier: UNLICENSED
 // pragma solidity ^0.8.24;
 // import { Bullseye } from "./Bullseye.sol";
-// import { UpDownGame } from "./UpDown.sol";
+// import { UpDown } from "./UpDown.sol";
 // import { OneVsOneExactPrice } from "./OneVsOneExactPrice.sol";
 // import { OneVsOneUpDown } from "./OneVsOneUpDown.sol";
 
 // contract FrontHelper {
 
-//     enum UpDownGameStatus {
+//     enum UpDownStatus {
 //         TakeProfit,
 //         StopLoss,
 //         NotPlaying
@@ -99,28 +99,28 @@
 //         return Bullseye(game).assetPrices(player);
 //     }
 
-//     function getUpDownPlayerInfo(address player, address game) public view returns (UpDownGameStatus) {
-//         UpDownGame updown = UpDownGame(game);
+//     function getUpDownPlayerInfo(address player, address game) public view returns (UpDownStatus) {
+//         UpDown updown = UpDown(game);
 //         (uint256 totalUpPlayers, uint256 totalDownPlayers) = updown.getTotalPlayers();
 
 //         for(uint i; i <totalUpPlayers;i++) {
 //             if(player == updown.UpPlayers(i)) {
-//                 return UpDownGameStatus.TakeProfit;
+//                 return UpDownStatus.TakeProfit;
 //             }
 //         }
 
 //         for(uint i; i <totalDownPlayers;i++) {
 //             if(player == updown.DownPlayers(i)) {
-//                 return UpDownGameStatus.StopLoss;
+//                 return UpDownStatus.StopLoss;
 //             }
 //         }
 
-//         return UpDownGameStatus.NotPlaying;
+//         return UpDownStatus.NotPlaying;
 //     }
 
 
 //     function getUpDownData(address game) public view returns (address[] memory, address[] memory, UpDownInfo memory data) {
-//         UpDownGame updown = UpDownGame(game);
+//         UpDown updown = UpDown(game);
 //         (uint256 totalUpPlayers, uint256 totalDownPlayers) = updown.getTotalPlayers();
 //         address[] memory upPlayers = new address[](totalUpPlayers);
 //         address[] memory downPlayers = new address[](totalDownPlayers);
@@ -143,7 +143,7 @@
 //     }
 
 //     function getUpDownPlayers(address game) public view returns (address[] memory, address[] memory) {
-//         UpDownGame updown = UpDownGame(game);
+//         UpDown updown = UpDown(game);
 //         (uint256 totalUpPlayers, uint256 totalDownPlayers) = updown.getTotalPlayers();
 //         address[] memory upPlayers = new address[](totalUpPlayers);
 //         address[] memory downPlayers = new address[](totalDownPlayers);

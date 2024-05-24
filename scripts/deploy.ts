@@ -18,7 +18,7 @@ let contracts: {
   Treasury,
   Vesting,
   Staking,
-  SetupsGameFactory,
+  SetupsFactory,
   ExactPriceOneVsOne,
   UpDownOneVsOne,
   Bullseye,
@@ -130,18 +130,18 @@ async function deployStaking() {
   }
 }
 
-async function deploySetupsGameFactory() {
-  factory = await ethers.getContractFactory("SetupsGameFactory");
+async function deploySetupsFactory() {
+  factory = await ethers.getContractFactory("SetupsFactory");
   if (
-    contracts.SetupsGameFactory?.address == undefined ||
-    contracts.SetupsGameFactory?.address == ""
+    contracts.SetupsFactory?.address == undefined ||
+    contracts.SetupsFactory?.address == ""
   ) {
-    SetupsGameFactory = await wrapFnc([contracts.Treasury.address], factory);
-    contracts.SetupsGameFactory = { address: "", url: "" };
-    contracts.SetupsGameFactory.address = SetupsGameFactory.target;
-    console.log("SetupsGameFactory deployed");
+    SetupsFactory = await wrapFnc([contracts.Treasury.address], factory);
+    contracts.SetupsFactory = { address: "", url: "" };
+    contracts.SetupsFactory.address = SetupsFactory.target;
+    console.log("SetupsFactory deployed");
   } else {
-    console.log("SetupsGameFactory already deployed skipping...");
+    console.log("SetupsFactory already deployed skipping...");
   }
 }
 
@@ -191,7 +191,7 @@ async function deployOneVsOneUpDown() {
 }
 
 async function deployUpDown() {
-  factory = await ethers.getContractFactory("UpDownGame");
+  factory = await ethers.getContractFactory("UpDown");
   if (
     contracts.UpDown?.address == undefined ||
     contracts.UpDown?.address == ""
@@ -293,7 +293,7 @@ async function main() {
     // await deployStaking();
     await deployOneVsOneExactPrice();
     await deployOneVsOneUpDown();
-    await deploySetupsGameFactory();
+    await deploySetupsFactory();
     await deployBullseye();
     await deployMockUpkeep();
     await deployFrontHelper();

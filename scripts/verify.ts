@@ -115,18 +115,18 @@ async function verifyBullseye() {
 //   });
 // }
 
-async function verifySetupsGameFactory() {
-  if (contracts.SetupsGameFactory.address !== undefined) {
-    let targetAddress = contracts.SetupsGameFactory.address;
+async function verifySetupsFactory() {
+  if (contracts.SetupsFactory.address !== undefined) {
+    let targetAddress = contracts.SetupsFactory.address;
     try {
       await hre.run("verify:verify", {
         address: targetAddress,
         constructorArguments: [contracts.Treasury.address],
       });
-      contracts.SetupsGameFactory.url = getVerifiedUrl(targetAddress);
+      contracts.SetupsFactory.url = getVerifiedUrl(targetAddress);
     } catch (e) {
       if (isAlreadyVerified(e, targetAddress))
-        contracts.SetupsGameFactory.url = getVerifiedUrl(targetAddress);
+        contracts.SetupsFactory.url = getVerifiedUrl(targetAddress);
     }
   }
 }
@@ -233,7 +233,7 @@ async function verify() {
   await verifyTreasury();
   await verifyOneVsOneExactPrice();
   await verifyOneVsOneUpDown();
-  await verifySetupsGameFactory();
+  await verifySetupsFactory();
   await verifyBullseye();
   await verifyUpDown();
   await verifyFrontHelper();

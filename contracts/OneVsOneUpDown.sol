@@ -7,7 +7,7 @@ import {IMockUpkeep} from  "./interfaces/IMockUpkeep.sol";
 
 contract OneVsOneUpDown is AccessControl {
     event UpDownCreated(
-        uint256 gameId,
+        bytes32 gameId,
         address opponent,
         uint256 startTime,
         uint48 endTime,
@@ -17,14 +17,14 @@ contract OneVsOneUpDown is AccessControl {
         address initiator
     );
     event UpDownAccepted(
-        uint256 gameId,
+        bytes32 gameId,
         address opponent,
         bool isLong,
         uint256 depositAmount
     );
-    event UpDownRefused(uint256 gameId);
+    event UpDownRefused(bytes32 gameId);
     event UpDownCancelled(
-        uint256 gameId,
+        bytes32 gameId,
         address initiator,
         uint256 depositAmount,
         uint256 startTime,
@@ -32,7 +32,7 @@ contract OneVsOneUpDown is AccessControl {
         Status gameStatus
     );
     event UpDownFinalized(
-        uint256 gameId,
+        bytes32 gameId,
         bool isLongWon,
         int192 finalAssetPrice,
         Status gameStatus
@@ -58,7 +58,7 @@ contract OneVsOneUpDown is AccessControl {
         Status gameStatus;
     }
 
-    GameInfo[] public games;
+    mapping(bytes32 => GameInfo) public games;
     address public treasury;
     uint256 public fee = 100;
     uint256 public minDuration = 30 minutes;
@@ -93,8 +93,7 @@ contract OneVsOneUpDown is AccessControl {
         );
         require(depositAmount >= 1e19, "Wrong deposit amount");
         GameInfo memory newGame;
-        address upkeep = ITreasury(treasury).upkeep();
-        newGame.startingAssetPrice = IMockUpkeep(upkeep).verifyReport(
+        newGame.startingAssetPrice = IMockUpkeep(ITreasury(treasury).upkeep()).verifyReport(
             unverifiedReport,
             feedId
         );
@@ -107,9 +106,10 @@ contract OneVsOneUpDown is AccessControl {
         newGame.opponent = opponent;
         newGame.isLong = isLong;
         newGame.gameStatus = Status.Created;
-        games.push(newGame);
+        bytes32 gameId = keccak256(abi.encodePacked(endTime, block.timestamp, msg.sender, opponent));
+        games[gameId] = newGame;
         emit UpDownCreated(
-            games.length - 1,
+            gameId,
             opponent,
             block.timestamp,
             endTime,
@@ -149,8 +149,7 @@ contract OneVsOneUpDown is AccessControl {
         );
         require(depositAmount >= 1e19, "Wrong deposit amount");
         GameInfo memory newGame;
-        address upkeep = ITreasury(treasury).upkeep();
-        newGame.startingAssetPrice = IMockUpkeep(upkeep).verifyReport(
+        newGame.startingAssetPrice = IMockUpkeep(ITreasury(treasury).upkeep()).verifyReport(
             unverifiedReport,
             feedId
         );
@@ -163,9 +162,10 @@ contract OneVsOneUpDown is AccessControl {
         newGame.opponent = opponent;
         newGame.isLong = isLong;
         newGame.gameStatus = Status.Created;
-        games.push(newGame);
+        bytes32 gameId = keccak256(abi.encodePacked(endTime, block.timestamp, msg.sender, opponent));
+        games[gameId] = newGame;
         emit UpDownCreated(
-            games.length - 1,
+            gameId,
             opponent,
             block.timestamp,
             endTime,
@@ -180,7 +180,7 @@ contract OneVsOneUpDown is AccessControl {
      * Accepts 1vs1 up/down mode game
      * @param gameId game id
      */
-    function acceptGame(uint256 gameId) public {
+    function acceptGame(bytes32 gameId) public {
         GameInfo memory game = games[gameId];
         require(game.gameStatus == Status.Created, "Wrong status!");
         require(
@@ -208,7 +208,7 @@ contract OneVsOneUpDown is AccessControl {
      * @param gameId game id
      */
     function acceptGameWithPermit(
-        uint256 gameId,
+        bytes32 gameId,
         uint256 deadline,
         uint8 v,
         bytes32 r,
@@ -240,7 +240,7 @@ contract OneVsOneUpDown is AccessControl {
      * Changes game status if opponent refuses to play
      * @param gameId game id
      */
-    function refuseGame(uint256 gameId) public {
+    function refuseGame(bytes32 gameId) public {
         GameInfo memory game = games[gameId];
         require(game.gameStatus == Status.Created, "Wrong status!");
         require(msg.sender == game.opponent, "Only opponent can refuse");
@@ -253,7 +253,7 @@ contract OneVsOneUpDown is AccessControl {
      * Closes game and refunds tokens
      * @param gameId game id
      */
-    function closeGame(uint256 gameId) public {
+    function closeGame(bytes32 gameId) public {
         GameInfo memory game = games[gameId];
         require(game.initiator == msg.sender, "Wrong sender");
         require(
@@ -282,7 +282,7 @@ contract OneVsOneUpDown is AccessControl {
      * @param unverifiedReport Chainlink DataStreams report
      */
     function finalizeGame(
-        uint256 gameId,
+        bytes32 gameId,
         bytes memory unverifiedReport
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         GameInfo memory game = games[gameId];
@@ -341,11 +341,6 @@ contract OneVsOneUpDown is AccessControl {
     ) public {
         minDuration = newMinDuration;
         maxDuration = newMaxDuration;
-    }
-
-    //Returns amount of all games
-    function totalGames() public view returns (uint256) {
-        return games.length;
     }
 
     /**

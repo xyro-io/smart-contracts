@@ -112,6 +112,7 @@ task("startUpDown", "Starts updown game")
 
 task("betUpDown", "UpDown bet")
   .addParam("up", "Will go up?")
+  .addParam("deposit", "Amount to bet")
   .addParam("better", "Who is betting")
   .setAction(async (taskArgs: any) => {
     const signer = await ethers.getSigner(taskArgs.better);
@@ -119,7 +120,7 @@ task("betUpDown", "UpDown bet")
       "UpDown",
       contracts.UpDown.address
     );
-    await contract.connect(signer).play(taskArgs.up === "true");
+    await contract.connect(signer).play(taskArgs.up === "true", ethers.parseEther(taskArgs.deposit));
   });
 
 task("finalizeUpDown", "Finishes UpDown game")

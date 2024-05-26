@@ -20,6 +20,7 @@ contract SetupsFactory is AccessControl {
         int192 takeProfitPrice,
         int192 stopLossPrice,
         bool isLong,
+        address game,
         address creator
     );
 
@@ -83,11 +84,10 @@ contract SetupsFactory is AccessControl {
             takeProfitPrice,
             stopLossPrice,
             isLong,
+            newGame,
             msg.sender
         );
-        //??
         ISetups(newGame).grantRole(DEFAULT_ADMIN_ROLE, gameMaster);
-        // ISetups(newGame).transferOwnership(owner());
         games[gameId++] = newGame;
     }
 

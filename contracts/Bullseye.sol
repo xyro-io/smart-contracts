@@ -12,7 +12,7 @@ contract Bullseye is AccessControl {
     uint256[3] public exactRate = [7500, 1500, 1000];
     uint256[2] public twoPlayersRate = [7500, 2500];
     uint256[2] public twoPlayersExactRate = [8000, 2000];
-    event BullseyeStart(uint256 startTime, uint48 stopPredictAt, uint48 endTime, uint256 depositAmount, bytes32 indexed gameId);
+    event BullseyeStart(uint256 startTime, uint48 stopPredictAt, uint48 endTime, uint256 depositAmount, bytes32 feedId, bytes32 indexed gameId);
     event BullseyeNewPlayer(address player, int192 assetPrice, uint256 depositAmount, bytes32 indexed gameId);
     event BullseyeFinalized(address[3] players, int192 finalPrice, bytes32 indexed gameId);
     event BullseyeCancelled(bytes32 indexed gameId);
@@ -55,7 +55,7 @@ contract Bullseye is AccessControl {
         game.endTime = endTime;
         game.depositAmount = depositAmount;
         game.gameId = keccak256(abi.encodePacked(endTime, block.timestamp, address(this)));
-        emit BullseyeStart(block.timestamp, stopPredictAt, endTime, depositAmount, game.gameId);
+        emit BullseyeStart(block.timestamp, stopPredictAt, endTime, depositAmount, feedId, game.gameId);
     }
 
     /**

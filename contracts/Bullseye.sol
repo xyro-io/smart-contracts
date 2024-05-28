@@ -81,10 +81,7 @@ contract Bullseye is AccessControl {
      */
     function playWithPermit(
         int192 assetPrice,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
+        ITreasury.PermitData calldata permitData
     ) public {
         require(
             game.stopPredictAt >= block.timestamp,
@@ -94,7 +91,7 @@ contract Bullseye is AccessControl {
         playerTimestamp[msg.sender] = block.timestamp;
         players.push(msg.sender);
         assetPrices[msg.sender] = assetPrice;
-        ITreasury(treasury).depositWithPermit(game.depositAmount, msg.sender, deadline, v, r, s);
+        ITreasury(treasury).depositWithPermit(game.depositAmount, msg.sender, permitData.deadline, permitData.v, permitData.r, permitData.s);
         emit BullseyeNewPlayer(msg.sender, assetPrice, game.depositAmount, game.gameId);
     }
 

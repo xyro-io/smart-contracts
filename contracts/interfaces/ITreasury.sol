@@ -2,6 +2,14 @@
 pragma solidity ^0.8.24;
 
 interface ITreasury {
+
+    struct PermitData {
+        uint256 deadline;
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+    }
+
     function increaseFee(uint256 amount) external;
 
     function deposit(uint256 amount, address from) external;

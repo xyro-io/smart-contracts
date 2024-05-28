@@ -15,6 +15,7 @@ interface ISetups {
 
 contract SetupsFactory is AccessControl {
     event SetupCreated(
+        bytes32 feedId,
         uint256 startTime,
         uint48 endTime,
         int192 takeProfitPrice,
@@ -79,6 +80,7 @@ contract SetupsFactory is AccessControl {
             )
         );
         emit SetupCreated(
+            feedId,
             block.timestamp,
             endTime,
             takeProfitPrice,
@@ -90,24 +92,6 @@ contract SetupsFactory is AccessControl {
         ISetups(newGame).grantRole(DEFAULT_ADMIN_ROLE, gameMaster);
         games[gameId++] = newGame;
     }
-
-    /**
-     * Returns all games status
-     */
-    // function getStatus()
-    //     public
-    //     view
-    //     returns (Setups.Status[] memory status)
-    // {
-    //     Setups setup;
-    //     status = new Setups.Status[](gameId);
-
-    //     for (uint256 i; i < gameId; i++) {
-    //         setup = Setups(games[i]);
-    //         (, , , , , , , , , , , Setups.Status current) = setup.game();
-    //         status[i] = current;
-    //     }
-    // }
 
     /**
      * onlyDao

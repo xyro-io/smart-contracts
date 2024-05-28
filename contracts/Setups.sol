@@ -107,10 +107,7 @@ contract Setups is AccessControl {
     function playWithPermit(
         bool isLong,
         uint256 depositAmount,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
+        ITreasury.PermitData calldata permitData
     ) public {
         require(game.gameStatus == Status.Created, "Wrong status!");
         require(
@@ -119,7 +116,7 @@ contract Setups is AccessControl {
             "Game is closed for new players"
         );
         require(depositAmounts[msg.sender] == 0, "You are already in the game");
-        ITreasury(treasury).depositWithPermit(depositAmount, msg.sender, deadline, v, r, s);
+        ITreasury(treasury).depositWithPermit(depositAmount, msg.sender, permitData.deadline, permitData.v, permitData.r, permitData.s);
         depositAmounts[msg.sender] = depositAmount;
        if (isLong) {
             teamTP.push(msg.sender);

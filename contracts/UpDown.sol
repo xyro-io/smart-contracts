@@ -93,10 +93,7 @@ contract UpDown is AccessControl {
     function playWithPermit(
         bool isLong,
         uint256 depositAmount,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
+        ITreasury.PermitData calldata permitData
     ) public isParticipating(msg.sender) {
         require(
             game.stopPredictAt >= block.timestamp,
@@ -108,7 +105,7 @@ contract UpDown is AccessControl {
             DownPlayers.push(msg.sender);
         }
         depositAmounts[msg.sender] = depositAmount;
-        ITreasury(treasury).depositWithPermit(depositAmount, msg.sender, deadline, v, r, s);
+        ITreasury(treasury).depositWithPermit(depositAmount, msg.sender, permitData.deadline, permitData.v, permitData.r, permitData.s);
         emit UpDownNewPlayer(msg.sender, isLong, depositAmount, game.gameId);
     }
 

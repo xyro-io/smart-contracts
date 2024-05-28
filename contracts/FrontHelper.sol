@@ -2,6 +2,8 @@
 pragma solidity ^0.8.24;
 import { Bullseye } from "./Bullseye.sol";
 import { UpDown } from "./UpDown.sol";
+import { Setups } from "./Setups.sol";
+import { SetupsFactory } from "./SetupsFactory.sol";
 
 contract FrontHelper {
 
@@ -133,6 +135,54 @@ contract FrontHelper {
         }
 
         return (upPlayers, downPlayers);
+    }
+
+    function getSetupData(address setups) public view returns (address[] memory, address[] memory, uint256[] memory) {
+        Setups setup = Setups(setups);
+        // (bytes32 feedId, address initiator, uint256 startTime, uint48 endTime, bool isLong, uint256 totalDepositsSL, uint256 totalDepositsTP, int192 takeProfitPrice, int192 stopLossPrice, int192 finalAssetPrice, Setups.Status gameStatus) = setup.game();
+        // data.feedId = feedId;
+        // data.initiator = initiator;
+        // data.startTime = startTime;
+        // data.endTime = endTime;
+        // data.isLong = isLong;
+        // data.totalDepositsSL = totalDepositsSL;
+        // data.totalDepositsTP = totalDepositsTP;
+        // data.takeProfitPrice = takeProfitPrice;
+        // data.stopLossPrice = stopLossPrice;
+        // data.finalAssetPrice = finalAssetPrice;
+        // data.gameStatus = gameStatus;
+        (uint256 playersSl, uint256 playersTP) = setup.getPlayersAmount();
+        address[] memory teamSL = new address[](playersSl);
+        address[] memory teamTP = new address[](playersTP);
+        uint256[] memory depositAmounts = new uint256[](playersSl + playersTP);
+
+        for(uint i; i < playersSl; i++) {
+            teamSL[i] = setup.teamSL(i);
+            depositAmounts[i] = setup.depositAmounts(setup.teamSL(i));
+        }
+
+        for(uint i; i < playersTP; i++) {
+            teamTP[i] = setup.teamTP(i);
+            depositAmounts[i + playersSl] = setup.depositAmounts(setup.teamTP(i));
+        }
+
+        return (teamSL, teamTP, depositAmounts);
+
+    }
+
+    function getAllOpenedSetups(address setupFactory) public view returns (address[] memory) {
+        SetupsFactory factory = SetupsFactory(setupFactory);
+        Setups setup;
+        uint256 openedAmount;
+        address[] memory openedGames = new address[](factory.gameId());
+        for (uint256 i; i < factory.gameId(); i++) {
+            setup = Setups(factory.games(i));
+            (, , , , , , , , , , Setups.Status current) = setup.game();
+            if(current == Setups.Status.Created) {
+                openedGames[openedAmount++] = factory.games(i);
+            }
+        }
+        return openedGames;
     }
 
 }

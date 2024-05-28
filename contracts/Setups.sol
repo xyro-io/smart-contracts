@@ -237,6 +237,10 @@ contract Setups is AccessControl {
         );
     }
 
+    function getPlayersAmount() public view returns (uint256, uint256) {
+        return(teamSL.length, teamTP.length);
+    }
+
     /**
      * Change treasury address
      * @param newTreasury new treasury address

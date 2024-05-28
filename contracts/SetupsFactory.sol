@@ -26,7 +26,7 @@ contract SetupsFactory is AccessControl {
 
     address public treasury;
     address public gameMaster;
-    uint256 gameId;
+    uint256 public gameId;
     uint256 public minDuration = 30 minutes;
     uint256 public maxDuration = 24 weeks;
     mapping(uint256 => address) public games;

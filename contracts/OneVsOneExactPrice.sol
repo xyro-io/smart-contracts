@@ -307,7 +307,7 @@ contract OneVsOneExactPrice is AccessControl {
 
         if (diff1 < diff2) {
             ITreasury(treasury).distribute(
-                game.depositAmount,
+                game.depositAmount * 2,
                 game.initiator,
                 game.depositAmount,
                 fee
@@ -321,7 +321,7 @@ contract OneVsOneExactPrice is AccessControl {
             );
         } else {
             ITreasury(treasury).distribute(
-                game.depositAmount,
+                game.depositAmount * 2,
                 game.opponent,
                 game.depositAmount,
                 fee

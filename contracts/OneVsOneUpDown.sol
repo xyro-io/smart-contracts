@@ -299,7 +299,7 @@ contract OneVsOneUpDown is AccessControl {
                 : game.startingAssetPrice > finalPrice
         ) {
             ITreasury(treasury).distribute(
-                game.depositAmount,
+                game.depositAmount * 2,
                 game.initiator,
                 game.depositAmount,
                 fee
@@ -312,7 +312,7 @@ contract OneVsOneUpDown is AccessControl {
             );
         } else {
             ITreasury(treasury).distribute(
-                game.depositAmount,
+                game.depositAmount * 2,
                 game.opponent,
                 game.depositAmount,
                 fee

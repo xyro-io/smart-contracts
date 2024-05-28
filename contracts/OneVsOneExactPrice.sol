@@ -8,6 +8,7 @@ import {IMockUpkeep} from  "./interfaces/IMockUpkeep.sol";
 contract OneVsOneExactPrice is AccessControl {
     event ExactPriceCreated(
         bytes32 gameId,
+        bytes32 feedId,
         address opponent,
         uint256 startTime,
         uint48 endTime,
@@ -104,6 +105,7 @@ contract OneVsOneExactPrice is AccessControl {
         bytes32 gameId = keccak256(abi.encodePacked(endTime, block.timestamp, msg.sender, opponent));
         games[gameId] = newGame;
         emit ExactPriceCreated(
+            feedId,
             gameId,
             opponent,
             block.timestamp,
@@ -127,10 +129,7 @@ contract OneVsOneExactPrice is AccessControl {
         uint48 endTime,
         int192 initiatorPrice,
         uint256 depositAmount,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
+        ITreasury.PermitData calldata permitData
     ) public {
         require(
             endTime - block.timestamp >= minDuration,
@@ -146,7 +145,7 @@ contract OneVsOneExactPrice is AccessControl {
         newGame.startTime = block.timestamp;
         newGame.endTime = endTime;
         newGame.feedId = feedId;
-        ITreasury(treasury).depositWithPermit(depositAmount, msg.sender, deadline, v, r, s);
+        ITreasury(treasury).depositWithPermit(depositAmount, msg.sender, permitData.deadline, permitData.v, permitData.r, permitData.s);
         newGame.initiatorPrice = initiatorPrice;
         newGame.depositAmount = depositAmount;
         newGame.opponent = opponent;
@@ -154,6 +153,7 @@ contract OneVsOneExactPrice is AccessControl {
         bytes32 gameId = keccak256(abi.encodePacked(endTime, block.timestamp, msg.sender, opponent));
         games[gameId] = newGame;
         emit ExactPriceCreated(
+            feedId,
             gameId,
             opponent,
             block.timestamp,
@@ -207,10 +207,7 @@ contract OneVsOneExactPrice is AccessControl {
     function acceptGameWithPermit(
         bytes32 gameId, 
         int192 opponentPrice, 
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
+        ITreasury.PermitData calldata permitData
     ) public {
         GameInfo memory game = games[gameId];
         require(game.gameStatus == Status.Created, "Wrong status!");
@@ -235,7 +232,7 @@ contract OneVsOneExactPrice is AccessControl {
             game.opponent == msg.sender;
         }
         game.opponentPrice = opponentPrice;
-        ITreasury(treasury).depositWithPermit(game.depositAmount, msg.sender, deadline, v, r, s);
+        ITreasury(treasury).depositWithPermit(game.depositAmount, msg.sender, permitData.deadline, permitData.v, permitData.r, permitData.s);
         game.gameStatus = Status.Started;
         games[gameId] = game;
         emit ExactPriceAccepted(gameId, msg.sender, opponentPrice);

@@ -8,6 +8,7 @@ import {IMockUpkeep} from  "./interfaces/IMockUpkeep.sol";
 contract OneVsOneUpDown is AccessControl {
     event UpDownCreated(
         bytes32 gameId,
+        bytes32 feedId,
         address opponent,
         uint256 startTime,
         uint48 endTime,
@@ -109,6 +110,7 @@ contract OneVsOneUpDown is AccessControl {
         bytes32 gameId = keccak256(abi.encodePacked(endTime, block.timestamp, msg.sender, opponent));
         games[gameId] = newGame;
         emit UpDownCreated(
+            feedId,
             gameId,
             opponent,
             block.timestamp,
@@ -134,10 +136,7 @@ contract OneVsOneUpDown is AccessControl {
         uint256 depositAmount,
         bytes memory unverifiedReport,
         bytes32 feedId,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
+        ITreasury.PermitData calldata permitData
     ) public {
         require(
             endTime - block.timestamp >= minDuration,
@@ -157,7 +156,7 @@ contract OneVsOneUpDown is AccessControl {
         newGame.initiator = msg.sender;
         newGame.startTime = block.timestamp;
         newGame.endTime = endTime;
-        ITreasury(treasury).depositWithPermit(depositAmount, msg.sender, deadline, v, r, s);
+        ITreasury(treasury).depositWithPermit(depositAmount, msg.sender, permitData.deadline, permitData.v, permitData.r, permitData.s);
         newGame.depositAmount = depositAmount;
         newGame.opponent = opponent;
         newGame.isLong = isLong;
@@ -165,6 +164,7 @@ contract OneVsOneUpDown is AccessControl {
         bytes32 gameId = keccak256(abi.encodePacked(endTime, block.timestamp, msg.sender, opponent));
         games[gameId] = newGame;
         emit UpDownCreated(
+            feedId,
             gameId,
             opponent,
             block.timestamp,
@@ -209,10 +209,7 @@ contract OneVsOneUpDown is AccessControl {
      */
     function acceptGameWithPermit(
         bytes32 gameId,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
+        ITreasury.PermitData calldata permitData
     ) public {
         GameInfo memory game = games[gameId];
         require(game.gameStatus == Status.Created, "Wrong status!");
@@ -230,7 +227,7 @@ contract OneVsOneUpDown is AccessControl {
         } else {
             game.opponent == msg.sender;
         }
-        ITreasury(treasury).depositWithPermit(game.depositAmount, msg.sender, deadline, v, r, s);
+        ITreasury(treasury).depositWithPermit(game.depositAmount, msg.sender, permitData.deadline, permitData.v, permitData.r, permitData.s);
         game.gameStatus = Status.Started;
         games[gameId] = game;
         emit UpDownAccepted(gameId, msg.sender, !game.isLong, game.depositAmount);

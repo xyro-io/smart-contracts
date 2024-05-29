@@ -114,7 +114,7 @@ contract Treasury is AccessControl {
      * @param amount token amount
      * @param to reciever address
      */
-    function refund(uint256 amount, address to) onlyRole(DEFAULT_ADMIN_ROLE) public {
+    function refund(uint256 amount, address to) onlyRole(DISTRIBUTOR_ROLE) public {
         IERC20(approvedToken).approve(to, amount);
         SafeERC20.safeTransfer(IERC20(approvedToken), to, amount);
     }

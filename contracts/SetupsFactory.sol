@@ -89,6 +89,7 @@ contract SetupsFactory is AccessControl {
             newGame,
             msg.sender
         );
+        ITreasury(treasury).grantRole(ITreasury(treasury).DISTRIBUTOR_ROLE(), newGame);
         ISetups(newGame).grantRole(DEFAULT_ADMIN_ROLE, gameMaster);
         games[gameId++] = newGame;
     }

@@ -10,6 +10,10 @@ interface ITreasury {
         bytes32 s;
     }
 
+    function DISTRIBUTOR_ROLE() external view returns (bytes32);
+
+    function grantRole(bytes32 role, address account) external;
+
     function increaseFee(uint256 amount) external;
 
     function deposit(uint256 amount, address from) external;

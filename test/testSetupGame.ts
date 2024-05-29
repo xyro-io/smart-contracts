@@ -8,8 +8,8 @@ import { MockToken } from "../typechain-types/contracts/mock/MockERC20.sol/MockT
 import { MockToken__factory } from "../typechain-types/factories/contracts/mock/MockERC20.sol/MockToken__factory";
 import { Treasury } from "../typechain-types/contracts/Treasury.sol/Treasury";
 import { Treasury__factory } from "../typechain-types/factories/contracts/Treasury.sol/Treasury__factory";
-import { SetupsGameFactory } from "../typechain-types/contracts/SetupsGameFactory.sol/SetupsGameFactory";
-import { SetupsGameFactory__factory } from "../typechain-types/factories/contracts/SetupsGameFactory.sol/SetupsGameFactory__factory";
+import { SetupsFactory } from "../typechain-types/contracts/SetupsFactory.sol";
+import { SetupsFactory__factory } from "../typechain-types/factories/contracts/SetupsFactory.sol/SetupsFactory__factory";
 import { Setups } from "../typechain-types/contracts/Setups";
 import { Setups__factory } from "../typechain-types/factories/contracts/Setups__factory";
 import { MockUpkeep } from "../typechain-types/contracts/MockUpkeep";
@@ -25,7 +25,7 @@ describe("Setup Game", () => {
   let XyroToken: XyroToken;
   let Treasury: Treasury;
   let Game: Setups;
-  let Factory: SetupsGameFactory;
+  let Factory: SetupsFactory;
   let Upkeep: MockUpkeep;
   const feedId = "0x00037da06d56d083fe599397a4769a042d63aa73dc4ef57709d31e9971a5b439";
   const assetPrice = parse18("2310");
@@ -40,7 +40,7 @@ describe("Setup Game", () => {
       await USDT.getAddress(),
       await XyroToken.getAddress()
     );
-    Factory = await new SetupsGameFactory__factory(owner).deploy(
+    Factory = await new SetupsFactory__factory(owner).deploy(
       Treasury.getAddress()
     );
     Upkeep = await new MockUpkeep__factory(owner).deploy();
@@ -49,6 +49,10 @@ describe("Setup Game", () => {
     await USDT.mint(bob.address, parse18("1000"));
     await USDT.mint(alice.address, parse18("1000"));
     await USDT.approve(await Treasury.getAddress(), ethers.MaxUint256);
+    await Treasury.grantRole(
+      await Treasury.DEFAULT_ADMIN_ROLE(),
+      await Factory.getAddress()
+    );
   });
 
   it("should create SL setup game", async function () {
@@ -61,10 +65,6 @@ describe("Setup Game", () => {
     );
     let gameAddress = await Factory.games(0);
     Game = Setups__factory.connect(gameAddress, owner);
-    await Treasury.grantRole(
-      await Treasury.DISTRIBUTOR_ROLE(),
-      await Factory.games(0)
-    );
     let bet = await Game.game();
     expect(bet.initiator).to.equal(owner.address);
     expect(bet.gameStatus).to.equal(0);
@@ -75,7 +75,7 @@ describe("Setup Game", () => {
       await Treasury.getAddress(),
       ethers.MaxUint256
     );
-    await Game.connect(bob).play(true, parse18("100"));
+    await Game.connect(bob).play(false, parse18("100"));
     let bet = await Game.game();
     expect(bet.totalDepositsSL).to.equal(parse18("100"));
   });
@@ -85,7 +85,7 @@ describe("Setup Game", () => {
       await Treasury.getAddress(),
       ethers.MaxUint256
     );
-    await Game.connect(alice).play(false, parse18("300"));
+    await Game.connect(alice).play(true, parse18("300"));
     let bet = await Game.game();
     expect(bet.totalDepositsTP).to.equal(parse18("300"));
   });
@@ -109,10 +109,6 @@ describe("Setup Game", () => {
       feedId,
     );
     Game = Game = Setups__factory.connect(await Factory.games(1), owner);
-    await Treasury.grantRole(
-      await Treasury.DISTRIBUTOR_ROLE(),
-      await Factory.games(1)
-    );
     let bet = await Game.game();
     expect(bet.initiator).to.equal(owner.address);
     expect(bet.gameStatus).to.equal(0);
@@ -123,7 +119,7 @@ describe("Setup Game", () => {
       await Treasury.getAddress(),
       parse18("10000000")
     );
-    await Game.connect(bob).play(true, parse18("500"));
+    await Game.connect(bob).play(false, parse18("500"));
     let bet = await Game.game();
     expect(bet.totalDepositsSL).to.equal(parse18("500"));
   });
@@ -133,18 +129,18 @@ describe("Setup Game", () => {
       await Treasury.getAddress(),
       parse18("10000000")
     );
-    await Game.connect(alice).play(false, parse18("125"));
+    await Game.connect(alice).play(true, parse18("125"));
     let bet = await Game.game();
     expect(bet.totalDepositsTP).to.equal(parse18("125"));
   });
 
   it("should end setup game", async function () {
-    let oldBalance = await USDT.balanceOf(alice.address);
+    let oldBalance = await USDT.balanceOf(bob.address);
     await time.increase(2700);
     await Game.finalizeGame(
       abiEncodeInt192(((assetPrice / BigInt(100)) * BigInt(120)).toString(),feedId)
     );
-    let newBalance = await USDT.balanceOf(alice.address);
+    let newBalance = await USDT.balanceOf(bob.address);
     expect(newBalance).to.be.above(oldBalance);
   });
 });

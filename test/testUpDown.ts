@@ -8,8 +8,8 @@ import { MockToken } from "../typechain-types/contracts/mock/MockERC20.sol/MockT
 import { MockToken__factory } from "../typechain-types/factories/contracts/mock/MockERC20.sol/MockToken__factory";
 import { Treasury } from "../typechain-types/contracts/Treasury.sol/Treasury";
 import { Treasury__factory } from "../typechain-types/factories/contracts/Treasury.sol/Treasury__factory";
-import { UpDown } from "../typechain-types/contracts/UpDown.sol/UpDown";
-import { UpDown__factory } from "../typechain-types/factories/contracts/UpDown.sol/UpDown__factory";
+import { UpDown } from "../typechain-types/contracts/UpDown";
+import { UpDown__factory } from "../typechain-types/factories/contracts/UpDown__factory";
 import { MockUpkeep } from "../typechain-types/contracts/MockUpkeep";
 import { MockUpkeep__factory } from "../typechain-types/factories/contracts/MockUpkeep__factory";
 import { abiEncodeInt192 } from "../scripts/helper";
@@ -59,7 +59,6 @@ describe("UpDown", () => {
     await Game.startGame(
       (await time.latest()) + 2700,
       (await time.latest()) + 900,
-      startingPriceBytes,
       mockFeedId
     );
     let bet = await Game.game();
@@ -83,6 +82,13 @@ describe("UpDown", () => {
     expect(await USDT.balanceOf(Treasury.getAddress())).to.equal(
       parse18("200")
     );
+  });
+
+  it("should set starting price", async function () {
+    await time.increase(900);
+    await Game.setStartingPrice(startingPriceBytes);
+    let bet = await Game.game();
+    expect(bet.startingPrice).to.be.above(0);
   });
 
   it("should end updown game", async function () {

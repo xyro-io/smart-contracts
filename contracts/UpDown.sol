@@ -43,20 +43,13 @@ contract UpDown is AccessControl {
     /**
      * Creates up/down game
      * @param endTime when the game will end
-     * @param unverifiedReport Chainlink DataStreams report
      */
     function startGame(
         uint48 endTime,
         uint48 stopPredictAt,
-        bytes memory unverifiedReport,
         bytes32 feedId
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(game.startTime == 0, "Finish previous game first");
-        address upkeep = ITreasury(treasury).upkeep();
-        game.startingPrice = IMockUpkeep(upkeep).verifyReport(
-            unverifiedReport,
-            feedId
-        );
         game.feedId = feedId;
         game.startTime = block.timestamp;
         game.stopPredictAt = stopPredictAt;
@@ -108,6 +101,15 @@ contract UpDown is AccessControl {
         depositAmounts[msg.sender] = depositAmount;
         ITreasury(treasury).depositWithPermit(depositAmount, msg.sender, permitData.deadline, permitData.v, permitData.r, permitData.s);
         emit UpDownNewPlayer(msg.sender, isLong, depositAmount, game.gameId);
+    }
+
+    function setStartingPrice(bytes memory unverifiedReport) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(block.timestamp > game.stopPredictAt, "Too early");
+        address upkeep = ITreasury(treasury).upkeep();
+        game.startingPrice = IMockUpkeep(upkeep).verifyReport(
+            unverifiedReport,
+            game.feedId
+        );
     }
 
     /**

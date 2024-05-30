@@ -6,16 +6,16 @@ import {ITreasury} from  "./interfaces/ITreasury.sol";
 import {IMockUpkeep} from  "./interfaces/IMockUpkeep.sol";
 
 contract UpDown is AccessControl {
-    event UpDownStart(
+    event UpDownCreated(
         uint256 startTime,
         uint48 stopPredictAt,
         uint48 endTime,
-        int192 startingPrice,
         bytes32 feedId,
         bytes32 indexed gameId
     );
     event UpDownNewPlayer(address player, bool isLong, uint256 depositAmount, bytes32 indexed gameId);
-    event UpDownFinalized(int192 finalPrice, bytes32 indexed gameId);
+    event UpDownStarted(int192 startingPrice);
+    event UpDownFinalized(int192 finalPrice, bool isLong, bytes32 indexed gameId);
     event UpDownCancelled(bytes32 indexed gameId);
 
     struct GameInfo {
@@ -43,26 +43,19 @@ contract UpDown is AccessControl {
     /**
      * Creates up/down game
      * @param endTime when the game will end
-     * @param unverifiedReport Chainlink DataStreams report
      */
     function startGame(
         uint48 endTime,
         uint48 stopPredictAt,
-        bytes memory unverifiedReport,
         bytes32 feedId
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(game.startTime == 0, "Finish previous game first");
-        address upkeep = ITreasury(treasury).upkeep();
-        game.startingPrice = IMockUpkeep(upkeep).verifyReport(
-            unverifiedReport,
-            feedId
-        );
         game.feedId = feedId;
         game.startTime = block.timestamp;
         game.stopPredictAt = stopPredictAt;
         game.endTime = endTime;
         game.gameId = keccak256(abi.encodePacked(endTime, block.timestamp, address(this)));
-        emit UpDownStart(block.timestamp, stopPredictAt, endTime, game.startingPrice, feedId, game.gameId);
+        emit UpDownCreated(block.timestamp, stopPredictAt, endTime, feedId, game.gameId);
     }
 
     /**
@@ -110,24 +103,40 @@ contract UpDown is AccessControl {
         emit UpDownNewPlayer(msg.sender, isLong, depositAmount, game.gameId);
     }
 
+    function setStartingPrice(bytes memory unverifiedReport) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(block.timestamp > game.stopPredictAt, "Too early");
+        require(UpPlayers.length == 0 || DownPlayers.length == 0, "Not enough players");
+        address upkeep = ITreasury(treasury).upkeep();
+        game.startingPrice = IMockUpkeep(upkeep).verifyReport(
+            unverifiedReport,
+            game.feedId
+        );
+        emit UpDownStarted(game.startingPrice);
+    }
+
     /**
      * Finalizes up/down game and distributes rewards to players
      * @param unverifiedReport Chainlink DataStreams report
      */
     function finalizeGame(bytes memory unverifiedReport) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(block.timestamp >= game.endTime, "Too early to finish");
-        if(UpPlayers.length + DownPlayers.length < 2) {
-            if(UpPlayers.length == 1) {
-                ITreasury(treasury).refund(depositAmounts[UpPlayers[0]], UpPlayers[0]);
-                delete UpPlayers;
-            } else if (DownPlayers.length == 1) {
-                ITreasury(treasury).refund(depositAmounts[DownPlayers[0]], DownPlayers[0]);
+        if(UpPlayers.length == 0 || DownPlayers.length == 0) {
+            if(UpPlayers.length > 0) {
+               for(uint i; i < DownPlayers.length; i++) {
+                    ITreasury(treasury).refund(depositAmounts[DownPlayers[0]], DownPlayers[0]);
+                }
                 delete DownPlayers;
+            } else if (DownPlayers.length > 0 ) {
+                for(uint i; i < UpPlayers.length; i++) {
+                    ITreasury(treasury).refund(depositAmounts[UpPlayers[0]], UpPlayers[0]);
+                }
+                delete UpPlayers;
             }
             emit UpDownCancelled(game.gameId);
             delete game;
             return;
         }
+        require(game.startingPrice != 0, "Starting price must be set");
         address upkeep = ITreasury(treasury).upkeep();
         int192 finalPrice = IMockUpkeep(upkeep).verifyReport(
             unverifiedReport,
@@ -147,7 +156,7 @@ contract UpDown is AccessControl {
                     depositAmounts[UpPlayers[i]]
                 );
             }
-            emit UpDownFinalized(finalPrice, game.gameId);
+            emit UpDownFinalized(finalPrice, true, game.gameId);
         } else {
              uint256 finalRate = ITreasury(treasury).calculateUpDownRate(
                 _game.totalDepositsUp,
@@ -161,7 +170,7 @@ contract UpDown is AccessControl {
                     depositAmounts[DownPlayers[i]]
                 );
             }
-            emit UpDownFinalized(finalPrice, game.gameId);
+            emit UpDownFinalized(finalPrice, false, game.gameId);
         }
 
         //Do we need to erase mapping

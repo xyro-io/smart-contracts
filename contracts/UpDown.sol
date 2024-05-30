@@ -132,6 +132,7 @@ contract UpDown is AccessControl {
             delete game;
             return;
         }
+        require(game.startingPrice != 0, "Starting price must be set");
         address upkeep = ITreasury(treasury).upkeep();
         int192 finalPrice = IMockUpkeep(upkeep).verifyReport(
             unverifiedReport,

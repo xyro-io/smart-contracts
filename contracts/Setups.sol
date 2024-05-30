@@ -9,13 +9,12 @@ contract Setups is AccessControl {
     event SetupNewPlayer(bool isLong, uint256 depositAmount, address player);
     event SetupCancelled(
         address gameAdress,
-        address initiator,
-        Status gameStatus
+        address initiator
     );
-    event SetupEnd(
+    event SetupFinalized(
         bool takeProfitWon,
         int192 finalAssetPrice,
-        Status gameStatus
+        uint256 initiatorFee
     );
 
     enum Status {
@@ -146,7 +145,7 @@ contract Setups is AccessControl {
         }
 
         game.gameStatus = Status.Cancelled;
-        emit SetupCancelled(address(this), game.initiator, Status.Cancelled);
+        emit SetupCancelled(address(this), game.initiator);
     }
 
     /**
@@ -162,10 +161,12 @@ contract Setups is AccessControl {
         );
         require(finalPrice <= game.stopLossPrice || finalPrice >= game.takeProfitPrice, "Can't end");
         bool takeProfitWon;
+        uint256 initiatorFee;
+        uint256 finalRate;
         if (game.isLong) {
             if (finalPrice >= game.takeProfitPrice) {
                 // tp team wins
-                uint256 finalRate = ITreasury(treasury).calculateSetupRate(
+                (finalRate, initiatorFee) = ITreasury(treasury).calculateSetupRate(
                     game.totalDepositsSL,
                     game.totalDepositsTP,
                     game.initiator
@@ -180,7 +181,7 @@ contract Setups is AccessControl {
                 takeProfitWon = true;
             } else if (finalPrice <= game.stopLossPrice) {
                 // sl team wins
-                uint256 finalRate = ITreasury(treasury).calculateSetupRate(
+                (finalRate, initiatorFee) = ITreasury(treasury).calculateSetupRate(
                     game.totalDepositsTP,
                     game.totalDepositsSL,
                     game.initiator
@@ -196,7 +197,7 @@ contract Setups is AccessControl {
         } else {
             if (finalPrice >= game.stopLossPrice) {
                 // sl team wins
-                uint256 finalRate = ITreasury(treasury).calculateSetupRate(
+                (finalRate, initiatorFee) = ITreasury(treasury).calculateSetupRate(
                     game.totalDepositsTP,
                     game.totalDepositsSL,
                     game.initiator
@@ -210,7 +211,7 @@ contract Setups is AccessControl {
                     );
                 }
             } else if (finalPrice <= game.takeProfitPrice) {
-                uint256 finalRate = ITreasury(treasury).calculateSetupRate(
+                (finalRate, initiatorFee) = ITreasury(treasury).calculateSetupRate(
                     game.totalDepositsSL,
                     game.totalDepositsTP,
                     game.initiator
@@ -227,10 +228,10 @@ contract Setups is AccessControl {
         }
         game.finalAssetPrice = finalPrice;
         game.gameStatus = Status.Finished;
-        emit SetupEnd(
+        emit SetupFinalized(
             takeProfitWon,
             finalPrice,
-            Status.Finished
+            initiatorFee
         );
     }
 

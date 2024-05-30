@@ -106,6 +106,7 @@ contract UpDown is AccessControl {
 
     function setStartingPrice(bytes memory unverifiedReport) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(block.timestamp > game.stopPredictAt, "Too early");
+        require(UpPlayers.length == 0 || DownPlayers.length == 0, "Not enough players");
         address upkeep = ITreasury(treasury).upkeep();
         game.startingPrice = IMockUpkeep(upkeep).verifyReport(
             unverifiedReport,
@@ -120,13 +121,17 @@ contract UpDown is AccessControl {
      */
     function finalizeGame(bytes memory unverifiedReport) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(block.timestamp >= game.endTime, "Too early to finish");
-        if(UpPlayers.length + DownPlayers.length < 2) {
-            if(UpPlayers.length == 1) {
-                ITreasury(treasury).refund(depositAmounts[UpPlayers[0]], UpPlayers[0]);
-                delete UpPlayers;
-            } else if (DownPlayers.length == 1) {
-                ITreasury(treasury).refund(depositAmounts[DownPlayers[0]], DownPlayers[0]);
+        if(UpPlayers.length == 0 || DownPlayers.length == 0) {
+            if(UpPlayers.length > 0) {
+               for(uint i; i < DownPlayers.length; i++) {
+                    ITreasury(treasury).refund(depositAmounts[DownPlayers[0]], DownPlayers[0]);
+                }
                 delete DownPlayers;
+            } else if (DownPlayers.length > 0 ) {
+                for(uint i; i < UpPlayers.length; i++) {
+                    ITreasury(treasury).refund(depositAmounts[UpPlayers[0]], UpPlayers[0]);
+                }
+                delete UpPlayers;
             }
             emit UpDownCancelled(game.gameId);
             delete game;

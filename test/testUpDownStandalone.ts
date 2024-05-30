@@ -12,7 +12,7 @@ import { OneVsOneUpDown } from "../typechain-types/contracts/OneVsOneUpDown";
 import { OneVsOneUpDown__factory } from "../typechain-types/factories/contracts/OneVsOneUpDown__factory";
 import { MockUpkeep } from "../typechain-types/contracts/MockUpkeep";
 import { MockUpkeep__factory } from "../typechain-types/factories/contracts/MockUpkeep__factory";
-import { abiEncodeInt192 } from "../scripts/helper";
+import { abiEncodeInt192, abiEncodeInt192WithTimestamp } from "../scripts/helper";
 const parse18 = ethers.parseEther;
 
 describe("OneVsOneUpDown", () => {
@@ -23,6 +23,7 @@ describe("OneVsOneUpDown", () => {
   let Treasury: Treasury;
   let Game: OneVsOneUpDown;
   let Upkeep: MockUpkeep;
+  let currentGameId: string;
   const feedId = "0x00037da06d56d083fe599397a4769a042d63aa73dc4ef57709d31e9971a5b439";
   const assetPrice = parse18("2310");
   before(async () => {
@@ -49,16 +50,18 @@ describe("OneVsOneUpDown", () => {
 
   it("should create updown bet", async function () {
     await USDT.approve(Treasury.getAddress(), ethers.MaxUint256);
-    await Game.createGame(
+    const tx = await Game.createGame(
       await opponent.getAddress(),
       (await time.latest()) + 2700,
       false,
       parse18("100"),
-      abiEncodeInt192(assetPrice.toString(), feedId),
+      abiEncodeInt192WithTimestamp(parse18("2330").toString(), feedId, await time.latest()),
       feedId
     );
-
-    let bet = await Game.games(0);
+    
+    const receipt = await tx.wait();
+    currentGameId = receipt!.logs[1]!.args[0];
+    let bet = await Game.games(currentGameId);
     expect(bet.initiator).to.equal(await owner.getAddress());
     expect(bet.gameStatus).to.equal(0);
   });
@@ -68,15 +71,15 @@ describe("OneVsOneUpDown", () => {
       await Treasury.getAddress(),
       ethers.MaxUint256
     );
-    await Game.connect(opponent).acceptGame(0);
-    let bet = await Game.games(0);
+    await Game.connect(opponent).acceptGame(currentGameId);
+    let bet = await Game.games(currentGameId);
     expect(bet.gameStatus).to.equal(2);
   });
 
   it("should end updown game", async function () {
     let oldBalance = await USDT.balanceOf(await opponent.getAddress());
     await time.increase(2700);
-    await Game.finalizeGame(0, abiEncodeInt192(parse18("2330").toString(), feedId));
+    await Game.finalizeGame(currentGameId, abiEncodeInt192WithTimestamp(parse18("2330").toString(), feedId, await time.latest()));
     let newBalance = await USDT.balanceOf(await opponent.getAddress());
     expect(newBalance).to.be.above(oldBalance);
   });

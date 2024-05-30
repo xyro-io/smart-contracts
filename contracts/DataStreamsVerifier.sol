@@ -108,6 +108,7 @@ contract ClientReportsVerifier {
 
     address private s_owner;
     int192 public last_decoded_price;
+    uint32 public last_validFromTimestamp;
 
     event DecodedPrice(int192);
 
@@ -122,6 +123,50 @@ contract ClientReportsVerifier {
     modifier onlyOwner() {
         if (msg.sender != s_owner) revert NotOwner(msg.sender);
         _;
+    }
+
+    function verifyReportWithTimestamp(bytes memory unverifiedReport, bytes32 feedId) external returns(int192, uint32) {
+        // Report verification fees
+        IFeeManager feeManager = IFeeManager(
+            address(verifiersProxy[feedId].s_feeManager())
+        );
+
+        IRewardManager rewardManager = IRewardManager(
+            address(feeManager.i_rewardManager())
+        );
+
+        (, /* bytes32[3] reportContextData */ bytes memory reportData) = abi
+            .decode(unverifiedReport, (bytes32[3], bytes));
+
+        address feeTokenAddress = feeManager.i_linkAddress();
+
+        (Common.Asset memory fee, , ) = feeManager.getFeeAndReward(
+            address(this),
+            reportData,
+            feeTokenAddress
+        );
+   // Approve rewardManager to spend this contract's balance in fees
+        IERC20(feeTokenAddress).approve(address(rewardManager), fee.amount);
+
+        // Verify the report
+        bytes memory verifiedReportData = verifiersProxy[feedId].verify(
+            unverifiedReport,
+            abi.encode(feeTokenAddress)
+        );
+          // Decode verified report data into BasicReport struct
+        // If your report is a PremiumReport, you should decode it as a PremiumReport
+        BasicReport memory verifiedReport = abi.decode(
+            verifiedReportData,
+            (BasicReport)
+        );
+
+        // Log price from report
+        emit DecodedPrice(verifiedReport.price);
+
+        // require(feedId == verifiedReport.feedId, "Wrong feed id");
+        last_decoded_price = verifiedReport.price;
+        last_validFromTimestamp = verifiedReport.validFromTimestamp;
+        return (verifiedReport.price, verifiedReport.validFromTimestamp);
     }
 
     function verifyReport(bytes memory unverifiedReport, bytes32 feedId) external returns(int192) {

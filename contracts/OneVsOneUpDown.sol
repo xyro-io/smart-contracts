@@ -93,11 +93,14 @@ contract OneVsOneUpDown is AccessControl {
             "Max game duration must be lower"
         );
         require(depositAmount >= 1e19, "Wrong deposit amount");
-        GameInfo memory newGame;
-        newGame.startingAssetPrice = IMockUpkeep(ITreasury(treasury).upkeep()).verifyReport(
+        (int192 startingAssetPrice, uint32 priceTimestamp) = IMockUpkeep(ITreasury(treasury).upkeep()).verifyReportWithTimestamp(
             unverifiedReport,
             feedId
         );
+        //block.timestamp must be > priceTimestamp
+        require(block.timestamp - priceTimestamp <= 10 minutes, "Old chainlink report");
+        GameInfo memory newGame;
+        newGame.startingAssetPrice = startingAssetPrice;
         newGame.feedId = feedId;
         newGame.initiator = msg.sender;
         newGame.startTime = block.timestamp;
@@ -147,11 +150,13 @@ contract OneVsOneUpDown is AccessControl {
             "Max game duration must be lower"
         );
         require(depositAmount >= 1e19, "Wrong deposit amount");
-        GameInfo memory newGame;
-        newGame.startingAssetPrice = IMockUpkeep(ITreasury(treasury).upkeep()).verifyReport(
+        (int192 startingAssetPrice, uint32 priceTimestamp) = IMockUpkeep(ITreasury(treasury).upkeep()).verifyReportWithTimestamp(
             unverifiedReport,
             feedId
         );
+        require(block.timestamp - priceTimestamp <= 10 minutes, "Old chainlink report");
+        GameInfo memory newGame;
+        newGame.startingAssetPrice = startingAssetPrice;
         newGame.feedId = feedId;
         newGame.initiator = msg.sender;
         newGame.startTime = block.timestamp;
@@ -286,10 +291,11 @@ contract OneVsOneUpDown is AccessControl {
         require(game.gameStatus == Status.Started, "Wrong status!");
         require(block.timestamp >= game.endTime, "Too early to finish");
         address upkeep = ITreasury(treasury).upkeep();
-        int192 finalPrice = IMockUpkeep(upkeep).verifyReport(
+        (int192 finalPrice, uint32 priceTimestamp) = IMockUpkeep(upkeep).verifyReportWithTimestamp(
             unverifiedReport,
             game.feedId
         );
+        require(block.timestamp - priceTimestamp <= 10 minutes, "Old chainlink report");
         if (
             game.isLong
                 ? game.startingAssetPrice < finalPrice

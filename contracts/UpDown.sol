@@ -10,7 +10,6 @@ contract UpDown is AccessControl {
         uint256 startTime,
         uint48 stopPredictAt,
         uint48 endTime,
-        int192 startingPrice,
         bytes32 feedId,
         bytes32 indexed gameId
     );
@@ -56,7 +55,7 @@ contract UpDown is AccessControl {
         game.stopPredictAt = stopPredictAt;
         game.endTime = endTime;
         game.gameId = keccak256(abi.encodePacked(endTime, block.timestamp, address(this)));
-        emit UpDownCreated(block.timestamp, stopPredictAt, endTime, game.startingPrice, feedId, game.gameId);
+        emit UpDownCreated(block.timestamp, stopPredictAt, endTime, feedId, game.gameId);
     }
 
     /**

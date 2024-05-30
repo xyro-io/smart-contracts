@@ -15,7 +15,7 @@ contract UpDown is AccessControl {
         bytes32 indexed gameId
     );
     event UpDownNewPlayer(address player, bool isLong, uint256 depositAmount, bytes32 indexed gameId);
-    event UpDownFinalized(int192 finalPrice, bytes32 indexed gameId);
+    event UpDownFinalized(int192 finalPrice, bool isLong, bytes32 indexed gameId);
     event UpDownCancelled(bytes32 indexed gameId);
 
     struct GameInfo {
@@ -149,7 +149,7 @@ contract UpDown is AccessControl {
                     depositAmounts[UpPlayers[i]]
                 );
             }
-            emit UpDownFinalized(finalPrice, game.gameId);
+            emit UpDownFinalized(finalPrice, true, game.gameId);
         } else {
              uint256 finalRate = ITreasury(treasury).calculateUpDownRate(
                 _game.totalDepositsUp,
@@ -163,7 +163,7 @@ contract UpDown is AccessControl {
                     depositAmounts[DownPlayers[i]]
                 );
             }
-            emit UpDownFinalized(finalPrice, game.gameId);
+            emit UpDownFinalized(finalPrice, false, game.gameId);
         }
 
         //Do we need to erase mapping

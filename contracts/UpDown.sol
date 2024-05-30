@@ -6,15 +6,15 @@ import {ITreasury} from  "./interfaces/ITreasury.sol";
 import {IMockUpkeep} from  "./interfaces/IMockUpkeep.sol";
 
 contract UpDown is AccessControl {
-    event UpDownStart(
+    event UpDownCreated(
         uint256 startTime,
         uint48 stopPredictAt,
         uint48 endTime,
-        int192 startingPrice,
         bytes32 feedId,
         bytes32 indexed gameId
     );
     event UpDownNewPlayer(address player, bool isLong, uint256 depositAmount, bytes32 indexed gameId);
+    event UpDownStarted(int192 startingPrice);
     event UpDownFinalized(int192 finalPrice, bool isLong, bytes32 indexed gameId);
     event UpDownCancelled(bytes32 indexed gameId);
 
@@ -55,7 +55,7 @@ contract UpDown is AccessControl {
         game.stopPredictAt = stopPredictAt;
         game.endTime = endTime;
         game.gameId = keccak256(abi.encodePacked(endTime, block.timestamp, address(this)));
-        emit UpDownStart(block.timestamp, stopPredictAt, endTime, game.startingPrice, feedId, game.gameId);
+        emit UpDownCreated(block.timestamp, stopPredictAt, endTime, feedId, game.gameId);
     }
 
     /**
@@ -105,11 +105,13 @@ contract UpDown is AccessControl {
 
     function setStartingPrice(bytes memory unverifiedReport) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(block.timestamp > game.stopPredictAt, "Too early");
+        require(UpPlayers.length == 0 || DownPlayers.length == 0, "Not enough players");
         address upkeep = ITreasury(treasury).upkeep();
         game.startingPrice = IMockUpkeep(upkeep).verifyReport(
             unverifiedReport,
             game.feedId
         );
+        emit UpDownStarted(game.startingPrice);
     }
 
     /**
@@ -118,18 +120,23 @@ contract UpDown is AccessControl {
      */
     function finalizeGame(bytes memory unverifiedReport) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(block.timestamp >= game.endTime, "Too early to finish");
-        if(UpPlayers.length + DownPlayers.length < 2) {
-            if(UpPlayers.length == 1) {
-                ITreasury(treasury).refund(depositAmounts[UpPlayers[0]], UpPlayers[0]);
-                delete UpPlayers;
-            } else if (DownPlayers.length == 1) {
-                ITreasury(treasury).refund(depositAmounts[DownPlayers[0]], DownPlayers[0]);
+        if(UpPlayers.length == 0 || DownPlayers.length == 0) {
+            if(UpPlayers.length > 0) {
+               for(uint i; i < DownPlayers.length; i++) {
+                    ITreasury(treasury).refund(depositAmounts[DownPlayers[0]], DownPlayers[0]);
+                }
                 delete DownPlayers;
+            } else if (DownPlayers.length > 0 ) {
+                for(uint i; i < UpPlayers.length; i++) {
+                    ITreasury(treasury).refund(depositAmounts[UpPlayers[0]], UpPlayers[0]);
+                }
+                delete UpPlayers;
             }
             emit UpDownCancelled(game.gameId);
             delete game;
             return;
         }
+        require(game.startingPrice != 0, "Starting price must be set");
         address upkeep = ITreasury(treasury).upkeep();
         int192 finalPrice = IMockUpkeep(upkeep).verifyReport(
             unverifiedReport,

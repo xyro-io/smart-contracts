@@ -6,7 +6,7 @@ import {ITreasury} from  "./interfaces/ITreasury.sol";
 import {IMockUpkeep} from  "./interfaces/IMockUpkeep.sol";
 
 contract UpDown is AccessControl {
-    event UpDownStart(
+    event UpDownCreated(
         uint256 startTime,
         uint48 stopPredictAt,
         uint48 endTime,
@@ -15,6 +15,7 @@ contract UpDown is AccessControl {
         bytes32 indexed gameId
     );
     event UpDownNewPlayer(address player, bool isLong, uint256 depositAmount, bytes32 indexed gameId);
+    event UpDownStarted(int192 startingPrice);
     event UpDownFinalized(int192 finalPrice, bool isLong, bytes32 indexed gameId);
     event UpDownCancelled(bytes32 indexed gameId);
 
@@ -55,7 +56,7 @@ contract UpDown is AccessControl {
         game.stopPredictAt = stopPredictAt;
         game.endTime = endTime;
         game.gameId = keccak256(abi.encodePacked(endTime, block.timestamp, address(this)));
-        emit UpDownStart(block.timestamp, stopPredictAt, endTime, game.startingPrice, feedId, game.gameId);
+        emit UpDownCreated(block.timestamp, stopPredictAt, endTime, game.startingPrice, feedId, game.gameId);
     }
 
     /**
@@ -110,6 +111,7 @@ contract UpDown is AccessControl {
             unverifiedReport,
             game.feedId
         );
+        emit UpDownStarted(game.startingPrice);
     }
 
     /**

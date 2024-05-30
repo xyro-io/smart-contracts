@@ -39,7 +39,7 @@ describe("OneVsOneExactPrice", () => {
   let Treasury: Treasury;
   let Game: OneVsOneExactPrice;
   let Upkeep: MockUpkeep;
-  let FrontHelper: FrontHelper;
+  let currentGameId: string;
   const feedId = "0x00037da06d56d083fe599397a4769a042d63aa73dc4ef57709d31e9971a5b439";
   const assetPrice = parse18("2310");
   const betAmount = parse18("100");
@@ -68,22 +68,21 @@ describe("OneVsOneExactPrice", () => {
       await Treasury.DISTRIBUTOR_ROLE(),
       await Game.getAddress()
     );
-    FrontHelper = await new FrontHelper__factory(owner).deploy();
   });
 
   it("should create exact price bet", async function () {
     await USDT.approve(await Treasury.getAddress(), ethers.MaxUint256);
-    await Game.createGame(
+    let tx = await Game.createGame(
       feedId,
       await opponent.getAddress(),
       (await time.latest()) + 2700,
       initiatorPrice,
       betAmount
     );
-    const currentBetId = await Game.totalGames() - BigInt(1);
-    let bet = await Game.games(currentBetId);
+    const receipt = await tx.wait();
+    currentGameId = receipt!.logs[1]!.args[0];
+    let bet = await Game.games(currentGameId);
     expect(bet.initiator).to.equal(await owner.getAddress());
-    expect(bet.gameStatus).to.equal(currentBetId);
   });
 
   it("should accept exact price bet", async function () {
@@ -91,46 +90,45 @@ describe("OneVsOneExactPrice", () => {
       await Treasury.getAddress(),
       ethers.MaxUint256
     );
-    const currentBetId = await Game.totalGames() - BigInt(1);
     await Game.connect(opponent).acceptGame(
-      currentBetId,
+      currentGameId,
       opponentPrice
     );
-    let bet = await Game.games(currentBetId);
+    let bet = await Game.games(currentGameId);
     expect(bet.gameStatus).to.equal(2);
   });
 
   it("should end exact price game", async function () {
     let oldBalance = await USDT.balanceOf(await opponent.getAddress());
     await time.increase(2700);
-    const currentBetId = await Game.totalGames() - BigInt(1);
-    await Game.finalizeGame(currentBetId, finalPrice);
+    await Game.finalizeGame(currentGameId, finalPrice);
     let newBalance = await USDT.balanceOf(await opponent.getAddress());
     expect(newBalance).to.be.above(oldBalance);
   });
 
   it("initiator shoild win", async function () {
-    await Game.createGame(
+    const tx = await Game.createGame(
       feedId,
       await opponent.getAddress(),
       (await time.latest()) + 2700,
       initiatorPrice,
       betAmount
     );
-    const currentBetId = await Game.totalGames() - BigInt(1);
+    const receipt = await tx.wait();
+    currentGameId = receipt!.logs[1]!.args[0];
     await Game.connect(opponent).acceptGame(
-      currentBetId,
+      currentGameId,
       opponentPrice
     );
     let oldBalance = await USDT.balanceOf(await owner.getAddress());
     await time.increase(2700);
-    await Game.finalizeGame(currentBetId, abiEncodeInt192(initiatorPrice.toString(),feedId));
+    await Game.finalizeGame(currentGameId, abiEncodeInt192(initiatorPrice.toString(),feedId));
     let newBalance = await USDT.balanceOf(await owner.getAddress());
     expect(newBalance).to.be.above(oldBalance);
   });
 
   it("should create and accept exact price open bet with zero address", async function () {
-    await Game.createGame(
+    const tx = await Game.createGame(
       feedId,
       ethers.ZeroAddress,
       (await time.latest()) + 2700,
@@ -138,16 +136,17 @@ describe("OneVsOneExactPrice", () => {
       betAmount
     );
 
-    const currentBetId = await Game.totalGames() - BigInt(1);
+    const receipt = await tx.wait();
+    currentGameId = receipt!.logs[1]!.args[0];
     await Game.connect(opponent).acceptGame(
-      currentBetId,
+      currentGameId,
       opponentPrice
     );
-    expect((await Game.games(currentBetId)).gameStatus).to.equal(2);
+    expect((await Game.games(currentGameId)).gameStatus).to.equal(2);
   });
 
   it("should create and refuse game with acceptGame function", async function () {
-    await Game.createGame(
+    const tx = await Game.createGame(
       feedId,
       await opponent.getAddress(),
       (await time.latest()) + 2700,
@@ -155,16 +154,17 @@ describe("OneVsOneExactPrice", () => {
       betAmount
     );
 
-    const currentBetId = await Game.totalGames() - BigInt(1);
+    const receipt = await tx.wait();
+    currentGameId = receipt!.logs[1]!.args[0];
     await Game.connect(opponent).acceptGame(
-      currentBetId,
+      currentGameId,
       0
     );
-    expect((await Game.games(currentBetId)).gameStatus).to.equal(4);
+    expect((await Game.games(currentGameId)).gameStatus).to.equal(4);
   });
 
   it("should create and close game", async function () {
-    await Game.createGame(
+    const tx = await Game.createGame(
       feedId,
       await opponent.getAddress(),
       (await time.latest()) + 2700,
@@ -172,11 +172,12 @@ describe("OneVsOneExactPrice", () => {
       betAmount
     );
     await time.increase(2700 / 3);
-    const currentBetId = await Game.totalGames() - BigInt(1);
+    const receipt = await tx.wait();
+    currentGameId = receipt!.logs[1]!.args[0];
     await Game.closeGame(
-      currentBetId
+      currentGameId
     );
-    expect((await Game.games(currentBetId)).gameStatus).to.equal(1);
+    expect((await Game.games(currentGameId)).gameStatus).to.equal(1);
   })
 
   it("should fail - wrong min bet duration", async function () {
@@ -210,20 +211,21 @@ describe("OneVsOneExactPrice", () => {
   });
 
   it("should fail - acceptGame wrong status", async function () {
-    await Game.createGame(
+    const tx = await Game.createGame(
       feedId,
       await opponent.getAddress(),
       (await time.latest()) + 2700,
       initiatorPrice,
       betAmount
     );
-    const currentBetId = await Game.totalGames() - BigInt(1);
-    await Game.connect(opponent).refuseGame(currentBetId);
-    await expect(Game.connect(opponent).acceptGame(currentBetId, opponentPrice)).to.be.revertedWith(requireWrongStatus);
+    const receipt = await tx.wait();
+    currentGameId = receipt!.logs[1]!.args[0];
+    await Game.connect(opponent).refuseGame(currentGameId);
+    await expect(Game.connect(opponent).acceptGame(currentGameId, opponentPrice)).to.be.revertedWith(requireWrongStatus);
   });
 
   it("should fail - acceptGame game closed after 1/3 of duration", async function () {
-    await Game.createGame(
+    const tx = await Game.createGame(
       feedId,
       await opponent.getAddress(),
       (await time.latest()) + 2700,
@@ -231,108 +233,115 @@ describe("OneVsOneExactPrice", () => {
       betAmount
     );
     await time.increase(2700 / 3);
-    const currentBetId = await Game.totalGames() - BigInt(1);
-    await expect(Game.connect(opponent).acceptGame(currentBetId, opponentPrice)).to.be.revertedWith(requireGameClosed);
+    const receipt = await tx.wait();
+    currentGameId = receipt!.logs[1]!.args[0];
+    await expect(Game.connect(opponent).acceptGame(currentGameId, opponentPrice)).to.be.revertedWith(requireGameClosed);
   });
 
   it("should fail - acceptGame same asset price", async function () {
-    await Game.createGame(
+    const tx = await Game.createGame(
       feedId,
       await opponent.getAddress(),
       (await time.latest()) + 2700,
       initiatorPrice,
       betAmount
     );
-    const currentBetId = await Game.totalGames() - BigInt(1);
-    await expect(Game.connect(opponent).acceptGame(currentBetId, initiatorPrice)).to.be.revertedWith(requireSameAssetPrice);
+    const receipt = await tx.wait();
+    currentGameId = receipt!.logs[1]!.args[0];
+    await expect(Game.connect(opponent).acceptGame(currentGameId, initiatorPrice)).to.be.revertedWith(requireSameAssetPrice);
   });
 
   it("should fail - acceptGame only opponent can accept", async function () {
-    await Game.createGame(
+    const tx = await Game.createGame(
       feedId,
       await opponent.getAddress(),
       (await time.latest()) + 2700,
       initiatorPrice,
       betAmount
     );
-    const currentBetId = await Game.totalGames() - BigInt(1);
-    await expect(Game.connect(alice).acceptGame(currentBetId, opponentPrice)).to.be.revertedWith(requireOnlyCertainAccount);
+    const receipt = await tx.wait();
+    currentGameId = receipt!.logs[1]!.args[0];
+    await expect(Game.connect(alice).acceptGame(currentGameId, opponentPrice)).to.be.revertedWith(requireOnlyCertainAccount);
   });
 
   it("should fail - closeGame wrong status", async function () {
-    await Game.createGame(
+    const tx = await Game.createGame(
       feedId,
       await opponent.getAddress(),
       (await time.latest()) + 2700,
       initiatorPrice,
       betAmount
     );
-    const currentBetId = await Game.totalGames() - BigInt(1);
-    await expect(Game.closeGame(currentBetId)).to.be.revertedWith(requireWrongStatus);
+    const receipt = await tx.wait();
+    currentGameId = receipt!.logs[1]!.args[0];
+    await expect(Game.closeGame(currentGameId)).to.be.revertedWith(requireWrongStatus);
   });
 
   it("should fail - closeGame wrong sender", async function () {
-    await Game.createGame(
+    const tx = await Game.createGame(
       feedId,
       await opponent.getAddress(),
       (await time.latest()) + 2700,
       initiatorPrice,
       betAmount
     );
-    const currentBetId = await Game.totalGames() - BigInt(1);
-    await expect(Game.connect(alice).closeGame(currentBetId)).to.be.revertedWith(requireWrongSender);
+    const receipt = await tx.wait();
+    currentGameId = receipt!.logs[1]!.args[0];
+    await expect(Game.connect(alice).closeGame(currentGameId)).to.be.revertedWith(requireWrongSender);
   });
 
   it("should fail - refuseGame only opponent can refuse bet", async function () {
-    await Game.createGame(
+    const tx = await Game.createGame(
       feedId,
       await opponent.getAddress(),
       (await time.latest()) + 2700,
       initiatorPrice,
       betAmount
     );
-    const currentBetId = await Game.totalGames() - BigInt(1);
-    await expect(Game.connect(alice).refuseGame(currentBetId)).to.be.revertedWith(requireOnlyOpponent);
+    const receipt = await tx.wait();
+    currentGameId = receipt!.logs[1]!.args[0];
+    await expect(Game.connect(alice).refuseGame(currentGameId)).to.be.revertedWith(requireOnlyOpponent);
   });
 
   it("should fail - refuseGame wrong status", async function () {
-    await Game.createGame(
+    const tx = await Game.createGame(
       feedId,
       await opponent.getAddress(),
       (await time.latest()) + 2700,
       initiatorPrice,
       betAmount
     );
-    const currentBetId = await Game.totalGames() - BigInt(1);
-    await Game.connect(opponent).acceptGame(currentBetId, opponentPrice)
-    await expect(Game.connect(opponent).refuseGame(currentBetId)).to.be.revertedWith(requireWrongStatus);
+    const receipt = await tx.wait();
+    currentGameId = receipt!.logs[1]!.args[0];
+    await Game.connect(opponent).acceptGame(currentGameId, opponentPrice)
+    await expect(Game.connect(opponent).refuseGame(currentGameId)).to.be.revertedWith(requireWrongStatus);
   });
 
   it("should fail - finalizeGame wrong status", async function () {
-    await Game.createGame(
+    const tx = await Game.createGame(
       feedId,
       await opponent.getAddress(),
       (await time.latest()) + 2700,
       initiatorPrice,
       betAmount
     );
-    const currentBetId = await Game.totalGames() - BigInt(1);
-    await expect(Game.finalizeGame(currentBetId,finalPrice)).to.be.revertedWith(requireWrongStatus);
+    const receipt = await tx.wait();
+    currentGameId = receipt!.logs[1]!.args[0];
+    await expect(Game.finalizeGame(currentGameId,finalPrice)).to.be.revertedWith(requireWrongStatus);
   });
 
   it("should fail - finalizeGame ealy finalization", async function () {
-    await Game.createGame(
+    const tx = await Game.createGame(
       feedId,
       await opponent.getAddress(),
       (await time.latest()) + 2700,
       initiatorPrice,
       betAmount
     );
-    const currentBetId = await Game.totalGames() - BigInt(1);
-    await Game.connect(opponent).acceptGame(currentBetId, opponentPrice)
-    const data = await FrontHelper.getExactPriceData(await Game.getAddress())
-    console.log(data);
-    await expect(Game.finalizeGame(currentBetId, finalPrice)).to.be.revertedWith(requireEarlyFinish);
+    const receipt = await tx.wait();
+    currentGameId = receipt!.logs[1]!.args[0];
+    await Game.connect(opponent).acceptGame(currentGameId, opponentPrice)
+    await expect(Game.finalizeGame(currentGameId, finalPrice)).to.be.revertedWith(requireEarlyFinish);
   });
 
 });

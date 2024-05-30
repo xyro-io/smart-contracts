@@ -185,7 +185,7 @@ contract Treasury is AccessControl {
         uint256 lostTeamTotal,
         uint256 wonTeamTotal,
         address initiator
-    ) external returns (uint256 rate) {
+    ) external returns (uint256, uint256) {
         uint256 withdrawnFee = (lostTeamTotal * fee) / FEE_DENOMINATOR;
         collectedFee += withdrawnFee;
         uint256 lostTeamFee = (lostTeamTotal * setupInitiatorFee) /
@@ -198,9 +198,10 @@ contract Treasury is AccessControl {
             lostTeamFee + wonTeamFee
         );
         //collect dust
-        rate =
+        uint256 rate =
             ((lostTeamTotal - withdrawnFee - lostTeamFee) * FEE_DENOMINATOR) /
             (wonTeamTotal - wonTeamFee);
+        return (rate, lostTeamFee + wonTeamFee);
     }
 
     /**

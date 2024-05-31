@@ -105,7 +105,7 @@ contract UpDown is AccessControl {
 
     function setStartingPrice(bytes memory unverifiedReport) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(block.timestamp > game.stopPredictAt, "Too early");
-        require(UpPlayers.length == 0 || DownPlayers.length == 0, "Not enough players");
+        require(UpPlayers.length != 0 || DownPlayers.length != 0, "Not enough players");
         address upkeep = ITreasury(treasury).upkeep();
         game.startingPrice = IMockUpkeep(upkeep).verifyReport(
             unverifiedReport,

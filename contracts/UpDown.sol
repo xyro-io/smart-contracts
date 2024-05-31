@@ -14,7 +14,7 @@ contract UpDown is AccessControl {
         bytes32 indexed gameId
     );
     event UpDownNewPlayer(address player, bool isLong, uint256 depositAmount, bytes32 indexed gameId);
-    event UpDownStarted(int192 startingPrice);
+    event UpDownStarted(int192 startingPrice, bytes32 indexed gameId);
     event UpDownFinalized(int192 finalPrice, bool isLong, bytes32 indexed gameId);
     event UpDownCancelled(bytes32 indexed gameId);
 
@@ -111,7 +111,7 @@ contract UpDown is AccessControl {
             unverifiedReport,
             game.feedId
         );
-        emit UpDownStarted(game.startingPrice);
+        emit UpDownStarted(game.startingPrice, game.gameId);
     }
 
     /**

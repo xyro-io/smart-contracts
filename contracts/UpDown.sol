@@ -122,15 +122,15 @@ contract UpDown is AccessControl {
         require(block.timestamp >= game.endTime, "Too early to finish");
         if(UpPlayers.length == 0 || DownPlayers.length == 0) {
             if(UpPlayers.length > 0) {
-               for(uint i; i < DownPlayers.length; i++) {
-                    ITreasury(treasury).refund(depositAmounts[DownPlayers[0]], DownPlayers[0]);
-                }
-                delete DownPlayers;
-            } else if (DownPlayers.length > 0 ) {
-                for(uint i; i < UpPlayers.length; i++) {
+               for(uint i; i < UpPlayers.length; i++) {
                     ITreasury(treasury).refund(depositAmounts[UpPlayers[0]], UpPlayers[0]);
                 }
                 delete UpPlayers;
+            } else if (DownPlayers.length > 0 ) {
+                for(uint i; i < DownPlayers.length; i++) {
+                    ITreasury(treasury).refund(depositAmounts[DownPlayers[0]], DownPlayers[0]);
+                }
+                delete DownPlayers;
             }
             emit UpDownCancelled(game.gameId);
             delete game;

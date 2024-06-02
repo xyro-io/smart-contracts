@@ -169,8 +169,8 @@ contract OneVsOneUpDown is AccessControl {
         bytes32 gameId = keccak256(abi.encodePacked(endTime, block.timestamp, msg.sender, opponent));
         games[gameId] = newGame;
         emit UpDownCreated(
-            feedId,
             gameId,
+            feedId,
             opponent,
             block.timestamp,
             endTime,

@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ITreasury} from  "./interfaces/ITreasury.sol";
 import {IMockUpkeep} from  "./interfaces/IMockUpkeep.sol";
+import "hardhat/console.sol";
 
 contract UpDown is AccessControl {
     event UpDownCreated(
@@ -119,6 +120,7 @@ contract UpDown is AccessControl {
      * @param unverifiedReport Chainlink DataStreams report
      */
     function finalizeGame(bytes memory unverifiedReport) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(game.gameId != bytes32(0), "Start the game first");
         require(block.timestamp >= game.endTime, "Too early to finish");
         if(UpPlayers.length == 0 || DownPlayers.length == 0) {
             if(UpPlayers.length > 0) {
@@ -132,6 +134,7 @@ contract UpDown is AccessControl {
                 }
                 delete DownPlayers;
             }
+            // console.log(game.gameId);
             emit UpDownCancelled(game.gameId);
             delete game;
             return;

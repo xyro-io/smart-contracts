@@ -100,6 +100,7 @@ contract Bullseye is AccessControl {
      * @param unverifiedReport Chainlink DataStreams report
      */
     function finalizeGame(bytes memory unverifiedReport) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(game.gameId != bytes32(0), "Start the game first");
         require(block.timestamp >= game.endTime, "Too early to finish");
         if(players.length < 2) {
             address player;

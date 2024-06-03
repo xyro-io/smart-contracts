@@ -22,14 +22,7 @@ contract OneVsOneExactPrice is AccessControl {
         int192 opponentPrice
     );
     event ExactPriceRefused(bytes32 gameId);
-    event ExactPriceCancelled(
-        bytes32 gameId,
-        address initiator,
-        uint256 depositAmount,
-        uint256 startTime,
-        uint48 endTime,
-        Status gameStatus
-    );
+    event ExactPriceCancelled(bytes32 gameId);
     event ExactPriceFinalized(
         bytes32 gameId,
         int192 winnerGuessPrice,
@@ -67,6 +60,22 @@ contract OneVsOneExactPrice is AccessControl {
 
     constructor() {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    }
+
+    function create(GameInfo memory newGame) public {
+         require(
+            newGame.endTime - block.timestamp >= minDuration,
+            "Min game duration must be higher"
+        );
+        require(
+            newGame.endTime - block.timestamp <= maxDuration,
+            "Max game duration must be lower"
+        );
+        require(newGame.opponentPrice == 0 && newGame.finalAssetPrice == 0 && newGame.gameStatus == Status.Created && newGame.startTime == 0, "bad");
+        require(newGame.depositAmount >= 1e19, "Wrong deposit amount");
+        ITreasury(treasury).deposit(newGame.depositAmount, msg.sender);
+        bytes32 gameId = keccak256(abi.encodePacked(newGame.endTime, block.timestamp, msg.sender, newGame.opponent));
+        games[gameId] = newGame;
     }
 
     /**
@@ -256,12 +265,7 @@ contract OneVsOneExactPrice is AccessControl {
         game.gameStatus = Status.Cancelled;
         games[gameId] = game;
         emit ExactPriceCancelled(
-            gameId,
-            game.initiator,
-            game.depositAmount,
-            game.startTime,
-            game.endTime,
-            Status.Cancelled
+            gameId
         );
     }
 

@@ -119,6 +119,7 @@ contract UpDown is AccessControl {
      * @param unverifiedReport Chainlink DataStreams report
      */
     function finalizeGame(bytes memory unverifiedReport) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(game.gameId != bytes32(0), "Start the game first");
         require(block.timestamp >= game.endTime, "Too early to finish");
         if(UpPlayers.length == 0 || DownPlayers.length == 0) {
             if(UpPlayers.length > 0) {

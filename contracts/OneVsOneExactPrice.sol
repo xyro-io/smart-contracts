@@ -22,14 +22,7 @@ contract OneVsOneExactPrice is AccessControl {
         int192 opponentPrice
     );
     event ExactPriceRefused(bytes32 gameId);
-    event ExactPriceCancelled(
-        bytes32 gameId,
-        address initiator,
-        uint256 depositAmount,
-        uint256 startTime,
-        uint48 endTime,
-        Status gameStatus
-    );
+    event ExactPriceCancelled(bytes32 gameId);
     event ExactPriceFinalized(
         bytes32 gameId,
         int192 winnerGuessPrice,
@@ -256,12 +249,7 @@ contract OneVsOneExactPrice is AccessControl {
         game.gameStatus = Status.Cancelled;
         games[gameId] = game;
         emit ExactPriceCancelled(
-            gameId,
-            game.initiator,
-            game.depositAmount,
-            game.startTime,
-            game.endTime,
-            Status.Cancelled
+            gameId
         );
     }
 

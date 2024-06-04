@@ -14,7 +14,7 @@ contract Bullseye is AccessControl {
     uint256[2] public twoPlayersExactRate = [8000, 2000];
     event BullseyeStart(uint256 startTime, uint48 stopPredictAt, uint48 endTime, uint256 depositAmount, bytes32 feedId, bytes32 indexed gameId);
     event BullseyeNewPlayer(address player, int192 assetPrice, uint256 depositAmount, bytes32 indexed gameId);
-    event BullseyeFinalized(address[3] players, int192 finalPrice, bytes32 indexed gameId);
+    event BullseyeFinalized(address[3] players, int192 finalPrice, bool isExact, bytes32 indexed gameId);
     event BullseyeCancelled(bytes32 indexed gameId);
 
     struct GameInfo {
@@ -100,6 +100,7 @@ contract Bullseye is AccessControl {
      * @param unverifiedReport Chainlink DataStreams report
      */
     function finalizeGame(bytes memory unverifiedReport) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(game.gameId != bytes32(0), "Start the game first");
         require(block.timestamp >= game.endTime, "Too early to finish");
         if(players.length < 2) {
             address player;
@@ -120,6 +121,7 @@ contract Bullseye is AccessControl {
             unverifiedReport,
             game.feedId
         );
+        int192 exactRange = finalPrice / 10000;
         if (players.length == 2) {
             address playerOne = players[0];
             address playerTwo = players[1];
@@ -134,7 +136,7 @@ contract Bullseye is AccessControl {
                 uint256 wonAmountFirst = (2 *
                         game.depositAmount *
                         (
-                            playerOneDiff == 0
+                            playerOneDiff <= exactRange
                                 ? twoPlayersExactRate[0]
                                 : twoPlayersRate[0]
                         )) / DENOMINATOR;
@@ -147,7 +149,7 @@ contract Bullseye is AccessControl {
                 uint256 wonAmountSecond = (2 *
                         game.depositAmount *
                         (
-                            playerOneDiff == 0
+                            playerOneDiff <= exactRange
                                 ? twoPlayersExactRate[1]
                                 : twoPlayersRate[1]
                         )) / DENOMINATOR;
@@ -157,13 +159,13 @@ contract Bullseye is AccessControl {
                     game.depositAmount,
                     fee
                 );
-                emit BullseyeFinalized([playerOne, playerTwo, address(0)], finalPrice, game.gameId);
+                emit BullseyeFinalized([playerOne, playerTwo, address(0)], finalPrice, playerOneDiff <= exactRange, game.gameId);
             } else {
                 // player 2 closer
                 uint256 wonAmountFirst = (2 *
                         game.depositAmount *
                         (
-                            playerOneDiff == 0
+                            playerTwoDiff <= exactRange
                                 ? twoPlayersExactRate[0]
                                 : twoPlayersRate[0]
                         )) / DENOMINATOR;
@@ -176,7 +178,7 @@ contract Bullseye is AccessControl {
                 uint256 wonAmountSecond = (2 *
                         game.depositAmount *
                         (
-                            playerOneDiff == 0
+                            playerTwoDiff <= exactRange
                                 ? twoPlayersExactRate[1]
                                 : twoPlayersRate[1]
                         )) / DENOMINATOR;
@@ -186,7 +188,7 @@ contract Bullseye is AccessControl {
                     game.depositAmount,
                     fee
                 );
-                emit BullseyeFinalized([playerTwo, playerOne, address(0)], finalPrice, game.gameId);
+                emit BullseyeFinalized([playerTwo, playerOne, address(0)], finalPrice, playerTwoDiff <= exactRange, game.gameId);
             }
         } else {
             address[3] memory topPlayers;
@@ -226,7 +228,7 @@ contract Bullseye is AccessControl {
             }
             uint256 totalDeposited = game.depositAmount * players.length;
             uint256[3] memory wonAmount;
-            if (closestDiff[0] == 0) {
+            if (closestDiff[0] <= exactRange) {
                 wonAmount = exactRate;
             } else {
                 wonAmount = rate;
@@ -242,7 +244,7 @@ contract Bullseye is AccessControl {
                     totalDeposited -= wonAmount[i];
                 }
             }
-            emit BullseyeFinalized(topPlayers, finalPrice, game.gameId);
+            emit BullseyeFinalized(topPlayers, finalPrice, closestDiff[0] <= exactRange, game.gameId);
         }
         for (uint256 i = 0; i < players.length; i++) {
             assetPrices[players[i]] = 0;

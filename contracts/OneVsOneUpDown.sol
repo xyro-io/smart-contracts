@@ -24,14 +24,7 @@ contract OneVsOneUpDown is AccessControl {
         uint256 depositAmount
     );
     event UpDownRefused(bytes32 gameId);
-    event UpDownCancelled(
-        bytes32 gameId,
-        address initiator,
-        uint256 depositAmount,
-        uint256 startTime,
-        uint48 endTime,
-        Status gameStatus
-    );
+    event UpDownCancelled(bytes32 gameId);
     event UpDownFinalized(
         bytes32 gameId,
         bool isLongWon,
@@ -269,12 +262,7 @@ contract OneVsOneUpDown is AccessControl {
         games[gameId].gameStatus = Status.Cancelled;
         games[gameId] = game;
         emit UpDownCancelled(
-            gameId,
-            msg.sender,
-            game.depositAmount,
-            game.startTime,
-            game.endTime,
-            Status.Cancelled
+            gameId
         );
     }
 

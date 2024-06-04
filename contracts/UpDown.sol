@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ITreasury} from  "./interfaces/ITreasury.sol";
 import {IMockUpkeep} from  "./interfaces/IMockUpkeep.sol";
-import "hardhat/console.sol";
 
 contract UpDown is AccessControl {
     event UpDownCreated(
@@ -134,7 +133,6 @@ contract UpDown is AccessControl {
                 }
                 delete DownPlayers;
             }
-            // console.log(game.gameId);
             emit UpDownCancelled(game.gameId);
             delete game;
             return;

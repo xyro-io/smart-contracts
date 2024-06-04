@@ -62,22 +62,6 @@ contract OneVsOneExactPrice is AccessControl {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
-    function create(GameInfo memory newGame) public {
-         require(
-            newGame.endTime - block.timestamp >= minDuration,
-            "Min game duration must be higher"
-        );
-        require(
-            newGame.endTime - block.timestamp <= maxDuration,
-            "Max game duration must be lower"
-        );
-        require(newGame.opponentPrice == 0 && newGame.finalAssetPrice == 0 && newGame.gameStatus == Status.Created && newGame.startTime == 0, "bad");
-        require(newGame.depositAmount >= 1e19, "Wrong deposit amount");
-        ITreasury(treasury).deposit(newGame.depositAmount, msg.sender);
-        bytes32 gameId = keccak256(abi.encodePacked(newGame.endTime, block.timestamp, msg.sender, newGame.opponent));
-        games[gameId] = newGame;
-    }
-
     /**
      * Creates 1vs1 exact price mode game
      * @param opponent address of the opponent

@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {ITreasury} from  "./interfaces/ITreasury.sol";
-import {IMockUpkeep} from  "./interfaces/IMockUpkeep.sol";
+import {ITreasury} from "./interfaces/ITreasury.sol";
+import {IMockUpkeep} from "./interfaces/IMockUpkeep.sol";
 
 contract UpDown is AccessControl {
     event UpDownCreated(
@@ -13,9 +13,18 @@ contract UpDown is AccessControl {
         bytes32 feedId,
         bytes32 indexed gameId
     );
-    event UpDownNewPlayer(address player, bool isLong, uint256 depositAmount, bytes32 indexed gameId);
+    event UpDownNewPlayer(
+        address player,
+        bool isLong,
+        uint256 depositAmount,
+        bytes32 indexed gameId
+    );
     event UpDownStarted(int192 startingPrice, bytes32 indexed gameId);
-    event UpDownFinalized(int192 finalPrice, bool isLong, bytes32 indexed gameId);
+    event UpDownFinalized(
+        int192 finalPrice,
+        bool isLong,
+        bytes32 indexed gameId
+    );
     event UpDownCancelled(bytes32 indexed gameId);
 
     struct GameInfo {
@@ -54,8 +63,16 @@ contract UpDown is AccessControl {
         game.startTime = block.timestamp;
         game.stopPredictAt = stopPredictAt;
         game.endTime = endTime;
-        game.gameId = keccak256(abi.encodePacked(endTime, block.timestamp, address(this)));
-        emit UpDownCreated(block.timestamp, stopPredictAt, endTime, feedId, game.gameId);
+        game.gameId = keccak256(
+            abi.encodePacked(endTime, block.timestamp, address(this))
+        );
+        emit UpDownCreated(
+            block.timestamp,
+            stopPredictAt,
+            endTime,
+            feedId,
+            game.gameId
+        );
     }
 
     /**
@@ -63,7 +80,10 @@ contract UpDown is AccessControl {
      * @param isLong up = true, down = false
      * @param depositAmount amount to deposit in game
      */
-    function play(bool isLong, uint256 depositAmount) isParticipating(msg.sender) public {
+    function play(
+        bool isLong,
+        uint256 depositAmount
+    ) public isParticipating(msg.sender) {
         require(
             game.stopPredictAt >= block.timestamp,
             "Game is closed for new players"
@@ -94,18 +114,32 @@ contract UpDown is AccessControl {
             "Game is closed for new players"
         );
         if (isLong) {
+            game.totalDepositsUp += depositAmount;
             UpPlayers.push(msg.sender);
         } else {
+            game.totalDepositsDown += depositAmount;
             DownPlayers.push(msg.sender);
         }
         depositAmounts[msg.sender] = depositAmount;
-        ITreasury(treasury).depositWithPermit(depositAmount, msg.sender, permitData.deadline, permitData.v, permitData.r, permitData.s);
+        ITreasury(treasury).depositWithPermit(
+            depositAmount,
+            msg.sender,
+            permitData.deadline,
+            permitData.v,
+            permitData.r,
+            permitData.s
+        );
         emit UpDownNewPlayer(msg.sender, isLong, depositAmount, game.gameId);
     }
 
-    function setStartingPrice(bytes memory unverifiedReport) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setStartingPrice(
+        bytes memory unverifiedReport
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(block.timestamp >= game.stopPredictAt, "Too early");
-        require(UpPlayers.length != 0 || DownPlayers.length != 0, "Not enough players");
+        require(
+            UpPlayers.length != 0 || DownPlayers.length != 0,
+            "Not enough players"
+        );
         address upkeep = ITreasury(treasury).upkeep();
         game.startingPrice = IMockUpkeep(upkeep).verifyReport(
             unverifiedReport,
@@ -118,18 +152,26 @@ contract UpDown is AccessControl {
      * Finalizes up/down game and distributes rewards to players
      * @param unverifiedReport Chainlink DataStreams report
      */
-    function finalizeGame(bytes memory unverifiedReport) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function finalizeGame(
+        bytes memory unverifiedReport
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(game.gameId != bytes32(0), "Start the game first");
         require(block.timestamp >= game.endTime, "Too early to finish");
-        if(UpPlayers.length == 0 || DownPlayers.length == 0) {
-            if(UpPlayers.length > 0) {
-               for(uint i; i < UpPlayers.length; i++) {
-                    ITreasury(treasury).refund(depositAmounts[UpPlayers[0]], UpPlayers[0]);
+        if (UpPlayers.length == 0 || DownPlayers.length == 0) {
+            if (UpPlayers.length > 0) {
+                for (uint i; i < UpPlayers.length; i++) {
+                    ITreasury(treasury).refund(
+                        depositAmounts[UpPlayers[0]],
+                        UpPlayers[0]
+                    );
                 }
                 delete UpPlayers;
-            } else if (DownPlayers.length > 0 ) {
-                for(uint i; i < DownPlayers.length; i++) {
-                    ITreasury(treasury).refund(depositAmounts[DownPlayers[0]], DownPlayers[0]);
+            } else if (DownPlayers.length > 0) {
+                for (uint i; i < DownPlayers.length; i++) {
+                    ITreasury(treasury).refund(
+                        depositAmounts[DownPlayers[0]],
+                        DownPlayers[0]
+                    );
                 }
                 delete DownPlayers;
             }
@@ -159,7 +201,7 @@ contract UpDown is AccessControl {
             }
             emit UpDownFinalized(finalPrice, true, game.gameId);
         } else {
-             uint256 finalRate = ITreasury(treasury).calculateUpDownRate(
+            uint256 finalRate = ITreasury(treasury).calculateUpDownRate(
                 _game.totalDepositsUp,
                 _game.totalDepositsDown,
                 fee
@@ -187,7 +229,7 @@ contract UpDown is AccessControl {
         delete game;
     }
 
-    function getTotalPlayers() public view returns(uint256, uint256) {
+    function getTotalPlayers() public view returns (uint256, uint256) {
         return (UpPlayers.length, DownPlayers.length);
     }
 
@@ -209,7 +251,9 @@ contract UpDown is AccessControl {
      * Change treasury address
      * @param newTreasury new treasury address
      */
-    function setTreasury(address newTreasury) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setTreasury(
+        address newTreasury
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         treasury = newTreasury;
     }
 }

@@ -24,7 +24,7 @@ let contracts: {
   Bullseye,
   GovernanceToken,
   TimeLock,
-  MockUpkeep,
+  MockVerifier,
   DAO,
   UpDown,
   RealUpkeep,
@@ -51,7 +51,10 @@ async function deployUSDC() {
 
 async function deployFrontHelper() {
   factory = await ethers.getContractFactory("FrontHelper");
-  if (contracts.FrontHelper?.address == undefined || contracts.FrontHelper?.address == "") {
+  if (
+    contracts.FrontHelper?.address == undefined ||
+    contracts.FrontHelper?.address == ""
+  ) {
     FrontHelper = await wrapFnc([], factory);
     contracts.FrontHelper = { address: "", url: "" };
     contracts.FrontHelper.address = FrontHelper.target;
@@ -235,22 +238,22 @@ async function deployTimeLock(deployer: HardhatEthersSigner) {
   }
 }
 
-async function deployMockUpkeep() {
-  factory = await ethers.getContractFactory("MockUpkeep");
+async function deployMockVerifier() {
+  factory = await ethers.getContractFactory("MockVerifier");
   if (
-    contracts.MockUpkeep?.address == undefined ||
-    contracts.MockUpkeep?.address == ""
+    contracts.MockVerifier?.address == undefined ||
+    contracts.MockVerifier?.address == ""
   ) {
-    MockUpkeep = await wrapFnc([], factory);
-    contracts.MockUpkeep = { address: "", url: "" };
-    contracts.MockUpkeep.address = MockUpkeep.target;
-    console.log("MockUpkeep deployed");
+    MockVerifier = await wrapFnc([], factory);
+    contracts.MockVerifier = { address: "", url: "" };
+    contracts.MockVerifier.address = MockVerifier.target;
+    console.log("MockVerifier deployed");
   } else {
-    console.log("MockUpkeep already deployed skipping...");
+    console.log("MockVerifier already deployed skipping...");
   }
 }
 
-async function deployUpkeep() {
+async function deployVerifier() {
   factory = await ethers.getContractFactory("ClientReportsVerifier");
   if (
     contracts.RealUpkeep?.address == undefined ||
@@ -295,10 +298,10 @@ async function main() {
     await deployOneVsOneUpDown();
     await deploySetupsFactory();
     await deployBullseye();
-    await deployMockUpkeep();
+    await deployMockVerifier();
     await deployFrontHelper();
     await deployUpDown();
-    // await deployUpkeep();
+    await deployVerifier();
   } catch (e) {
     const json = JSON.stringify(contracts);
     fs.writeFileSync("./contracts.json", json);

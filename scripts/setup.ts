@@ -11,7 +11,10 @@ async function setupTreasury() {
     contracts.Treasury.address
   );
   const defaultAdminRole = await contract.DEFAULT_ADMIN_ROLE();
-  await wrapFnc([defaultAdminRole, contracts.SetupsFactory.address], contract.grantRole);
+  await wrapFnc(
+    [defaultAdminRole, contracts.SetupsFactory.address],
+    contract.grantRole
+  );
   await wrapFnc([defaultAdminRole, GAME_MASTER], contract.grantRole);
   await wrapFnc([defaultAdminRole, GAME_MASTER_2], contract.grantRole);
   const role = await contract.DISTRIBUTOR_ROLE();

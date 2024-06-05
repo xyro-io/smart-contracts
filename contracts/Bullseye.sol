@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ITreasury} from "./interfaces/ITreasury.sol";
-import {IMockUpkeep} from "./interfaces/IMockUpkeep.sol";
+import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 
 contract Bullseye is AccessControl {
     uint256 constant DENOMINATOR = 10000;
@@ -162,9 +162,12 @@ contract Bullseye is AccessControl {
         }
 
         address upkeep = ITreasury(treasury).upkeep();
-        int192 finalPrice = IMockUpkeep(upkeep).verifyReport(
-            unverifiedReport,
-            game.feedId
+        (int192 finalPrice, uint32 priceTimestamp) = IDataStreamsVerifier(
+            upkeep
+        ).verifyReportWithTimestamp(unverifiedReport, game.feedId);
+        require(
+            block.timestamp - priceTimestamp <= 10 minutes,
+            "Old chainlink report"
         );
         int192 exactRange = finalPrice / 10000;
         if (players.length == 2) {

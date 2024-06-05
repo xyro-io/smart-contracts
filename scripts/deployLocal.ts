@@ -24,7 +24,7 @@ let contracts: {
   Bullseye,
   GovernanceToken,
   TimeLock,
-  MockUpkeep,
+  MockVerifier,
   DAO,
   UpDown,
   factory: any;
@@ -137,11 +137,11 @@ async function deployTimeLock(deployer: HardhatEthersSigner) {
 }
 
 async function deployUpkeep() {
-  factory = await ethers.getContractFactory("MockUpkeep");
-  MockUpkeep = await wrapFnc([], factory);
-  contracts.MockUpkeep = { address: "", url: "" };
-  contracts.MockUpkeep.address = MockUpkeep.target;
-  console.log("MockUpkeep deployed");
+  factory = await ethers.getContractFactory("MockVerifier");
+  MockVerifier = await wrapFnc([], factory);
+  contracts.MockVerifier = { address: "", url: "" };
+  contracts.MockVerifier.address = MockVerifier.target;
+  console.log("MockVerifier deployed");
 }
 
 async function deployDAO() {

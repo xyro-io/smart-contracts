@@ -2,18 +2,15 @@
 pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {ITreasury} from  "./interfaces/ITreasury.sol";
-import {IMockUpkeep} from  "./interfaces/IMockUpkeep.sol";
+import {ITreasury} from "./interfaces/ITreasury.sol";
+import {IMockUpkeep} from "./interfaces/IMockUpkeep.sol";
 
 contract Setups is AccessControl {
     event SetupNewPlayer(bool isLong, uint256 depositAmount, address player);
-    event SetupCancelled(
-        address gameAdress,
-        address initiator
-    );
+    event SetupCancelled(address gameAdress, address initiator);
     event SetupFinalized(
         bool takeProfitWon,
-        int192 finalAssetPrice,
+        int192 finalPrice,
         uint256 initiatorFee
     );
 
@@ -33,7 +30,7 @@ contract Setups is AccessControl {
         uint256 totalDepositsTP;
         int192 takeProfitPrice;
         int192 stopLossPrice;
-        int192 finalAssetPrice;
+        int192 finalPrice;
         Status gameStatus;
     }
 
@@ -115,9 +112,16 @@ contract Setups is AccessControl {
             "Game is closed for new players"
         );
         require(depositAmounts[msg.sender] == 0, "You are already in the game");
-        ITreasury(treasury).depositWithPermit(depositAmount, msg.sender, permitData.deadline, permitData.v, permitData.r, permitData.s);
+        ITreasury(treasury).depositWithPermit(
+            depositAmount,
+            msg.sender,
+            permitData.deadline,
+            permitData.v,
+            permitData.r,
+            permitData.s
+        );
         depositAmounts[msg.sender] = depositAmount;
-       if (isLong) {
+        if (isLong) {
             teamTP.push(msg.sender);
             game.totalDepositsTP += depositAmount;
         } else {
@@ -132,9 +136,10 @@ contract Setups is AccessControl {
      */
     function closeGame() public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(
-            (game.startTime + (game.endTime - game.startTime) / 3 <
+            ((game.startTime + (game.endTime - game.startTime) / 3 <
                 block.timestamp &&
-               teamTP.length + teamSL.length == 0 || block.timestamp > game.endTime),
+                teamTP.length + teamSL.length == 0) ||
+                block.timestamp > game.endTime),
             "Wrong status!"
         );
         for (uint i; i < teamSL.length; i++) {
@@ -152,25 +157,35 @@ contract Setups is AccessControl {
      * Finalizes setup game
      * @param unverifiedReport Chainlink DataStreams report
      */
-    function finalizeGame(bytes memory unverifiedReport) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function finalizeGame(
+        bytes memory unverifiedReport
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(game.gameStatus == Status.Created, "Wrong status!");
         address upkeep = ITreasury(treasury).upkeep();
-        int192 finalPrice = IMockUpkeep(upkeep).verifyReport(
-            unverifiedReport,
-            game.feedId
+        (int192 finalPrice, uint32 priceTimestamp) = IMockUpkeep(upkeep)
+            .verifyReportWithTimestamp(unverifiedReport, game.feedId);
+        //block.timestamp must be > priceTimestamp
+        require(
+            block.timestamp - priceTimestamp <= 10 minutes,
+            "Old chainlink report"
         );
-        require(finalPrice <= game.stopLossPrice || finalPrice >= game.takeProfitPrice, "Can't end");
+        require(
+            finalPrice <= game.stopLossPrice ||
+                finalPrice >= game.takeProfitPrice,
+            "Can't end"
+        );
         bool takeProfitWon;
         uint256 initiatorFee;
         uint256 finalRate;
         if (game.isLong) {
             if (finalPrice >= game.takeProfitPrice) {
                 // tp team wins
-                (finalRate, initiatorFee) = ITreasury(treasury).calculateSetupRate(
-                    game.totalDepositsSL,
-                    game.totalDepositsTP,
-                    game.initiator
-                );
+                (finalRate, initiatorFee) = ITreasury(treasury)
+                    .calculateSetupRate(
+                        game.totalDepositsSL,
+                        game.totalDepositsTP,
+                        game.initiator
+                    );
                 for (uint i; i < teamTP.length; i++) {
                     ITreasury(treasury).distributeWithoutFee(
                         finalRate,
@@ -181,11 +196,12 @@ contract Setups is AccessControl {
                 takeProfitWon = true;
             } else if (finalPrice <= game.stopLossPrice) {
                 // sl team wins
-                (finalRate, initiatorFee) = ITreasury(treasury).calculateSetupRate(
-                    game.totalDepositsTP,
-                    game.totalDepositsSL,
-                    game.initiator
-                );
+                (finalRate, initiatorFee) = ITreasury(treasury)
+                    .calculateSetupRate(
+                        game.totalDepositsTP,
+                        game.totalDepositsSL,
+                        game.initiator
+                    );
                 for (uint i; i < teamSL.length; i++) {
                     ITreasury(treasury).distributeWithoutFee(
                         finalRate,
@@ -197,11 +213,12 @@ contract Setups is AccessControl {
         } else {
             if (finalPrice >= game.stopLossPrice) {
                 // sl team wins
-                (finalRate, initiatorFee) = ITreasury(treasury).calculateSetupRate(
-                    game.totalDepositsTP,
-                    game.totalDepositsSL,
-                    game.initiator
-                );
+                (finalRate, initiatorFee) = ITreasury(treasury)
+                    .calculateSetupRate(
+                        game.totalDepositsTP,
+                        game.totalDepositsSL,
+                        game.initiator
+                    );
 
                 for (uint i; i < teamSL.length; i++) {
                     ITreasury(treasury).distributeWithoutFee(
@@ -211,11 +228,12 @@ contract Setups is AccessControl {
                     );
                 }
             } else if (finalPrice <= game.takeProfitPrice) {
-                (finalRate, initiatorFee) = ITreasury(treasury).calculateSetupRate(
-                    game.totalDepositsSL,
-                    game.totalDepositsTP,
-                    game.initiator
-                );
+                (finalRate, initiatorFee) = ITreasury(treasury)
+                    .calculateSetupRate(
+                        game.totalDepositsSL,
+                        game.totalDepositsTP,
+                        game.initiator
+                    );
                 for (uint i; i < teamTP.length; i++) {
                     ITreasury(treasury).distributeWithoutFee(
                         finalRate,
@@ -226,24 +244,22 @@ contract Setups is AccessControl {
                 takeProfitWon = true;
             }
         }
-        game.finalAssetPrice = finalPrice;
+        game.finalPrice = finalPrice;
         game.gameStatus = Status.Finished;
-        emit SetupFinalized(
-            takeProfitWon,
-            finalPrice,
-            initiatorFee
-        );
+        emit SetupFinalized(takeProfitWon, finalPrice, initiatorFee);
     }
 
     function getPlayersAmount() public view returns (uint256, uint256) {
-        return(teamSL.length, teamTP.length);
+        return (teamSL.length, teamTP.length);
     }
 
     /**
      * Change treasury address
      * @param newTreasury new treasury address
      */
-    function setTreasury(address newTreasury) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setTreasury(
+        address newTreasury
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         treasury = newTreasury;
     }
 }

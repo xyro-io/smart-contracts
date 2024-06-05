@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {ITreasury} from  "./interfaces/ITreasury.sol";
-import {IMockUpkeep} from  "./interfaces/IMockUpkeep.sol";
+import {ITreasury} from "./interfaces/ITreasury.sol";
+import {IMockUpkeep} from "./interfaces/IMockUpkeep.sol";
 
 contract Bullseye is AccessControl {
     uint256 constant DENOMINATOR = 10000;
@@ -12,9 +12,26 @@ contract Bullseye is AccessControl {
     uint256[3] public exactRate = [7500, 1500, 1000];
     uint256[2] public twoPlayersRate = [7500, 2500];
     uint256[2] public twoPlayersExactRate = [8000, 2000];
-    event BullseyeStart(uint256 startTime, uint48 stopPredictAt, uint48 endTime, uint256 depositAmount, bytes32 feedId, bytes32 indexed gameId);
-    event BullseyeNewPlayer(address player, int192 assetPrice, uint256 depositAmount, bytes32 indexed gameId);
-    event BullseyeFinalized(address[3] players, int192 finalPrice, bool isExact, bytes32 indexed gameId);
+    event BullseyeStart(
+        uint256 startTime,
+        uint48 stopPredictAt,
+        uint48 endTime,
+        uint256 depositAmount,
+        bytes32 feedId,
+        bytes32 indexed gameId
+    );
+    event BullseyeNewPlayer(
+        address player,
+        int192 assetPrice,
+        uint256 depositAmount,
+        bytes32 indexed gameId
+    );
+    event BullseyeFinalized(
+        address[3] players,
+        int192 finalPrice,
+        bool isExact,
+        bytes32 indexed gameId
+    );
     event BullseyeCancelled(bytes32 indexed gameId);
 
     struct GameInfo {
@@ -54,8 +71,17 @@ contract Bullseye is AccessControl {
         game.stopPredictAt = stopPredictAt;
         game.endTime = endTime;
         game.depositAmount = depositAmount;
-        game.gameId = keccak256(abi.encodePacked(endTime, block.timestamp, address(this)));
-        emit BullseyeStart(block.timestamp, stopPredictAt, endTime, depositAmount, feedId, game.gameId);
+        game.gameId = keccak256(
+            abi.encodePacked(endTime, block.timestamp, address(this))
+        );
+        emit BullseyeStart(
+            block.timestamp,
+            stopPredictAt,
+            endTime,
+            depositAmount,
+            feedId,
+            game.gameId
+        );
     }
 
     /**
@@ -72,7 +98,12 @@ contract Bullseye is AccessControl {
         players.push(msg.sender);
         assetPrices[msg.sender] = assetPrice;
         ITreasury(treasury).deposit(game.depositAmount, msg.sender);
-        emit BullseyeNewPlayer(msg.sender, assetPrice, game.depositAmount, game.gameId);
+        emit BullseyeNewPlayer(
+            msg.sender,
+            assetPrice,
+            game.depositAmount,
+            game.gameId
+        );
     }
 
     /**
@@ -91,20 +122,34 @@ contract Bullseye is AccessControl {
         playerTimestamp[msg.sender] = block.timestamp;
         players.push(msg.sender);
         assetPrices[msg.sender] = assetPrice;
-        ITreasury(treasury).depositWithPermit(game.depositAmount, msg.sender, permitData.deadline, permitData.v, permitData.r, permitData.s);
-        emit BullseyeNewPlayer(msg.sender, assetPrice, game.depositAmount, game.gameId);
+        ITreasury(treasury).depositWithPermit(
+            game.depositAmount,
+            msg.sender,
+            permitData.deadline,
+            permitData.v,
+            permitData.r,
+            permitData.s
+        );
+        emit BullseyeNewPlayer(
+            msg.sender,
+            assetPrice,
+            game.depositAmount,
+            game.gameId
+        );
     }
 
     /**
      * Finalizes bullseye game and distributes rewards to players
      * @param unverifiedReport Chainlink DataStreams report
      */
-    function finalizeGame(bytes memory unverifiedReport) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function finalizeGame(
+        bytes memory unverifiedReport
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(game.gameId != bytes32(0), "Start the game first");
         require(block.timestamp >= game.endTime, "Too early to finish");
-        if(players.length < 2) {
+        if (players.length < 2) {
             address player;
-            if(players.length == 1) {
+            if (players.length == 1) {
                 player = players[0];
                 ITreasury(treasury).refund(game.depositAmount, players[0]);
                 assetPrices[players[0]] = 0;
@@ -115,7 +160,7 @@ contract Bullseye is AccessControl {
             delete game;
             return;
         }
-        
+
         address upkeep = ITreasury(treasury).upkeep();
         int192 finalPrice = IMockUpkeep(upkeep).verifyReport(
             unverifiedReport,
@@ -134,12 +179,12 @@ contract Bullseye is AccessControl {
             if (playerOneDiff < playerTwoDiff) {
                 // player 1 closer
                 uint256 wonAmountFirst = (2 *
-                        game.depositAmount *
-                        (
-                            playerOneDiff <= exactRange
-                                ? twoPlayersExactRate[0]
-                                : twoPlayersRate[0]
-                        )) / DENOMINATOR;
+                    game.depositAmount *
+                    (
+                        playerOneDiff <= exactRange
+                            ? twoPlayersExactRate[0]
+                            : twoPlayersRate[0]
+                    )) / DENOMINATOR;
                 ITreasury(treasury).distribute(
                     wonAmountFirst,
                     playerOne,
@@ -147,28 +192,33 @@ contract Bullseye is AccessControl {
                     fee
                 );
                 uint256 wonAmountSecond = (2 *
-                        game.depositAmount *
-                        (
-                            playerOneDiff <= exactRange
-                                ? twoPlayersExactRate[1]
-                                : twoPlayersRate[1]
-                        )) / DENOMINATOR;
+                    game.depositAmount *
+                    (
+                        playerOneDiff <= exactRange
+                            ? twoPlayersExactRate[1]
+                            : twoPlayersRate[1]
+                    )) / DENOMINATOR;
                 ITreasury(treasury).distribute(
                     wonAmountSecond,
                     playerTwo,
                     game.depositAmount,
                     fee
                 );
-                emit BullseyeFinalized([playerOne, playerTwo, address(0)], finalPrice, playerOneDiff <= exactRange, game.gameId);
+                emit BullseyeFinalized(
+                    [playerOne, playerTwo, address(0)],
+                    finalPrice,
+                    playerOneDiff <= exactRange,
+                    game.gameId
+                );
             } else {
                 // player 2 closer
                 uint256 wonAmountFirst = (2 *
-                        game.depositAmount *
-                        (
-                            playerTwoDiff <= exactRange
-                                ? twoPlayersExactRate[0]
-                                : twoPlayersRate[0]
-                        )) / DENOMINATOR;
+                    game.depositAmount *
+                    (
+                        playerTwoDiff <= exactRange
+                            ? twoPlayersExactRate[0]
+                            : twoPlayersRate[0]
+                    )) / DENOMINATOR;
                 ITreasury(treasury).distribute(
                     wonAmountFirst,
                     playerTwo,
@@ -176,19 +226,24 @@ contract Bullseye is AccessControl {
                     fee
                 );
                 uint256 wonAmountSecond = (2 *
-                        game.depositAmount *
-                        (
-                            playerTwoDiff <= exactRange
-                                ? twoPlayersExactRate[1]
-                                : twoPlayersRate[1]
-                        )) / DENOMINATOR;
+                    game.depositAmount *
+                    (
+                        playerTwoDiff <= exactRange
+                            ? twoPlayersExactRate[1]
+                            : twoPlayersRate[1]
+                    )) / DENOMINATOR;
                 ITreasury(treasury).distribute(
                     wonAmountSecond,
                     playerOne,
                     game.depositAmount,
                     fee
                 );
-                emit BullseyeFinalized([playerTwo, playerOne, address(0)], finalPrice, playerTwoDiff <= exactRange, game.gameId);
+                emit BullseyeFinalized(
+                    [playerTwo, playerOne, address(0)],
+                    finalPrice,
+                    playerTwoDiff <= exactRange,
+                    game.gameId
+                );
             }
         } else {
             address[3] memory topPlayers;
@@ -244,7 +299,12 @@ contract Bullseye is AccessControl {
                     totalDeposited -= wonAmount[i];
                 }
             }
-            emit BullseyeFinalized(topPlayers, finalPrice, closestDiff[0] <= exactRange, game.gameId);
+            emit BullseyeFinalized(
+                topPlayers,
+                finalPrice,
+                closestDiff[0] <= exactRange,
+                game.gameId
+            );
         }
         for (uint256 i = 0; i < players.length; i++) {
             assetPrices[players[i]] = 0;
@@ -270,7 +330,9 @@ contract Bullseye is AccessControl {
      * Change treasury address
      * @param newTreasury new treasury address
      */
-    function setTreasury(address newTreasury) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setTreasury(
+        address newTreasury
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         treasury = newTreasury;
     }
 }

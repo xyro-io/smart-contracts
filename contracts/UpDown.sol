@@ -181,9 +181,12 @@ contract UpDown is AccessControl {
         }
         require(game.startingPrice != 0, "Starting price must be set");
         address upkeep = ITreasury(treasury).upkeep();
-        int192 finalPrice = IMockUpkeep(upkeep).verifyReport(
-            unverifiedReport,
-            game.feedId
+        (int192 finalPrice, uint32 priceTimestamp) = IMockUpkeep(upkeep)
+            .verifyReportWithTimestamp(unverifiedReport, game.feedId);
+        //block.timestamp must be > priceTimestamp
+        require(
+            block.timestamp - priceTimestamp <= 10 minutes,
+            "Old chainlink report"
         );
         GameInfo memory _game = game;
         if (finalPrice > _game.startingPrice) {

@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {ITreasury} from  "./interfaces/ITreasury.sol";
-import {IMockUpkeep} from  "./interfaces/IMockUpkeep.sol";
+import {ITreasury} from "./interfaces/ITreasury.sol";
+import {IMockUpkeep} from "./interfaces/IMockUpkeep.sol";
 
 contract OneVsOneUpDown is AccessControl {
     event UpDownCreated(
@@ -28,7 +28,7 @@ contract OneVsOneUpDown is AccessControl {
     event UpDownFinalized(
         bytes32 gameId,
         bool isLongWon,
-        int192 finalAssetPrice,
+        int192 finalPrice,
         Status gameStatus
     );
 
@@ -48,7 +48,7 @@ contract OneVsOneUpDown is AccessControl {
         bool isLong; //Initiator choise
         uint256 depositAmount;
         int192 startingAssetPrice;
-        int192 finalAssetPrice;
+        int192 finalPrice;
         Status gameStatus;
     }
 
@@ -86,12 +86,14 @@ contract OneVsOneUpDown is AccessControl {
             "Max game duration must be lower"
         );
         require(depositAmount >= 1e19, "Wrong deposit amount");
-        (int192 startingAssetPrice, uint32 priceTimestamp) = IMockUpkeep(ITreasury(treasury).upkeep()).verifyReportWithTimestamp(
-            unverifiedReport,
-            feedId
-        );
+        (int192 startingAssetPrice, uint32 priceTimestamp) = IMockUpkeep(
+            ITreasury(treasury).upkeep()
+        ).verifyReportWithTimestamp(unverifiedReport, feedId);
         //block.timestamp must be > priceTimestamp
-        require(block.timestamp - priceTimestamp <= 10 minutes, "Old chainlink report");
+        require(
+            block.timestamp - priceTimestamp <= 10 minutes,
+            "Old chainlink report"
+        );
         GameInfo memory newGame;
         newGame.startingAssetPrice = startingAssetPrice;
         newGame.feedId = feedId;
@@ -103,7 +105,9 @@ contract OneVsOneUpDown is AccessControl {
         newGame.opponent = opponent;
         newGame.isLong = isLong;
         newGame.gameStatus = Status.Created;
-        bytes32 gameId = keccak256(abi.encodePacked(endTime, block.timestamp, msg.sender, opponent));
+        bytes32 gameId = keccak256(
+            abi.encodePacked(endTime, block.timestamp, msg.sender, opponent)
+        );
         games[gameId] = newGame;
         emit UpDownCreated(
             gameId,
@@ -143,23 +147,34 @@ contract OneVsOneUpDown is AccessControl {
             "Max game duration must be lower"
         );
         require(depositAmount >= 1e19, "Wrong deposit amount");
-        (int192 startingAssetPrice, uint32 priceTimestamp) = IMockUpkeep(ITreasury(treasury).upkeep()).verifyReportWithTimestamp(
-            unverifiedReport,
-            feedId
+        (int192 startingAssetPrice, uint32 priceTimestamp) = IMockUpkeep(
+            ITreasury(treasury).upkeep()
+        ).verifyReportWithTimestamp(unverifiedReport, feedId);
+        require(
+            block.timestamp - priceTimestamp <= 10 minutes,
+            "Old chainlink report"
         );
-        require(block.timestamp - priceTimestamp <= 10 minutes, "Old chainlink report");
         GameInfo memory newGame;
         newGame.startingAssetPrice = startingAssetPrice;
         newGame.feedId = feedId;
         newGame.initiator = msg.sender;
         newGame.startTime = block.timestamp;
         newGame.endTime = endTime;
-        ITreasury(treasury).depositWithPermit(depositAmount, msg.sender, permitData.deadline, permitData.v, permitData.r, permitData.s);
+        ITreasury(treasury).depositWithPermit(
+            depositAmount,
+            msg.sender,
+            permitData.deadline,
+            permitData.v,
+            permitData.r,
+            permitData.s
+        );
         newGame.depositAmount = depositAmount;
         newGame.opponent = opponent;
         newGame.isLong = isLong;
         newGame.gameStatus = Status.Created;
-        bytes32 gameId = keccak256(abi.encodePacked(endTime, block.timestamp, msg.sender, opponent));
+        bytes32 gameId = keccak256(
+            abi.encodePacked(endTime, block.timestamp, msg.sender, opponent)
+        );
         games[gameId] = newGame;
         emit UpDownCreated(
             gameId,
@@ -198,7 +213,12 @@ contract OneVsOneUpDown is AccessControl {
         ITreasury(treasury).deposit(game.depositAmount, msg.sender);
         game.gameStatus = Status.Started;
         games[gameId] = game;
-        emit UpDownAccepted(gameId, msg.sender, !game.isLong, game.depositAmount);
+        emit UpDownAccepted(
+            gameId,
+            msg.sender,
+            !game.isLong,
+            game.depositAmount
+        );
     }
 
     /**
@@ -225,10 +245,22 @@ contract OneVsOneUpDown is AccessControl {
         } else {
             game.opponent == msg.sender;
         }
-        ITreasury(treasury).depositWithPermit(game.depositAmount, msg.sender, permitData.deadline, permitData.v, permitData.r, permitData.s);
+        ITreasury(treasury).depositWithPermit(
+            game.depositAmount,
+            msg.sender,
+            permitData.deadline,
+            permitData.v,
+            permitData.r,
+            permitData.s
+        );
         game.gameStatus = Status.Started;
         games[gameId] = game;
-        emit UpDownAccepted(gameId, msg.sender, !game.isLong, game.depositAmount);
+        emit UpDownAccepted(
+            gameId,
+            msg.sender,
+            !game.isLong,
+            game.depositAmount
+        );
     }
 
     /**
@@ -261,9 +293,7 @@ contract OneVsOneUpDown is AccessControl {
         ITreasury(treasury).refund(game.depositAmount, game.initiator);
         games[gameId].gameStatus = Status.Cancelled;
         games[gameId] = game;
-        emit UpDownCancelled(
-            gameId
-        );
+        emit UpDownCancelled(gameId);
     }
 
     /**
@@ -279,11 +309,12 @@ contract OneVsOneUpDown is AccessControl {
         require(game.gameStatus == Status.Started, "Wrong status!");
         require(block.timestamp >= game.endTime, "Too early to finish");
         address upkeep = ITreasury(treasury).upkeep();
-        (int192 finalPrice, uint32 priceTimestamp) = IMockUpkeep(upkeep).verifyReportWithTimestamp(
-            unverifiedReport,
-            game.feedId
+        (int192 finalPrice, uint32 priceTimestamp) = IMockUpkeep(upkeep)
+            .verifyReportWithTimestamp(unverifiedReport, game.feedId);
+        require(
+            block.timestamp - priceTimestamp <= 10 minutes,
+            "Old chainlink report"
         );
-        require(block.timestamp - priceTimestamp <= 10 minutes, "Old chainlink report");
         if (
             game.isLong
                 ? game.startingAssetPrice < finalPrice
@@ -315,7 +346,7 @@ contract OneVsOneUpDown is AccessControl {
                 Status.Finished
             );
         }
-        game.finalAssetPrice = finalPrice;
+        game.finalPrice = finalPrice;
         game.gameStatus = Status.Finished;
         games[gameId] = game;
     }
@@ -338,7 +369,9 @@ contract OneVsOneUpDown is AccessControl {
      * Change treasury address
      * @param newTreasury new treasury address
      */
-    function setTreasury(address newTreasury) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setTreasury(
+        address newTreasury
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         treasury = newTreasury;
     }
 }

@@ -295,7 +295,7 @@ contract OneVsOneUpDown is AccessControl {
             "Wrong status!"
         );
         ITreasury(treasury).refund(game.depositAmount, game.initiator);
-        games[gameId].gameStatus = Status.Cancelled;
+        game.gameStatus = Status.Cancelled;
         games[gameId] = game;
         emit UpDownCancelled(gameId);
     }

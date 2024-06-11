@@ -161,16 +161,16 @@ contract UpDown is AccessControl {
             if (UpPlayers.length > 0) {
                 for (uint i; i < UpPlayers.length; i++) {
                     ITreasury(treasury).refund(
-                        depositAmounts[UpPlayers[0]],
-                        UpPlayers[0]
+                        depositAmounts[UpPlayers[i]],
+                        UpPlayers[i]
                     );
                 }
                 delete UpPlayers;
             } else if (DownPlayers.length > 0) {
                 for (uint i; i < DownPlayers.length; i++) {
                     ITreasury(treasury).refund(
-                        depositAmounts[DownPlayers[0]],
-                        DownPlayers[0]
+                        depositAmounts[DownPlayers[i]],
+                        DownPlayers[i]
                     );
                 }
                 delete DownPlayers;
@@ -226,6 +226,25 @@ contract UpDown is AccessControl {
 
         delete DownPlayers;
         delete UpPlayers;
+        delete game;
+    }
+
+    function closeGame() public onlyRole(DEFAULT_ADMIN_ROLE) {
+        for (uint i; i < UpPlayers.length; i++) {
+            ITreasury(treasury).refund(
+                depositAmounts[UpPlayers[i]],
+                UpPlayers[i]
+            );
+        }
+        delete UpPlayers;
+        for (uint i; i < DownPlayers.length; i++) {
+            ITreasury(treasury).refund(
+                depositAmounts[DownPlayers[i]],
+                DownPlayers[i]
+            );
+        }
+        delete DownPlayers;
+        emit UpDownCancelled(game.gameId);
         delete game;
     }
 

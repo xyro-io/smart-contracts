@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {ITreasury} from  "./interfaces/ITreasury.sol";
-import {IMockUpkeep} from  "./interfaces/IMockUpkeep.sol";
+import {ITreasury} from "./interfaces/ITreasury.sol";
+import {IMockUpkeep} from "./interfaces/IMockUpkeep.sol";
 
 contract OneVsOneExactPrice is AccessControl {
     event ExactPriceCreated(
@@ -95,7 +95,9 @@ contract OneVsOneExactPrice is AccessControl {
         newGame.depositAmount = depositAmount;
         newGame.opponent = opponent;
         newGame.gameStatus = Status.Created;
-        bytes32 gameId = keccak256(abi.encodePacked(endTime, block.timestamp, msg.sender, opponent));
+        bytes32 gameId = keccak256(
+            abi.encodePacked(endTime, block.timestamp, msg.sender, opponent)
+        );
         games[gameId] = newGame;
         emit ExactPriceCreated(
             gameId,
@@ -138,12 +140,21 @@ contract OneVsOneExactPrice is AccessControl {
         newGame.startTime = block.timestamp;
         newGame.endTime = endTime;
         newGame.feedId = feedId;
-        ITreasury(treasury).depositWithPermit(depositAmount, msg.sender, permitData.deadline, permitData.v, permitData.r, permitData.s);
+        ITreasury(treasury).depositWithPermit(
+            depositAmount,
+            msg.sender,
+            permitData.deadline,
+            permitData.v,
+            permitData.r,
+            permitData.s
+        );
         newGame.initiatorPrice = initiatorPrice;
         newGame.depositAmount = depositAmount;
         newGame.opponent = opponent;
         newGame.gameStatus = Status.Created;
-        bytes32 gameId = keccak256(abi.encodePacked(endTime, block.timestamp, msg.sender, opponent));
+        bytes32 gameId = keccak256(
+            abi.encodePacked(endTime, block.timestamp, msg.sender, opponent)
+        );
         games[gameId] = newGame;
         emit ExactPriceCreated(
             gameId,
@@ -198,8 +209,8 @@ contract OneVsOneExactPrice is AccessControl {
      * @param opponentPrice picked asset price
      */
     function acceptGameWithPermit(
-        bytes32 gameId, 
-        int192 opponentPrice, 
+        bytes32 gameId,
+        int192 opponentPrice,
         ITreasury.PermitData calldata permitData
     ) public {
         GameInfo memory game = games[gameId];
@@ -225,7 +236,14 @@ contract OneVsOneExactPrice is AccessControl {
             game.opponent == msg.sender;
         }
         game.opponentPrice = opponentPrice;
-        ITreasury(treasury).depositWithPermit(game.depositAmount, msg.sender, permitData.deadline, permitData.v, permitData.r, permitData.s);
+        ITreasury(treasury).depositWithPermit(
+            game.depositAmount,
+            msg.sender,
+            permitData.deadline,
+            permitData.v,
+            permitData.r,
+            permitData.s
+        );
         game.gameStatus = Status.Started;
         games[gameId] = game;
         emit ExactPriceAccepted(gameId, msg.sender, opponentPrice);
@@ -238,19 +256,11 @@ contract OneVsOneExactPrice is AccessControl {
     function closeGame(bytes32 gameId) public {
         GameInfo memory game = games[gameId];
         require(game.initiator == msg.sender, "Wrong sender");
-        require(
-            game.gameStatus == Status.Refused ||
-                (game.startTime + (game.endTime - game.startTime) / 3 <
-                    block.timestamp &&
-                    game.gameStatus == Status.Created),
-            "Wrong status!"
-        );
+        require(game.gameStatus == Status.Created, "Wrong status!");
         ITreasury(treasury).refund(game.depositAmount, game.initiator);
         game.gameStatus = Status.Cancelled;
         games[gameId] = game;
-        emit ExactPriceCancelled(
-            gameId
-        );
+        emit ExactPriceCancelled(gameId);
     }
 
     /**
@@ -325,7 +335,6 @@ contract OneVsOneExactPrice is AccessControl {
     }
 
     /**
-     * onlyDao
      * Changes min and max game limits
      * @param newMaxDuration new max game duration
      * @param newMinDuration new min game duration
@@ -333,7 +342,7 @@ contract OneVsOneExactPrice is AccessControl {
     function changeGameDuration(
         uint256 newMaxDuration,
         uint256 newMinDuration
-    ) public {
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         minDuration = newMinDuration;
         maxDuration = newMaxDuration;
     }
@@ -342,7 +351,9 @@ contract OneVsOneExactPrice is AccessControl {
      * Change treasury address
      * @param newTreasury new treasury address
      */
-    function setTreasury(address newTreasury) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setTreasury(
+        address newTreasury
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         treasury = newTreasury;
     }
 }

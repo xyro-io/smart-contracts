@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {ITreasury} from  "./interfaces/ITreasury.sol";
-import {IMockUpkeep} from  "./interfaces/IMockUpkeep.sol";
+import {ITreasury} from "./interfaces/ITreasury.sol";
+import {IMockUpkeep} from "./interfaces/IMockUpkeep.sol";
 import {Setups} from "./Setups.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
@@ -89,13 +89,15 @@ contract SetupsFactory is AccessControl {
             newGame,
             msg.sender
         );
-        ITreasury(treasury).grantRole(ITreasury(treasury).DISTRIBUTOR_ROLE(), newGame);
+        ITreasury(treasury).grantRole(
+            ITreasury(treasury).DISTRIBUTOR_ROLE(),
+            newGame
+        );
         ISetups(newGame).grantRole(DEFAULT_ADMIN_ROLE, gameMaster);
         games[gameId++] = newGame;
     }
 
     /**
-     * onlyDao
      * Changes min and max game limits
      * @param newMaxDuration new max game duration
      * @param newMinDuration new min game duration
@@ -103,7 +105,7 @@ contract SetupsFactory is AccessControl {
     function changeGameDuration(
         uint256 newMaxDuration,
         uint256 newMinDuration
-    ) public {
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         minDuration = newMinDuration;
         maxDuration = newMaxDuration;
     }
@@ -112,7 +114,9 @@ contract SetupsFactory is AccessControl {
      * Change treasury address
      * @param newTreasury new treasury address
      */
-    function setTreasury(address newTreasury) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setTreasury(
+        address newTreasury
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         treasury = newTreasury;
     }
 }

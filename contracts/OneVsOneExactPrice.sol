@@ -194,7 +194,7 @@ contract OneVsOneExactPrice is AccessControl {
                 return;
             }
         } else {
-            game.opponent == msg.sender;
+            game.opponent = msg.sender;
         }
         game.opponentPrice = opponentPrice;
         ITreasury(treasury).deposit(game.depositAmount, msg.sender);
@@ -233,7 +233,7 @@ contract OneVsOneExactPrice is AccessControl {
                 return;
             }
         } else {
-            game.opponent == msg.sender;
+            game.opponent = msg.sender;
         }
         game.opponentPrice = opponentPrice;
         ITreasury(treasury).depositWithPermit(

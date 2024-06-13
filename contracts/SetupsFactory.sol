@@ -110,6 +110,12 @@ contract SetupsFactory is AccessControl {
         maxDuration = newMaxDuration;
     }
 
+    function setGameMaster(
+        address newGameMaster
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        gameMaster = newGameMaster;
+    }
+
     /**
      * Change treasury address
      * @param newTreasury new treasury address

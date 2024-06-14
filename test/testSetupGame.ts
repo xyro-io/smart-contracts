@@ -27,7 +27,8 @@ describe("Setup Game", () => {
   let Game: Setups;
   let Factory: SetupsFactory;
   let Upkeep: MockUpkeep;
-  const feedId = "0x00037da06d56d083fe599397a4769a042d63aa73dc4ef57709d31e9971a5b439";
+  const feedId =
+    "0x00037da06d56d083fe599397a4769a042d63aa73dc4ef57709d31e9971a5b439";
   const assetPrice = parse18("2310");
   before(async () => {
     [owner, bob, alice] = await ethers.getSigners();
@@ -61,7 +62,7 @@ describe("Setup Game", () => {
       (assetPrice / BigInt(100)) * BigInt(103),
       (assetPrice / BigInt(100)) * BigInt(97),
       true,
-      feedId,
+      feedId
     );
     let gameAddress = await Factory.games(0);
     Game = Setups__factory.connect(gameAddress, owner);
@@ -94,7 +95,10 @@ describe("Setup Game", () => {
     let oldBalance = await USDT.balanceOf(bob.address);
     await time.increase(2700);
     await Game.finalizeGame(
-      abiEncodeInt192(((assetPrice / BigInt(100)) * BigInt(95)).toString(),feedId)
+      abiEncodeInt192(
+        ((assetPrice / BigInt(100)) * BigInt(95)).toString(),
+        feedId
+      )
     );
     let newBalance = await USDT.balanceOf(bob.address);
     expect(newBalance).to.be.above(oldBalance);
@@ -106,7 +110,7 @@ describe("Setup Game", () => {
       (assetPrice / BigInt(100)) * BigInt(107),
       (assetPrice / BigInt(100)) * BigInt(90),
       false,
-      feedId,
+      feedId
     );
     Game = Game = Setups__factory.connect(await Factory.games(1), owner);
     let bet = await Game.game();
@@ -138,9 +142,66 @@ describe("Setup Game", () => {
     let oldBalance = await USDT.balanceOf(bob.address);
     await time.increase(2700);
     await Game.finalizeGame(
-      abiEncodeInt192(((assetPrice / BigInt(100)) * BigInt(120)).toString(),feedId)
+      abiEncodeInt192(
+        ((assetPrice / BigInt(100)) * BigInt(120)).toString(),
+        feedId
+      )
     );
     let newBalance = await USDT.balanceOf(bob.address);
     expect(newBalance).to.be.above(oldBalance);
+  });
+
+  it("should finalize/close game with 0 players", async function () {
+    await Factory.createSetups(
+      (await time.latest()) + 2700,
+      (assetPrice / BigInt(100)) * BigInt(103),
+      (assetPrice / BigInt(100)) * BigInt(97),
+      true,
+      feedId
+    );
+    let gameAddress = await Factory.games(2);
+    Game = Setups__factory.connect(gameAddress, owner);
+    await expect(
+      Game.finalizeGame(
+        abiEncodeInt192(
+          ((assetPrice / BigInt(100)) * BigInt(95)).toString(),
+          feedId
+        )
+      )
+    ).to.emit(Game, "SetupCancelled");
+  });
+
+  it("should finalize/close game with players only in TP team", async function () {
+    const initialBobBalance = await USDT.balanceOf(bob.address);
+    const initialAliceBalance = await USDT.balanceOf(alice.address);
+    await Factory.createSetups(
+      (await time.latest()) + 2700,
+      (assetPrice / BigInt(100)) * BigInt(103),
+      (assetPrice / BigInt(100)) * BigInt(97),
+      true,
+      feedId
+    );
+    let gameAddress = await Factory.games(3);
+    Game = Setups__factory.connect(gameAddress, owner);
+    await Game.connect(alice).play(true, parse18("300"));
+    await Game.connect(bob).play(true, parse18("100"));
+    expect(await USDT.balanceOf(bob.address)).to.be.equal(
+      initialBobBalance - parse18("100")
+    );
+    expect(await USDT.balanceOf(alice.address)).to.be.equal(
+      initialAliceBalance - parse18("300")
+    );
+    await expect(
+      Game.finalizeGame(
+        abiEncodeInt192(
+          ((assetPrice / BigInt(100)) * BigInt(95)).toString(),
+          feedId
+        )
+      )
+    ).to.emit(Game, "SetupCancelled");
+    expect(await USDT.balanceOf(bob.address)).to.be.equal(initialBobBalance);
+    expect(await USDT.balanceOf(alice.address)).to.be.equal(
+      initialAliceBalance
+    );
   });
 });

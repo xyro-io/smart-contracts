@@ -11,6 +11,7 @@ contract Setup is AccessControl {
     event SetupFinalized(
         bool takeProfitWon,
         int192 finalPrice,
+        uint256 endTime,
         uint256 initiatorFee
     );
     event SetupCreated(
@@ -18,6 +19,7 @@ contract Setup is AccessControl {
         bytes32 feedId,
         uint256 startTime,
         uint256 endTime,
+        int192 startingPrice,
         int192 takeProfitPrice,
         int192 stopLossPrice,
         bool isLong,
@@ -76,11 +78,19 @@ contract Setup is AccessControl {
         (newGame.startringPrice, newGame.startTime) = IMockUpkeep(
             ITreasury(treasury).upkeep()
         ).verifyReportWithTimestamp(unverifiedReport, feedId);
-        require(
-            newGame.startringPrice > stopLossPrice ||
-                newGame.startringPrice < takeProfitPrice,
-            "Wrong tp or sl price"
-        );
+        if (isLong) {
+            require(
+                newGame.startringPrice > stopLossPrice ||
+                    newGame.startringPrice < takeProfitPrice,
+                "Wrong tp or sl price"
+            );
+        } else {
+            require(
+                newGame.startringPrice < stopLossPrice ||
+                    newGame.startringPrice > takeProfitPrice,
+                "Wrong tp or sl price"
+            );
+        }
         newGame.isLong = isLong;
         newGame.initiator = msg.sender;
         newGame.endTime = endTime;
@@ -94,6 +104,7 @@ contract Setup is AccessControl {
             feedId,
             newGame.startTime,
             endTime,
+            newGame.startringPrice,
             takeProfitPrice,
             stopLossPrice,
             isLong,
@@ -169,8 +180,9 @@ contract Setup is AccessControl {
                 (games[gameId].endTime - games[gameId].startTime) /
                 3 <
                 block.timestamp &&
-                games[gameId].teamTP.length + games[gameId].teamSL.length ==
-                0) || block.timestamp > games[gameId].endTime),
+                (games[gameId].teamSL.length == 0 ||
+                    games[gameId].teamTP.length == 0)) ||
+                block.timestamp > games[gameId].endTime),
             "Wrong status!"
         );
         for (uint i; i < games[gameId].teamSL.length; i++) {
@@ -198,11 +210,6 @@ contract Setup is AccessControl {
         (int192 finalPrice, uint256 endTime) = IMockUpkeep(
             ITreasury(treasury).upkeep()
         ).verifyReportWithTimestamp(unverifiedReport, games[gameId].feedId);
-        require(
-            finalPrice <= games[gameId].stopLossPrice ||
-                finalPrice >= games[gameId].takeProfitPrice,
-            "Can't end"
-        );
 
         if (
             games[gameId].teamSL.length == 0 || games[gameId].teamTP.length == 0
@@ -229,6 +236,11 @@ contract Setup is AccessControl {
         uint256 initiatorFee;
         uint256 finalRate;
         if (games[gameId].isLong) {
+            require(
+                finalPrice <= games[gameId].stopLossPrice ||
+                    finalPrice >= games[gameId].takeProfitPrice,
+                "Can't end"
+            );
             if (finalPrice >= games[gameId].takeProfitPrice) {
                 // tp team wins
                 (finalRate, initiatorFee) = ITreasury(treasury)
@@ -262,6 +274,11 @@ contract Setup is AccessControl {
                 }
             }
         } else {
+            require(
+                finalPrice >= games[gameId].stopLossPrice ||
+                    finalPrice <= games[gameId].takeProfitPrice,
+                "Can't end"
+            );
             if (finalPrice >= games[gameId].stopLossPrice) {
                 // sl team wins
                 (finalRate, initiatorFee) = ITreasury(treasury)
@@ -298,7 +315,7 @@ contract Setup is AccessControl {
         games[gameId].endTime = endTime;
         games[gameId].finalPrice = finalPrice;
         games[gameId].gameStatus = Status.Finished;
-        emit SetupFinalized(takeProfitWon, finalPrice, initiatorFee);
+        emit SetupFinalized(takeProfitWon, finalPrice, endTime, initiatorFee);
     }
 
     function getPlayersAmount(

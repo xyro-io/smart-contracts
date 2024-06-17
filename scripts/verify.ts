@@ -195,6 +195,22 @@ async function verifyFrontHelper() {
   }
 }
 
+async function verifySetup() {
+  if (contracts.Setup.address !== undefined) {
+    let targetAddress = contracts.Setup.address;
+    try {
+      await hre.run("verify:verify", {
+        address: targetAddress,
+        constructorArguments: [contracts.Treasury.address],
+      });
+      contracts.Setup.url = getVerifiedUrl(targetAddress);
+    } catch (e) {
+      if (isAlreadyVerified(e, targetAddress))
+        contracts.Setup.url = getVerifiedUrl(targetAddress);
+    }
+  }
+}
+
 async function verifyUpkeep() {
   if (contracts.MockUpkeep.address !== undefined) {
     let targetAddress = contracts.MockUpkeep.address;
@@ -236,8 +252,9 @@ async function verify() {
   await verifySetupsFactory();
   await verifyBullseye();
   await verifyUpDown();
-  await verifyFrontHelper();
-  await verifyUpkeep();
+  // await verifyFrontHelper();
+  // await verifyUpkeep();
+  await verifySetup();
   // await verifyRealUpkeep();
   // await verifySetups();
   const json = JSON.stringify(contracts);

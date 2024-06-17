@@ -17,6 +17,7 @@ let contracts: {
   XyroToken,
   Treasury,
   Vesting,
+  Setup,
   Staking,
   SetupsFactory,
   ExactPriceOneVsOne,
@@ -51,7 +52,10 @@ async function deployUSDC() {
 
 async function deployFrontHelper() {
   factory = await ethers.getContractFactory("FrontHelper");
-  if (contracts.FrontHelper?.address == undefined || contracts.FrontHelper?.address == "") {
+  if (
+    contracts.FrontHelper?.address == undefined ||
+    contracts.FrontHelper?.address == ""
+  ) {
     FrontHelper = await wrapFnc([], factory);
     contracts.FrontHelper = { address: "", url: "" };
     contracts.FrontHelper.address = FrontHelper.target;
@@ -265,6 +269,18 @@ async function deployUpkeep() {
   }
 }
 
+async function deploySetup() {
+  factory = await ethers.getContractFactory("Setup");
+  if (contracts.Setup?.address == undefined || contracts.Setup?.address == "") {
+    Setup = await wrapFnc([contracts.Treasury.address], factory);
+    contracts.Setup = { address: "", url: "" };
+    contracts.Setup.address = Setup.target;
+    console.log("Setup deployed");
+  } else {
+    console.log("Setup already deployed skipping...");
+  }
+}
+
 async function deployDAO() {
   factory = await ethers.getContractFactory("XyroGovernorContract");
   if (contracts.DAO?.address == undefined || contracts.DAO?.address == "") {
@@ -293,10 +309,11 @@ async function main() {
     // await deployStaking();
     await deployOneVsOneExactPrice();
     await deployOneVsOneUpDown();
-    await deploySetupsFactory();
+    await deploySetup();
+    // await deploySetupsFactory();
     await deployBullseye();
-    await deployMockUpkeep();
-    await deployFrontHelper();
+    // await deployMockUpkeep();
+    // await deployFrontHelper();
     await deployUpDown();
     // await deployUpkeep();
   } catch (e) {

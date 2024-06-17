@@ -5,17 +5,17 @@ export async function getPrice() {
           id
           name
           price {
-            price
+            formattedValue
           }
         }
       }`,
   });
-  const response = await fetch("https://backend-dev.xyro.io/graphql", {
+  const response = await fetch("https://backend-web3.xyro.io/graphql", {
     method: "POST",
     body: bodyContent,
     headers: { "Content-Type": "application/json" },
   });
   const data = await response.json();
-  const price = data.data.listAssets[0].price.price.toString().replace(".", "");
+  const price = Math.floor(data.data.listAssets[1].price.formattedValue);
   return price;
 }

@@ -70,17 +70,15 @@ task("betBullseye", "Bullseye bet")
   });
 
 task("finalizeBullseye", "Finishes bullseye game")
-.addParam("feedid", "Price feed id")
-.setAction(
-  async (taskArgs: any) => {
+  .addParam("feedid", "Price feed id")
+  .setAction(async (taskArgs: any) => {
     const contract = await ethers.getContractAt(
       "Bullseye",
       contracts.Bullseye.address
     );
     const price = await getPrice();
     await contract.finalizeGame(abiEncodeInt192(price, taskArgs.feedid));
-  }
-);
+  });
 
 task("increaseTime", "Increases ganache block timestamp")
   .addParam("time", "Time to increase current block by")
@@ -106,7 +104,7 @@ task("startUpDown", "Starts updown game")
       ethers.parseEther(taskArgs.betamount),
       "0x00062e9d9e815f24d8d23cf51c8d7fced51262153cae9e5eea6c7d503688a101000000000000000000000000000000000000000000000000000000002366910a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000022000000000000000000000000000000000000000000000000000000000000002800101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000012000037da06d56d083fe599397a4769a042d63aa73dc4ef57709d31e9971a5b43900000000000000000000000000000000000000000000000000000000663a0a6200000000000000000000000000000000000000000000000000000000663a0a6200000000000000000000000000000000000000000000000000001d5852c0628800000000000000000000000000000000000000000000000000188dfe5e4f37e400000000000000000000000000000000000000000000000000000000663b5be2000000000000000000000000000000000000000000000d937f6339d313321380000000000000000000000000000000000000000000000d937dc1b888969dc800000000000000000000000000000000000000000000000d938104bb1d8fa7da800000000000000000000000000000000000000000000000000000000000000002e056159d54d44764546e937e161f42a63a3f03a0ee135f787398a2693e2b0680b48840ffb9a18e167115acd4412416b5c89fe3664476598e84d3416a9f02f4f100000000000000000000000000000000000000000000000000000000000000027de3072ac120bebd8a82eee5fda10d512d720a65bba4f6716958eacefb24136b607686e9c98b8be8a7e0f0c2f552bed3a6f83c4d313095f76a65278161a53430",
       "0x00037da06d56d083fe599397a4769a042d63aa73dc4ef57709d31e9971a5b439",
-      {gasLimit:300_000}
+      { gasLimit: 300_000 }
     );
   });
 
@@ -120,21 +118,21 @@ task("betUpDown", "UpDown bet")
       "UpDown",
       contracts.UpDown.address
     );
-    await contract.connect(signer).play(taskArgs.up === "true", ethers.parseEther(taskArgs.deposit));
+    await contract
+      .connect(signer)
+      .play(taskArgs.up === "true", ethers.parseEther(taskArgs.deposit));
   });
 
 task("finalizeUpDown", "Finishes UpDown game")
-.addParam("feedid", "Price feed id")
-.setAction(
-  async (taskArgs: any) => {
+  .addParam("feedid", "Price feed id")
+  .setAction(async (taskArgs: any) => {
     const contract = await ethers.getContractAt(
       "UpDown",
       contracts.UpDown.address
     );
     const price = await getPrice();
     await contract.finalizeGame(abiEncodeInt192(price, taskArgs.feedid));
-  }
-);
+  });
 
 task("startExactPrice", "Starts one vs one exact price game")
   .addParam("opponent", "Opponent address")
@@ -180,7 +178,10 @@ task("finalizeExact", "Finalize exact price game")
       contracts.ExactPriceOneVsOne.address
     );
     const price = await getPrice();
-    await contract.finalizeGame(taskArgs.id, abiEncodeInt192(price, taskArgs.feedid));
+    await contract.finalizeGame(
+      taskArgs.id,
+      abiEncodeInt192(price, taskArgs.feedid)
+    );
   });
 
 task("startUpDown1vs1", "Starts one vs one up down game")
@@ -206,7 +207,7 @@ task("startUpDown1vs1", "Starts one vs one up down game")
       ethers.parseEther(taskArgs.betamount),
       abiEncodeInt192(price, taskArgs.feedid),
       taskArgs.feedid,
-      {gasLimit:300_000}
+      { gasLimit: 300_000 }
     );
   });
 
@@ -231,7 +232,10 @@ task("finalizeUpDown1vs1", "Finalize up down one vs one game")
       contracts.UpDownOneVsOne.address
     );
     const price = await getPrice();
-    await contract.finalizeGame(taskArgs.id, abiEncodeInt192(price, taskArgs.feedid));
+    await contract.finalizeGame(
+      taskArgs.id,
+      abiEncodeInt192(price, taskArgs.feedid)
+    );
   });
 
 task("createSetup", "Create setup game")
@@ -314,3 +318,61 @@ function abiEncodeInt192(price: string, feedId: string): string {
   const encoded = ethers.solidityPacked(["int192", "bytes32"], [price, feedId]);
   return encoded.slice(0, 3) + "0".repeat(16) + encoded.slice(3);
 }
+
+task("upDownBets", "make 5 updown bets").setAction(async () => {
+  const contract = await ethers.getContractAt(
+    "UpDown",
+    contracts.UpDown.address
+  );
+  for (let i = 1; i < 6; i++) {
+    let signer = ethers.HDNodeWallet.fromPhrase(
+      "response sort awake wear uncle symbol length advice uniform cigar pride profit",
+      undefined,
+      `m/44'/0'/${i}'/0/0`
+    );
+    signer = signer.connect(ethers.provider);
+    const isLong = Math.floor(Math.random() * 2) == 1 ? true : false;
+    const deposit =
+      Math.floor(Math.floor(Math.random() * (100 - 10 + 1) + 10) / 5) * 5;
+    await contract.connect(signer).play(isLong, deposit);
+  }
+});
+
+task("setupsBets", "make 5 setups bets")
+  .addParam("id", "Game id")
+  .setAction(async (taskArgs: any) => {
+    const contract = await ethers.getContractAt("Setups", taskArgs.id);
+    for (let i = 1; i < 6; i++) {
+      let signer = ethers.HDNodeWallet.fromPhrase(
+        "response sort awake wear uncle symbol length advice uniform cigar pride profit",
+        undefined,
+        `m/44'/0'/${i}'/0/0`
+      );
+      signer = signer.connect(ethers.provider);
+      const isLong = Math.floor(Math.random() * 2) == 1 ? true : false;
+      const deposit =
+        Math.floor(Math.floor(Math.random() * (100 - 10 + 1) + 10) / 5) * 5;
+      await contract.connect(signer).play(isLong, deposit);
+    }
+  });
+
+task("bullseyeBets", "make 5 bullseye bets").setAction(async () => {
+  const contract = await ethers.getContractAt(
+    "Bullseye",
+    contracts.Bullseye.address
+  );
+  const price = await getPrice();
+  let minPrice = Math.floor(price - price / 1000);
+  let maxPrice = Math.floor(price + price / 1000);
+  for (let i = 1; i < 6; i++) {
+    let signer = ethers.HDNodeWallet.fromPhrase(
+      "response sort awake wear uncle symbol length advice uniform cigar pride profit",
+      undefined,
+      `m/44'/0'/${i}'/0/0`
+    );
+    signer = signer.connect(ethers.provider);
+    const prediction =
+      Math.floor(Math.random() * (maxPrice - minPrice)) + minPrice;
+    await contract.connect(signer).play(prediction);
+  }
+});

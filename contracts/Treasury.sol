@@ -4,20 +4,21 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 interface IERC20Mint {
     function mint(address to, uint256 value) external returns (bool);
 }
 
-contract Treasury is AccessControl {
+contract Treasury is AccessControl, Initializable {
     address public approvedToken;
     address public xyroToken;
     address public upkeep;
-    uint256 public fee = 100; //100 for 1%
-    uint256 public setupInitiatorFee = 100;
-    uint256 public constant FEE_DENOMINATOR = 10000;
-    bytes32 public constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
-    bytes32 public constant DAO_ROLE = keccak256("DAO_ROLE");
+    uint256 public fee; //100 for 1%
+    uint256 public setupInitiatorFee;
+    uint256 public FEE_DENOMINATOR;
+    bytes32 public DISTRIBUTOR_ROLE;
+    bytes32 public DAO_ROLE;
     uint256 public collectedFee;
     mapping(address => uint256) public earnedRakeback;
 
@@ -25,17 +26,25 @@ contract Treasury is AccessControl {
      * @param newApprovedToken stable token used in games
      * @param xyroTokenAdr Xyro's token
      */
-    constructor(address newApprovedToken, address xyroTokenAdr) {
+    function initialize(
+        address newApprovedToken,
+        address xyroTokenAdr
+    ) public initializer {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         approvedToken = newApprovedToken;
         xyroToken = xyroTokenAdr;
+        fee = 100;
+        setupInitiatorFee = 100;
+        FEE_DENOMINATOR = 10000;
+        DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
+        DAO_ROLE = keccak256("DAO_ROLE");
     }
 
     /**
      * Set new token for in game usage
      * @param token new token address
      */
-    function setToken(address token) onlyRole(DEFAULT_ADMIN_ROLE) public {
+    function setToken(address token) public onlyRole(DEFAULT_ADMIN_ROLE) {
         approvedToken = token;
     }
 
@@ -114,7 +123,10 @@ contract Treasury is AccessControl {
      * @param amount token amount
      * @param to reciever address
      */
-    function refund(uint256 amount, address to) onlyRole(DISTRIBUTOR_ROLE) public {
+    function refund(
+        uint256 amount,
+        address to
+    ) public onlyRole(DISTRIBUTOR_ROLE) {
         IERC20(approvedToken).approve(to, amount);
         SafeERC20.safeTransfer(IERC20(approvedToken), to, amount);
     }
@@ -123,7 +135,10 @@ contract Treasury is AccessControl {
      * Withrad earned fees
      * @param amount amount to withdraw
      */
-    function withdrawFees(uint256 amount, address to) onlyRole(DEFAULT_ADMIN_ROLE) public {
+    function withdrawFees(
+        uint256 amount,
+        address to
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         IERC20(approvedToken).approve(to, amount);
         SafeERC20.safeTransfer(IERC20(approvedToken), to, amount);
     }
@@ -198,9 +213,8 @@ contract Treasury is AccessControl {
             lostTeamFee + wonTeamFee
         );
         //collect dust
-        uint256 rate =
-            ((lostTeamTotal - withdrawnFee - lostTeamFee) * FEE_DENOMINATOR) /
-            (wonTeamTotal - wonTeamFee);
+        uint256 rate = ((lostTeamTotal - withdrawnFee - lostTeamFee) *
+            FEE_DENOMINATOR) / (wonTeamTotal - wonTeamFee);
         return (rate, lostTeamFee + wonTeamFee);
     }
 
@@ -278,7 +292,7 @@ contract Treasury is AccessControl {
      * Changes Chainlink upkeep address
      * @param newUpkeep new upkeep address
      */
-    function setUpkeep(address newUpkeep) onlyRole(DEFAULT_ADMIN_ROLE) public {
+    function setUpkeep(address newUpkeep) public onlyRole(DEFAULT_ADMIN_ROLE) {
         upkeep = newUpkeep;
     }
 }

@@ -2,10 +2,11 @@
 pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ITreasury} from "./interfaces/ITreasury.sol";
 import {IMockUpkeep} from "./interfaces/IMockUpkeep.sol";
 
-contract UpDown is AccessControl {
+contract UpDown is AccessControl, Initializable {
     event UpDownCreated(
         uint256 startTime,
         uint48 stopPredictAt,
@@ -43,10 +44,11 @@ contract UpDown is AccessControl {
     mapping(address => uint256) public depositAmounts;
     GameInfo public game;
     address public treasury;
-    uint256 public fee = 100;
+    uint256 public fee;
 
-    constructor() {
+    function initialize() public initializer {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        fee = 100;
     }
 
     /**

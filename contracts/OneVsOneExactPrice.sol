@@ -2,10 +2,11 @@
 pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ITreasury} from "./interfaces/ITreasury.sol";
 import {IMockUpkeep} from "./interfaces/IMockUpkeep.sol";
 
-contract OneVsOneExactPrice is AccessControl {
+contract OneVsOneExactPrice is AccessControl, Initializable {
     event ExactPriceCreated(
         bytes32 gameId,
         bytes32 feedId,
@@ -54,12 +55,15 @@ contract OneVsOneExactPrice is AccessControl {
 
     mapping(bytes32 => GameInfo) public games;
     address public treasury;
-    uint256 public fee = 100;
-    uint256 public minDuration = 30 minutes;
-    uint256 public maxDuration = 4 weeks;
+    uint256 public fee;
+    uint256 public minDuration;
+    uint256 public maxDuration;
 
-    constructor() {
+    function initialize() public initializer {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        minDuration = 30 minutes;
+        maxDuration = 4 weeks;
+        fee = 100;
     }
 
     /**

@@ -2,10 +2,11 @@
 pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ITreasury} from "./interfaces/ITreasury.sol";
 import {IMockUpkeep} from "./interfaces/IMockUpkeep.sol";
 
-contract Setup is AccessControl {
+contract Setup is AccessControl, Initializable {
     event SetupNewPlayer(bool isLong, uint256 depositAmount, address player);
     event SetupCancelled(bytes32 gameId, address initiator);
     event SetupFinalized(
@@ -51,13 +52,14 @@ contract Setup is AccessControl {
 
     mapping(bytes32 => GameInfo) public games;
     mapping(bytes32 => mapping(address => uint256)) public depositAmounts;
-    uint256 public minDuration = 30 minutes;
-    uint256 public maxDuration = 24 weeks;
+    uint256 public minDuration;
+    uint256 public maxDuration;
     address public treasury;
 
-    constructor(address newTreasury) {
+    function initialize() public initializer {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        treasury = newTreasury;
+        minDuration = 30 minutes;
+        maxDuration = 24 weeks;
     }
 
     function createSetup(

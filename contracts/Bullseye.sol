@@ -2,16 +2,17 @@
 pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ITreasury} from "./interfaces/ITreasury.sol";
 import {IMockUpkeep} from "./interfaces/IMockUpkeep.sol";
 
-contract Bullseye is AccessControl {
-    uint256 constant DENOMINATOR = 10000;
-    uint256 public fee = 100;
-    uint256[3] public rate = [5000, 3500, 1500];
-    uint256[3] public exactRate = [7500, 1500, 1000];
-    uint256[2] public twoPlayersRate = [7500, 2500];
-    uint256[2] public twoPlayersExactRate = [8000, 2000];
+contract Bullseye is AccessControl, Initializable {
+    uint256 private DENOMINATOR;
+    uint256 public fee;
+    uint256[3] public rate;
+    uint256[3] public exactRate;
+    uint256[2] public twoPlayersRate;
+    uint256[2] public twoPlayersExactRate;
     event BullseyeStart(
         uint256 startTime,
         uint48 stopPredictAt,
@@ -50,8 +51,14 @@ contract Bullseye is AccessControl {
     GameInfo public game;
     address public treasury;
 
-    constructor() {
+    function initialize() public initializer {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        DENOMINATOR = 10000;
+        fee = 100;
+        rate = [5000, 3500, 1500];
+        exactRate = [7500, 1500, 1000];
+        twoPlayersRate = [7500, 2500];
+        twoPlayersExactRate = [8000, 2000];
     }
 
     /**

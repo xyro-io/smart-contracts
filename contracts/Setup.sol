@@ -51,6 +51,8 @@ contract Setup is AccessControl {
 
     mapping(bytes32 => GameInfo) public games;
     mapping(bytes32 => mapping(address => uint256)) public depositAmounts;
+    uint256 public minDuration = 30 minutes;
+    uint256 public maxDuration = 24 weeks;
     address public treasury;
 
     constructor(address newTreasury) {
@@ -66,6 +68,14 @@ contract Setup is AccessControl {
         bytes memory unverifiedReport,
         bytes32 feedId
     ) public {
+        require(
+            endTime - block.timestamp >= minDuration,
+            "Min game duration must be higher"
+        );
+        require(
+            endTime - block.timestamp <= maxDuration,
+            "Max game duration must be lower"
+        );
         bytes32 gameId = keccak256(
             abi.encodePacked(
                 block.timestamp,
@@ -322,6 +332,19 @@ contract Setup is AccessControl {
         bytes32 gameId
     ) public view returns (uint256, uint256) {
         return (games[gameId].teamSL.length, games[gameId].teamTP.length);
+    }
+
+    /**
+     * Changes min and max game limits
+     * @param newMaxDuration new max game duration
+     * @param newMinDuration new min game duration
+     */
+    function changeGameDuration(
+        uint256 newMaxDuration,
+        uint256 newMinDuration
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        minDuration = newMinDuration;
+        maxDuration = newMaxDuration;
     }
 
     /**

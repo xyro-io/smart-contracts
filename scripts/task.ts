@@ -334,7 +334,9 @@ task("upDownBets", "make 5 updown bets").setAction(async () => {
     const isLong = Math.floor(Math.random() * 2) == 1 ? true : false;
     const deposit =
       Math.floor(Math.floor(Math.random() * (100 - 10 + 1) + 10) / 5) * 5;
-    await contract.connect(signer).play(isLong, deposit);
+    let tx = await contract.connect(signer).play(isLong, deposit);
+    await tx.wait();
+    console.log(`tx ${i} = ${tx.hash}`);
   }
 });
 
@@ -352,7 +354,9 @@ task("setupsBets", "make 5 setups bets")
       const isLong = Math.floor(Math.random() * 2) == 1 ? true : false;
       const deposit =
         Math.floor(Math.floor(Math.random() * (100 - 10 + 1) + 10) / 5) * 5;
-      await contract.connect(signer).play(isLong, deposit);
+      let tx = await contract.connect(signer).play(isLong, deposit);
+      await tx.wait();
+      console.log(`tx ${i} = ${tx.hash}`);
     }
   });
 
@@ -373,6 +377,29 @@ task("bullseyeBets", "make 5 bullseye bets").setAction(async () => {
     signer = signer.connect(ethers.provider);
     const prediction =
       Math.floor(Math.random() * (maxPrice - minPrice)) + minPrice;
-    await contract.connect(signer).play(prediction);
+    let tx = await contract.connect(signer).play(prediction);
+    await tx.wait();
+    console.log(`tx ${i} = ${tx.hash}`);
+  }
+});
+
+task("batchApprove", "make 5 approves").setAction(async () => {
+  const contract = await ethers.getContractAt(
+    "MockToken",
+    contracts.USDC.address
+  );
+
+  for (let i = 1; i < 6; i++) {
+    let signer = ethers.HDNodeWallet.fromPhrase(
+      "response sort awake wear uncle symbol length advice uniform cigar pride profit",
+      undefined,
+      `m/44'/0'/${i}'/0/0`
+    );
+    signer = signer.connect(ethers.provider);
+    let tx = await contract
+      .connect(signer)
+      .approve(contracts.Treasury.address, ethers.MaxUint256);
+    await tx.wait();
+    console.log(`tx ${i} = ${tx.hash}`);
   }
 });

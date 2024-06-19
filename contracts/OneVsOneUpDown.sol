@@ -212,7 +212,7 @@ contract OneVsOneUpDown is AccessControl {
                 "Only certain account can accept"
             );
         } else {
-            game.opponent == msg.sender;
+            game.opponent = msg.sender;
         }
         ITreasury(treasury).deposit(game.depositAmount, msg.sender);
         game.gameStatus = Status.Started;
@@ -247,7 +247,7 @@ contract OneVsOneUpDown is AccessControl {
                 "Only certain account can accept"
             );
         } else {
-            game.opponent == msg.sender;
+            game.opponent = msg.sender;
         }
         ITreasury(treasury).depositWithPermit(
             game.depositAmount,
@@ -287,13 +287,7 @@ contract OneVsOneUpDown is AccessControl {
     function closeGame(bytes32 gameId) public {
         GameInfo memory game = games[gameId];
         require(game.initiator == msg.sender, "Wrong sender");
-        require(
-            game.gameStatus == Status.Refused ||
-                (game.startTime + (game.endTime - game.startTime) / 3 <
-                    block.timestamp &&
-                    game.gameStatus == Status.Created),
-            "Wrong status!"
-        );
+        require(game.gameStatus == Status.Created, "Wrong status!");
         ITreasury(treasury).refund(game.depositAmount, game.initiator);
         game.gameStatus = Status.Cancelled;
         games[gameId] = game;
@@ -357,7 +351,6 @@ contract OneVsOneUpDown is AccessControl {
     }
 
     /**
-     * onlyDao
      * Changes min and max game limits
      * @param newMaxDuration new max game duration
      * @param newMinDuration new min game duration
@@ -365,7 +358,7 @@ contract OneVsOneUpDown is AccessControl {
     function changeGameDuration(
         uint256 newMaxDuration,
         uint256 newMinDuration
-    ) public {
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         minDuration = newMinDuration;
         maxDuration = newMaxDuration;
     }

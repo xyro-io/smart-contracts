@@ -194,7 +194,7 @@ contract OneVsOneExactPrice is AccessControl {
                 return;
             }
         } else {
-            game.opponent == msg.sender;
+            game.opponent = msg.sender;
         }
         game.opponentPrice = opponentPrice;
         ITreasury(treasury).deposit(game.depositAmount, msg.sender);
@@ -233,7 +233,7 @@ contract OneVsOneExactPrice is AccessControl {
                 return;
             }
         } else {
-            game.opponent == msg.sender;
+            game.opponent = msg.sender;
         }
         game.opponentPrice = opponentPrice;
         ITreasury(treasury).depositWithPermit(
@@ -256,13 +256,7 @@ contract OneVsOneExactPrice is AccessControl {
     function closeGame(bytes32 gameId) public {
         GameInfo memory game = games[gameId];
         require(game.initiator == msg.sender, "Wrong sender");
-        require(
-            game.gameStatus == Status.Refused ||
-                (game.startTime + (game.endTime - game.startTime) / 3 <
-                    block.timestamp &&
-                    game.gameStatus == Status.Created),
-            "Wrong status!"
-        );
+        require(game.gameStatus == Status.Created, "Wrong status!");
         ITreasury(treasury).refund(game.depositAmount, game.initiator);
         game.gameStatus = Status.Cancelled;
         games[gameId] = game;
@@ -345,7 +339,6 @@ contract OneVsOneExactPrice is AccessControl {
     }
 
     /**
-     * onlyDao
      * Changes min and max game limits
      * @param newMaxDuration new max game duration
      * @param newMinDuration new min game duration
@@ -353,7 +346,7 @@ contract OneVsOneExactPrice is AccessControl {
     function changeGameDuration(
         uint256 newMaxDuration,
         uint256 newMinDuration
-    ) public {
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         minDuration = newMinDuration;
         maxDuration = newMaxDuration;
     }

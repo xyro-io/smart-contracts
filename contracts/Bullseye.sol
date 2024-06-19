@@ -317,15 +317,26 @@ contract Bullseye is AccessControl {
         delete players;
     }
 
+    function closeGame() public onlyRole(DEFAULT_ADMIN_ROLE) {
+        uint256 deposit = game.depositAmount;
+        for (uint i; i < players.length; i++) {
+            ITreasury(treasury).refund(deposit, players[i]);
+        }
+        emit BullseyeCancelled(game.gameId);
+        delete game;
+        delete players;
+    }
+
     function getTotalPlayers() public view returns (uint256) {
         return players.length;
     }
 
     /**
-     * onlyDAO
      * Do we need this?
      */
-    function changeDepositAmount(uint256 newDepositAmount) public {
+    function changeDepositAmount(
+        uint256 newDepositAmount
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         game.depositAmount = newDepositAmount;
     }
 

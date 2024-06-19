@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ITreasury} from "./interfaces/ITreasury.sol";
-import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 import {Setups} from "./Setups.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
@@ -98,7 +97,6 @@ contract SetupsFactory is AccessControl {
     }
 
     /**
-     * onlyDao
      * Changes min and max game limits
      * @param newMaxDuration new max game duration
      * @param newMinDuration new min game duration
@@ -106,9 +104,15 @@ contract SetupsFactory is AccessControl {
     function changeGameDuration(
         uint256 newMaxDuration,
         uint256 newMinDuration
-    ) public {
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         minDuration = newMinDuration;
         maxDuration = newMaxDuration;
+    }
+
+    function setGameMaster(
+        address newGameMaster
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        gameMaster = newGameMaster;
     }
 
     /**

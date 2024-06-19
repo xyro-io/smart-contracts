@@ -175,6 +175,24 @@ contract Setups is AccessControl {
                 finalPrice >= game.takeProfitPrice,
             "Can't end"
         );
+        if (teamSL.length == 0 || teamTP.length == 0) {
+            for (uint i; i < teamSL.length; i++) {
+                ITreasury(treasury).refund(
+                    depositAmounts[teamSL[i]],
+                    teamSL[i]
+                );
+            }
+            for (uint i; i < teamTP.length; i++) {
+                ITreasury(treasury).refund(
+                    depositAmounts[teamTP[i]],
+                    teamTP[i]
+                );
+            }
+            game.gameStatus = Status.Cancelled;
+            game.finalAssetPrice = finalPrice;
+            emit SetupCancelled(address(this), game.initiator);
+            return;
+        }
         bool takeProfitWon;
         uint256 initiatorFee;
         uint256 finalRate;

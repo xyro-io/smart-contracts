@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ITreasury} from "./interfaces/ITreasury.sol";
-import {IMockUpkeep} from "./interfaces/IMockUpkeep.sol";
+import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 
 contract OneVsOneUpDown is AccessControl {
     event UpDownCreated(
@@ -28,7 +28,7 @@ contract OneVsOneUpDown is AccessControl {
     event UpDownFinalized(
         bytes32 gameId,
         bool isLongWon,
-        int192 finalAssetPrice,
+        int192 finalPrice,
         Status gameStatus
     );
 
@@ -48,7 +48,7 @@ contract OneVsOneUpDown is AccessControl {
         bool isLong; //Initiator choise
         uint256 depositAmount;
         int192 startingAssetPrice;
-        int192 finalAssetPrice;
+        int192 finalPrice;
         Status gameStatus;
     }
 
@@ -86,9 +86,11 @@ contract OneVsOneUpDown is AccessControl {
             "Max game duration must be lower"
         );
         require(depositAmount >= 1e19, "Wrong deposit amount");
-        (int192 startingAssetPrice, uint32 priceTimestamp) = IMockUpkeep(
-            ITreasury(treasury).upkeep()
-        ).verifyReportWithTimestamp(unverifiedReport, feedId);
+        (
+            int192 startingAssetPrice,
+            uint32 priceTimestamp
+        ) = IDataStreamsVerifier(ITreasury(treasury).upkeep())
+                .verifyReportWithTimestamp(unverifiedReport, feedId);
         //block.timestamp must be > priceTimestamp
         require(
             block.timestamp - priceTimestamp <= 10 minutes,
@@ -147,9 +149,11 @@ contract OneVsOneUpDown is AccessControl {
             "Max game duration must be lower"
         );
         require(depositAmount >= 1e19, "Wrong deposit amount");
-        (int192 startingAssetPrice, uint32 priceTimestamp) = IMockUpkeep(
-            ITreasury(treasury).upkeep()
-        ).verifyReportWithTimestamp(unverifiedReport, feedId);
+        (
+            int192 startingAssetPrice,
+            uint32 priceTimestamp
+        ) = IDataStreamsVerifier(ITreasury(treasury).upkeep())
+                .verifyReportWithTimestamp(unverifiedReport, feedId);
         require(
             block.timestamp - priceTimestamp <= 10 minutes,
             "Old chainlink report"
@@ -303,8 +307,9 @@ contract OneVsOneUpDown is AccessControl {
         require(game.gameStatus == Status.Started, "Wrong status!");
         require(block.timestamp >= game.endTime, "Too early to finish");
         address upkeep = ITreasury(treasury).upkeep();
-        (int192 finalPrice, uint32 priceTimestamp) = IMockUpkeep(upkeep)
-            .verifyReportWithTimestamp(unverifiedReport, game.feedId);
+        (int192 finalPrice, uint32 priceTimestamp) = IDataStreamsVerifier(
+            upkeep
+        ).verifyReportWithTimestamp(unverifiedReport, game.feedId);
         require(
             block.timestamp - priceTimestamp <= 10 minutes,
             "Old chainlink report"
@@ -340,7 +345,7 @@ contract OneVsOneUpDown is AccessControl {
                 Status.Finished
             );
         }
-        game.finalAssetPrice = finalPrice;
+        game.finalPrice = finalPrice;
         game.gameStatus = Status.Finished;
         games[gameId] = game;
     }

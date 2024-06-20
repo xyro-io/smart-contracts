@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "./interfaces/IERC20.sol";
 
-contract XyroStaking {
+import {IERC20Mint} from "./interfaces/IERC20.sol";
+import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+
+contract XyroStaking is AccessControl {
     address public token;
     address public governanceToken;
     uint256 public totalStaked;
@@ -17,8 +19,9 @@ contract XyroStaking {
 
     mapping(address => Stake[]) public stakes;
 
-    constructor(address _tokenAddress, address _governanceToken) {
-        token = _tokenAddress;
+    constructor(address _token, address _governanceToken) {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        token = _token;
         governanceToken = _governanceToken;
     }
 
@@ -97,5 +100,13 @@ contract XyroStaking {
         for (uint i; i < stakes[msg.sender].length; i++) {
             userStaked += stakes[msg.sender][i].stakedBalance;
         }
+    }
+
+    function setTokens(
+        address _token,
+        address _governanceToken
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        token = _token;
+        governanceToken = _governanceToken;
     }
 }

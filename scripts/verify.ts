@@ -100,20 +100,20 @@ async function verifyBullseye() {
   }
 }
 
-// async function verifySetups() {
-//   await hre.run("verify:verify", {
-//     address: "0xc06d0686CC730d95d121Ec28A0802090aA41D7d5",
-//     constructorArguments: [
-//       false,
-//       1709625250,
-//       1709626500,
-//       12412,
-//       123,
-//       "0x5E48e2020143fCAba88fE1329fa0805f6FEc90E3",
-//       "30000000000000000000",
-//     ],
-//   });
-// }
+async function verifySetups() {
+  await hre.run("verify:verify", {
+    address: "0x5fb9538761619bd2B4fD31c2fDe05C6907Bb022b",
+    constructorArguments: [
+      true,
+      1716991121,
+      "67500000000000000000000",
+      "71000000000000000000000",
+      "0x5E48e2020143fCAba88fE1329fa0805f6FEc90E3",
+      "0x00037da06d56d083fe599397a4769a042d63aa73dc4ef57709d31e9971a5b439",
+      "0x7Ff7384AAE776650126AD662BB69E981d6c4a530",
+    ],
+  });
+}
 
 async function verifySetupsFactory() {
   if (contracts.SetupsFactory.address !== undefined) {
@@ -219,15 +219,15 @@ async function verifyUpkeep() {
         address: targetAddress,
         constructorArguments: [],
       });
-      contracts.MockUpkeep.url = getVerifiedUrl(targetAddress);
+      contracts.MockVerifier.url = getVerifiedUrl(targetAddress);
     } catch (e) {
       if (isAlreadyVerified(e, targetAddress))
-        contracts.MockUpkeep.url = getVerifiedUrl(targetAddress);
+        contracts.MockVerifier.url = getVerifiedUrl(targetAddress);
     }
   }
 }
 
-async function verifyRealUpkeep() {
+async function verifyVerifier() {
   if (contracts.RealUpkeep.address !== undefined) {
     let targetAddress = contracts.RealUpkeep.address;
     try {

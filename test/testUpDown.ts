@@ -10,10 +10,25 @@ import { Treasury } from "../typechain-types/contracts/Treasury.sol/Treasury";
 import { Treasury__factory } from "../typechain-types/factories/contracts/Treasury.sol/Treasury__factory";
 import { UpDown } from "../typechain-types/contracts/UpDown";
 import { UpDown__factory } from "../typechain-types/factories/contracts/UpDown__factory";
-import { MockUpkeep } from "../typechain-types/contracts/MockUpkeep";
-import { MockUpkeep__factory } from "../typechain-types/factories/contracts/MockUpkeep__factory";
-import { abiEncodeInt192 } from "../scripts/helper";
+import { MockVerifier } from "../typechain-types/contracts/mock/MockVerifier";
+import { MockVerifier__factory } from "../typechain-types/factories/contracts/mock/MockVerifier__factory";
+import {
+  abiEncodeInt192WithTimestamp,
+  getPermitSignature,
+} from "../scripts/helper";
+
 const parse18 = ethers.parseEther;
+const fortyFiveMinutes = 2700;
+const fifteenMinutes = 900;
+const requireFinishedGame = "Finish previous game first";
+const requireOpenedGame = "Game is closed for new players";
+const requireOnTime = "Too early";
+const requireMoreThanZeroPlayers = "Not enough players";
+const requireValidChainlinkReport = "Old chainlink report";
+const requireStartedGame = "Start the game first";
+const requirePastEndTime = "Too early to finish";
+const requireStartingPrice = "Starting price must be set";
+const requireNewPlayer = "Already participating";
 
 describe("UpDown", () => {
   let owner: HardhatEthersSigner;
@@ -23,17 +38,14 @@ describe("UpDown", () => {
   let XyroToken: XyroToken;
   let Treasury: Treasury;
   let Game: UpDown;
-  let Upkeep: MockUpkeep;
+  let Upkeep: MockVerifier;
   const assetPrice = parse18("2310");
-  const finalPrice = parse18("3000");
-  const mockFeedId =
+  const finalPriceDown = parse18("2000");
+  const finalPriceUp = parse18("3000");
+  const feedId =
     "0x00037da06d56d083fe599397a4769a042d63aa73dc4ef57709d31e9971a5b439";
-  let startingPriceBytes: string;
-  let finalPriceBytes: string;
   before(async () => {
     [owner, opponent, alice] = await ethers.getSigners();
-    startingPriceBytes = abiEncodeInt192(assetPrice.toString(), mockFeedId);
-    finalPriceBytes = abiEncodeInt192(finalPrice.toString(), mockFeedId);
     USDT = await new MockToken__factory(owner).deploy(
       parse18((1e13).toString())
     );
@@ -43,7 +55,7 @@ describe("UpDown", () => {
       await XyroToken.getAddress()
     );
     Game = await new UpDown__factory(owner).deploy();
-    Upkeep = await new MockUpkeep__factory(owner).deploy();
+    Upkeep = await new MockVerifier__factory(owner).deploy();
     await Game.setTreasury(await Treasury.getAddress());
     await Treasury.setFee(100);
     await Treasury.setUpkeep(await Upkeep.getAddress());
@@ -57,12 +69,12 @@ describe("UpDown", () => {
 
   it("should create updown game", async function () {
     await Game.startGame(
-      (await time.latest()) + 2700,
-      (await time.latest()) + 900,
-      mockFeedId
+      (await time.latest()) + fortyFiveMinutes,
+      (await time.latest()) + fifteenMinutes,
+      feedId
     );
     let bet = await Game.game();
-    expect(bet.feedId).to.equal(mockFeedId);
+    expect(bet.feedId).to.equal(feedId);
   });
 
   it("should bet down", async function () {
@@ -86,16 +98,239 @@ describe("UpDown", () => {
 
   it("should set starting price", async function () {
     await time.increase(900);
-    await Game.setStartingPrice(startingPriceBytes);
+    await Game.setStartingPrice(
+      abiEncodeInt192WithTimestamp(
+        assetPrice.toString(),
+        feedId,
+        await time.latest()
+      )
+    );
     let bet = await Game.game();
     expect(bet.startingPrice).to.be.above(0);
   });
 
-  it("should end updown game", async function () {
+  it("should end updown game (up wins)", async function () {
     let oldBalance = await USDT.balanceOf(alice.getAddress());
-    await time.increase(2700);
-    await Game.finalizeGame(finalPriceBytes);
+    await time.increase(fortyFiveMinutes);
+    await Game.finalizeGame(
+      abiEncodeInt192WithTimestamp(
+        finalPriceUp.toString(),
+        feedId,
+        await time.latest()
+      )
+    );
     let newBalance = await USDT.balanceOf(alice.getAddress());
     expect(newBalance).to.be.above(oldBalance);
+  });
+
+  it("should fail - start new game without finishing previous", async function () {
+    await Game.startGame(
+      (await time.latest()) + fortyFiveMinutes,
+      (await time.latest()) + fifteenMinutes,
+      feedId
+    );
+    await expect(
+      Game.startGame(
+        (await time.latest()) + fortyFiveMinutes,
+        (await time.latest()) + fifteenMinutes,
+        feedId
+      )
+    ).to.be.revertedWith(requireFinishedGame);
+  });
+  it("should fail - play after time is up", async function () {
+    await time.increase(fifteenMinutes);
+    await expect(
+      Game.connect(alice).play(true, parse18("100"))
+    ).to.be.revertedWith(requireOpenedGame);
+  });
+  it("should fail - can't set price with 0 players", async function () {
+    await expect(
+      Game.setStartingPrice(
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedId,
+          await time.latest()
+        )
+      )
+    ).to.be.revertedWith(requireMoreThanZeroPlayers);
+  });
+
+  it("should fail - too early to finish", async function () {
+    await expect(
+      Game.finalizeGame(
+        abiEncodeInt192WithTimestamp(
+          finalPriceUp.toString(),
+          feedId,
+          await time.latest()
+        )
+      )
+    ).to.be.revertedWith(requirePastEndTime);
+
+    await time.increase(fortyFiveMinutes);
+    await Game.finalizeGame(
+      abiEncodeInt192WithTimestamp(
+        finalPriceUp.toString(),
+        feedId,
+        await time.latest()
+      )
+    );
+  });
+
+  it("should bet down with permit", async function () {
+    await Game.startGame(
+      (await time.latest()) + fortyFiveMinutes,
+      (await time.latest()) + fifteenMinutes,
+      feedId
+    );
+    const deadline = (await time.latest()) + fortyFiveMinutes;
+    let result = await getPermitSignature(
+      owner,
+      USDT,
+      await Treasury.getAddress(),
+      parse18("100"),
+      BigInt(deadline)
+    );
+    await Game.playWithPermit(false, parse18("100"), {
+      deadline: deadline,
+      v: result.v,
+      r: result.r,
+      s: result.s,
+    });
+    expect(await Game.DownPlayers(0)).to.equal(owner.address);
+  });
+
+  it("should bet up with permit", async function () {
+    const deadline = (await time.latest()) + fortyFiveMinutes;
+    let result = await getPermitSignature(
+      alice,
+      USDT,
+      await Treasury.getAddress(),
+      parse18("100"),
+      BigInt(deadline)
+    );
+    await Game.connect(alice).playWithPermit(true, parse18("100"), {
+      deadline: deadline,
+      v: result.v,
+      r: result.r,
+      s: result.s,
+    });
+    expect(await Game.UpPlayers(0)).to.equal(alice.address);
+  });
+
+  it("should fail - bet already exists", async function () {
+    const deadline = (await time.latest()) + fortyFiveMinutes;
+    let result = await getPermitSignature(
+      alice,
+      USDT,
+      await Treasury.getAddress(),
+      parse18("100"),
+      BigInt(deadline)
+    );
+    await expect(
+      Game.connect(alice).playWithPermit(true, parse18("100"), {
+        deadline: deadline,
+        v: result.v,
+        r: result.r,
+        s: result.s,
+      })
+    ).to.be.revertedWith(requireNewPlayer);
+    await expect(Game.play(true, parse18("100"))).to.be.revertedWith(
+      requireNewPlayer
+    );
+  });
+
+  it("should fail - setting starting price early", async function () {
+    await expect(
+      Game.setStartingPrice(
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedId,
+          await time.latest()
+        )
+      )
+    ).to.be.revertedWith(requireOnTime);
+  });
+
+  it("should fail - old chainlink report (setStartingPrice)", async function () {
+    await time.increase(fifteenMinutes);
+    await expect(
+      Game.setStartingPrice(
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedId,
+          (await time.latest()) - fifteenMinutes
+        )
+      )
+    ).to.be.revertedWith(requireValidChainlinkReport);
+  });
+
+  it("should fail - startring price should be set", async function () {
+    await time.increase(fortyFiveMinutes);
+    await expect(
+      Game.finalizeGame(
+        abiEncodeInt192WithTimestamp(
+          finalPriceUp.toString(),
+          feedId,
+          await time.latest()
+        )
+      )
+    ).to.be.revertedWith(requireStartingPrice);
+  });
+
+  it("should fail - old chainlink report (finalizeGame)", async function () {
+    await Game.setStartingPrice(
+      abiEncodeInt192WithTimestamp(
+        assetPrice.toString(),
+        feedId,
+        await time.latest()
+      )
+    );
+    await expect(
+      Game.finalizeGame(
+        abiEncodeInt192WithTimestamp(
+          finalPriceUp.toString(),
+          feedId,
+          (await time.latest()) - fortyFiveMinutes
+        )
+      )
+    ).to.be.revertedWith(requireValidChainlinkReport);
+  });
+
+  it("should end updown game (down wins)", async function () {
+    let oldBalance = await USDT.balanceOf(owner.getAddress());
+    await Game.finalizeGame(
+      abiEncodeInt192WithTimestamp(
+        finalPriceDown.toString(),
+        feedId,
+        await time.latest()
+      )
+    );
+    let newBalance = await USDT.balanceOf(owner.getAddress());
+    expect(newBalance).to.be.above(oldBalance);
+  });
+
+  it("should refund if players only in up team", async function () {
+    let oldBalance = await USDT.balanceOf(opponent.getAddress());
+    await Game.startGame(
+      (await time.latest()) + fortyFiveMinutes,
+      (await time.latest()) + fifteenMinutes,
+      feedId
+    );
+    await USDT.connect(opponent).approve(Treasury.getAddress(), parse18("100"));
+    await Game.connect(opponent).play(true, parse18("100"));
+    let currntBalance = await USDT.balanceOf(opponent.getAddress());
+    expect(oldBalance).to.be.above(currntBalance);
+    await USDT.connect(alice).approve(Treasury.getAddress(), parse18("100"));
+    await Game.connect(alice).play(true, parse18("100"));
+    await time.increase(fortyFiveMinutes);
+    await Game.finalizeGame(
+      abiEncodeInt192WithTimestamp(
+        finalPriceDown.toString(),
+        feedId,
+        await time.latest()
+      )
+    );
+    currntBalance = await USDT.balanceOf(opponent.getAddress());
+    expect(oldBalance).to.be.equal(currntBalance);
   });
 });

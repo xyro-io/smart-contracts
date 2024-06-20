@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ITreasury} from "./interfaces/ITreasury.sol";
-import {IMockUpkeep} from "./interfaces/IMockUpkeep.sol";
+import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 
 contract OneVsOneExactPrice is AccessControl {
     event ExactPriceCreated(
@@ -27,7 +27,7 @@ contract OneVsOneExactPrice is AccessControl {
         bytes32 gameId,
         int192 winnerGuessPrice,
         int192 loserGuessPrice,
-        int192 finalAssetPrice,
+        int192 finalPrice,
         Status gameStatus
     );
 
@@ -48,7 +48,7 @@ contract OneVsOneExactPrice is AccessControl {
         uint256 depositAmount;
         int192 initiatorPrice;
         int192 opponentPrice;
-        int192 finalAssetPrice;
+        int192 finalPrice;
         Status gameStatus;
     }
 
@@ -287,18 +287,22 @@ contract OneVsOneExactPrice is AccessControl {
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         address upkeep = ITreasury(treasury).upkeep();
         GameInfo memory game = games[gameId];
-        int192 finalAssetPrice = IMockUpkeep(upkeep).verifyReport(
-            unverifiedReport,
-            game.feedId
+        (int192 finalPrice, uint32 priceTimestamp) = IDataStreamsVerifier(
+            upkeep
+        ).verifyReportWithTimestamp(unverifiedReport, game.feedId);
+        //block.timestamp must be > priceTimestamp
+        require(
+            block.timestamp - priceTimestamp <= 10 minutes,
+            "Old chainlink report"
         );
         require(game.gameStatus == Status.Started, "Wrong status!");
         require(block.timestamp >= game.endTime, "Too early to finish");
-        int192 diff1 = game.initiatorPrice > finalAssetPrice
-            ? game.initiatorPrice - finalAssetPrice
-            : finalAssetPrice - game.initiatorPrice;
-        int192 diff2 = game.opponentPrice > finalAssetPrice
-            ? game.opponentPrice - finalAssetPrice
-            : finalAssetPrice - game.opponentPrice;
+        int192 diff1 = game.initiatorPrice > finalPrice
+            ? game.initiatorPrice - finalPrice
+            : finalPrice - game.initiatorPrice;
+        int192 diff2 = game.opponentPrice > finalPrice
+            ? game.opponentPrice - finalPrice
+            : finalPrice - game.opponentPrice;
 
         if (diff1 < diff2) {
             ITreasury(treasury).distribute(
@@ -311,7 +315,7 @@ contract OneVsOneExactPrice is AccessControl {
                 gameId,
                 game.initiatorPrice,
                 game.opponentPrice,
-                finalAssetPrice,
+                finalPrice,
                 Status.Finished
             );
         } else {
@@ -325,11 +329,11 @@ contract OneVsOneExactPrice is AccessControl {
                 gameId,
                 game.opponentPrice,
                 game.initiatorPrice,
-                finalAssetPrice,
+                finalPrice,
                 Status.Finished
             );
         }
-        game.finalAssetPrice = finalAssetPrice;
+        game.finalPrice = finalPrice;
         game.gameStatus = Status.Finished;
         games[gameId] = game;
     }

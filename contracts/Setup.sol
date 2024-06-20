@@ -191,6 +191,7 @@ contract Setup is AccessControl {
     }
 
     function closeGame(bytes32 gameId) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(games[gameId].startTime != 0, "Game doesn't exist");
         require(
             ((games[gameId].startTime +
                 (games[gameId].endTime - games[gameId].startTime) /

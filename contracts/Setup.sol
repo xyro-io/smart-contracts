@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ITreasury} from "./interfaces/ITreasury.sol";
-import {IMockUpkeep} from "./interfaces/IMockUpkeep.sol";
+import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 
 contract Setup is AccessControl {
     event SetupNewPlayer(
@@ -91,7 +91,7 @@ contract Setup is AccessControl {
             )
         );
         GameInfo memory newGame = games[gameId];
-        (newGame.startringPrice, newGame.startTime) = IMockUpkeep(
+        (newGame.startringPrice, newGame.startTime) = IDataStreamsVerifier(
             ITreasury(treasury).upkeep()
         ).verifyReportWithTimestamp(unverifiedReport, feedId);
         if (isLong) {
@@ -224,7 +224,7 @@ contract Setup is AccessControl {
         bytes32 gameId
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(games[gameId].gameStatus == Status.Created, "Wrong status!");
-        (int192 finalPrice, uint256 endTime) = IMockUpkeep(
+        (int192 finalPrice, uint256 endTime) = IDataStreamsVerifier(
             ITreasury(treasury).upkeep()
         ).verifyReportWithTimestamp(unverifiedReport, games[gameId].feedId);
 

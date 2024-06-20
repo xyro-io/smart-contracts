@@ -6,9 +6,15 @@ import {ITreasury} from "./interfaces/ITreasury.sol";
 import {IMockUpkeep} from "./interfaces/IMockUpkeep.sol";
 
 contract Setup is AccessControl {
-    event SetupNewPlayer(bool isLong, uint256 depositAmount, address player);
+    event SetupNewPlayer(
+        bytes32 gameId,
+        bool isLong,
+        uint256 depositAmount,
+        address player
+    );
     event SetupCancelled(bytes32 gameId, address initiator);
     event SetupFinalized(
+        bytes32 gameId,
         bool takeProfitWon,
         int192 finalPrice,
         uint256 endTime,
@@ -144,7 +150,7 @@ contract Setup is AccessControl {
             games[gameId].teamSL.push(msg.sender);
             games[gameId].totalDepositsSL += depositAmount;
         }
-        emit SetupNewPlayer(isLong, depositAmount, msg.sender);
+        emit SetupNewPlayer(gameId, isLong, depositAmount, msg.sender);
     }
 
     function playWithPermit(
@@ -181,7 +187,7 @@ contract Setup is AccessControl {
             games[gameId].teamSL.push(msg.sender);
             games[gameId].totalDepositsSL += depositAmount;
         }
-        emit SetupNewPlayer(isLong, depositAmount, msg.sender);
+        emit SetupNewPlayer(gameId, isLong, depositAmount, msg.sender);
     }
 
     function closeGame(bytes32 gameId) public onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -325,7 +331,13 @@ contract Setup is AccessControl {
         games[gameId].endTime = endTime;
         games[gameId].finalPrice = finalPrice;
         games[gameId].gameStatus = Status.Finished;
-        emit SetupFinalized(takeProfitWon, finalPrice, endTime, initiatorFee);
+        emit SetupFinalized(
+            gameId,
+            takeProfitWon,
+            finalPrice,
+            endTime,
+            initiatorFee
+        );
     }
 
     function getPlayersAmount(

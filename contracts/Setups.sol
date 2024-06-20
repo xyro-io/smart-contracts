@@ -189,7 +189,7 @@ contract Setups is AccessControl {
                 );
             }
             game.gameStatus = Status.Cancelled;
-            game.finalAssetPrice = finalPrice;
+            game.finalPrice = finalPrice;
             emit SetupCancelled(address(this), game.initiator);
             return;
         }

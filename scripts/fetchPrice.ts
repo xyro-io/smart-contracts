@@ -1,3 +1,5 @@
+const url = "https://backend-web3.xyro.io/graphql";
+
 export async function getPrice() {
   let bodyContent = JSON.stringify({
     query: `query ListAssets {
@@ -10,7 +12,7 @@ export async function getPrice() {
         }
       }`,
   });
-  const response = await fetch("https://backend-web3.xyro.io/graphql", {
+  const response = await fetch(url, {
     method: "POST",
     body: bodyContent,
     headers: { "Content-Type": "application/json" },
@@ -32,7 +34,7 @@ export async function getPayload() {
         }
       }`,
   });
-  const response = await fetch("https://backend-web3.xyro.io/graphql", {
+  const response = await fetch(url, {
     method: "POST",
     body: bodyContent,
     headers: { "Content-Type": "application/json" },

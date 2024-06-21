@@ -212,6 +212,7 @@ contract OneVsOneUpDown is AccessControl {
                 "Only certain account can accept"
             );
         } else {
+            require(msg.sender != game.initiator, "Wrong opponent");
             game.opponent = msg.sender;
         }
         ITreasury(treasury).deposit(game.depositAmount, msg.sender);
@@ -247,6 +248,7 @@ contract OneVsOneUpDown is AccessControl {
                 "Only certain account can accept"
             );
         } else {
+            require(msg.sender != game.initiator, "Wrong opponent");
             game.opponent = msg.sender;
         }
         ITreasury(treasury).depositWithPermit(

@@ -194,6 +194,7 @@ contract OneVsOneExactPrice is AccessControl {
                 return;
             }
         } else {
+            require(msg.sender != game.initiator, "Wrong opponent");
             game.opponent = msg.sender;
         }
         game.opponentPrice = opponentPrice;
@@ -233,6 +234,7 @@ contract OneVsOneExactPrice is AccessControl {
                 return;
             }
         } else {
+            require(msg.sender != game.initiator, "Wrong opponent");
             game.opponent = msg.sender;
         }
         game.opponentPrice = opponentPrice;

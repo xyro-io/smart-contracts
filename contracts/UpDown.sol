@@ -190,7 +190,8 @@ contract UpDown is AccessControl {
         ).verifyReportWithTimestamp(unverifiedReport, game.feedId);
         //block.timestamp must be > priceTimestamp
         require(
-            block.timestamp - priceTimestamp <= 10 minutes,
+            priceTimestamp - game.endTime <= 10 minutes ||
+                block.timestamp - priceTimestamp <= 10 minutes,
             "Old chainlink report"
         );
         GameInfo memory _game = game;

@@ -294,7 +294,8 @@ contract OneVsOneExactPrice is AccessControl {
         ).verifyReportWithTimestamp(unverifiedReport, game.feedId);
         //block.timestamp must be > priceTimestamp
         require(
-            block.timestamp - priceTimestamp <= 10 minutes,
+            priceTimestamp - game.endTime <= 10 minutes ||
+                block.timestamp - priceTimestamp <= 10 minutes,
             "Old chainlink report"
         );
         require(game.gameStatus == Status.Started, "Wrong status!");

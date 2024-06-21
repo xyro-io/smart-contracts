@@ -16,7 +16,6 @@ export async function getPrice() {
     headers: { "Content-Type": "application/json" },
   });
   const data = await response.json();
-  // console.log(data.data.listAssets[1].price.payload);
   const price = Math.floor(data.data.listAssets[1].price.formattedValue);
   return price;
 }

@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ITreasury} from "./interfaces/ITreasury.sol";
-import {IMockUpkeep} from "./interfaces/IMockUpkeep.sol";
 import {Setups} from "./Setups.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 

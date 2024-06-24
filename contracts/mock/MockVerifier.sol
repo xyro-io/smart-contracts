@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-contract MockUpkeep {
+contract MockVerifier {
     int192 public lastRetrievedPrice;
 
     function setPrice(int192 priceData) public {

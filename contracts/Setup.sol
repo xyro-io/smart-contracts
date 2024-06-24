@@ -4,12 +4,18 @@ pragma solidity ^0.8.24;
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ITreasury} from "./interfaces/ITreasury.sol";
-import {IMockUpkeep} from "./interfaces/IMockUpkeep.sol";
+import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 
 contract Setup is AccessControl, Initializable {
-    event SetupNewPlayer(bool isLong, uint256 depositAmount, address player);
+    event SetupNewPlayer(
+        bytes32 gameId,
+        bool isLong,
+        uint256 depositAmount,
+        address player
+    );
     event SetupCancelled(bytes32 gameId, address initiator);
     event SetupFinalized(
+        bytes32 gameId,
         bool takeProfitWon,
         int192 finalPrice,
         uint256 endTime,
@@ -87,7 +93,7 @@ contract Setup is AccessControl, Initializable {
             )
         );
         GameInfo memory newGame = games[gameId];
-        (newGame.startringPrice, newGame.startTime) = IMockUpkeep(
+        (newGame.startringPrice, newGame.startTime) = IDataStreamsVerifier(
             ITreasury(treasury).upkeep()
         ).verifyReportWithTimestamp(unverifiedReport, feedId);
         if (isLong) {
@@ -146,7 +152,7 @@ contract Setup is AccessControl, Initializable {
             games[gameId].teamSL.push(msg.sender);
             games[gameId].totalDepositsSL += depositAmount;
         }
-        emit SetupNewPlayer(isLong, depositAmount, msg.sender);
+        emit SetupNewPlayer(gameId, isLong, depositAmount, msg.sender);
     }
 
     function playWithPermit(
@@ -183,10 +189,11 @@ contract Setup is AccessControl, Initializable {
             games[gameId].teamSL.push(msg.sender);
             games[gameId].totalDepositsSL += depositAmount;
         }
-        emit SetupNewPlayer(isLong, depositAmount, msg.sender);
+        emit SetupNewPlayer(gameId, isLong, depositAmount, msg.sender);
     }
 
     function closeGame(bytes32 gameId) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(games[gameId].startTime != 0, "Game doesn't exist");
         require(
             ((games[gameId].startTime +
                 (games[gameId].endTime - games[gameId].startTime) /
@@ -219,7 +226,7 @@ contract Setup is AccessControl, Initializable {
         bytes32 gameId
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(games[gameId].gameStatus == Status.Created, "Wrong status!");
-        (int192 finalPrice, uint256 endTime) = IMockUpkeep(
+        (int192 finalPrice, uint256 endTime) = IDataStreamsVerifier(
             ITreasury(treasury).upkeep()
         ).verifyReportWithTimestamp(unverifiedReport, games[gameId].feedId);
 
@@ -327,7 +334,13 @@ contract Setup is AccessControl, Initializable {
         games[gameId].endTime = endTime;
         games[gameId].finalPrice = finalPrice;
         games[gameId].gameStatus = Status.Finished;
-        emit SetupFinalized(takeProfitWon, finalPrice, endTime, initiatorFee);
+        emit SetupFinalized(
+            gameId,
+            takeProfitWon,
+            finalPrice,
+            endTime,
+            initiatorFee
+        );
     }
 
     function getPlayersAmount(

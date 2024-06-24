@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ITreasury} from "./interfaces/ITreasury.sol";
-import {IMockUpkeep} from "./interfaces/IMockUpkeep.sol";
+import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 
 contract OneVsOneUpDown is AccessControl, Initializable {
     event UpDownCreated(
@@ -29,7 +29,7 @@ contract OneVsOneUpDown is AccessControl, Initializable {
     event UpDownFinalized(
         bytes32 gameId,
         bool isLongWon,
-        int192 finalAssetPrice,
+        int192 finalPrice,
         Status gameStatus
     );
 
@@ -49,7 +49,7 @@ contract OneVsOneUpDown is AccessControl, Initializable {
         bool isLong; //Initiator choise
         uint256 depositAmount;
         int192 startingAssetPrice;
-        int192 finalAssetPrice;
+        int192 finalPrice;
         Status gameStatus;
     }
 
@@ -90,9 +90,11 @@ contract OneVsOneUpDown is AccessControl, Initializable {
             "Max game duration must be lower"
         );
         require(depositAmount >= 1e19, "Wrong deposit amount");
-        (int192 startingAssetPrice, uint32 priceTimestamp) = IMockUpkeep(
-            ITreasury(treasury).upkeep()
-        ).verifyReportWithTimestamp(unverifiedReport, feedId);
+        (
+            int192 startingAssetPrice,
+            uint32 priceTimestamp
+        ) = IDataStreamsVerifier(ITreasury(treasury).upkeep())
+                .verifyReportWithTimestamp(unverifiedReport, feedId);
         //block.timestamp must be > priceTimestamp
         require(
             block.timestamp - priceTimestamp <= 10 minutes,
@@ -151,9 +153,11 @@ contract OneVsOneUpDown is AccessControl, Initializable {
             "Max game duration must be lower"
         );
         require(depositAmount >= 1e19, "Wrong deposit amount");
-        (int192 startingAssetPrice, uint32 priceTimestamp) = IMockUpkeep(
-            ITreasury(treasury).upkeep()
-        ).verifyReportWithTimestamp(unverifiedReport, feedId);
+        (
+            int192 startingAssetPrice,
+            uint32 priceTimestamp
+        ) = IDataStreamsVerifier(ITreasury(treasury).upkeep())
+                .verifyReportWithTimestamp(unverifiedReport, feedId);
         require(
             block.timestamp - priceTimestamp <= 10 minutes,
             "Old chainlink report"
@@ -212,6 +216,7 @@ contract OneVsOneUpDown is AccessControl, Initializable {
                 "Only certain account can accept"
             );
         } else {
+            require(msg.sender != game.initiator, "Wrong opponent");
             game.opponent = msg.sender;
         }
         ITreasury(treasury).deposit(game.depositAmount, msg.sender);
@@ -247,6 +252,7 @@ contract OneVsOneUpDown is AccessControl, Initializable {
                 "Only certain account can accept"
             );
         } else {
+            require(msg.sender != game.initiator, "Wrong opponent");
             game.opponent = msg.sender;
         }
         ITreasury(treasury).depositWithPermit(
@@ -307,10 +313,12 @@ contract OneVsOneUpDown is AccessControl, Initializable {
         require(game.gameStatus == Status.Started, "Wrong status!");
         require(block.timestamp >= game.endTime, "Too early to finish");
         address upkeep = ITreasury(treasury).upkeep();
-        (int192 finalPrice, uint32 priceTimestamp) = IMockUpkeep(upkeep)
-            .verifyReportWithTimestamp(unverifiedReport, game.feedId);
+        (int192 finalPrice, uint32 priceTimestamp) = IDataStreamsVerifier(
+            upkeep
+        ).verifyReportWithTimestamp(unverifiedReport, game.feedId);
         require(
-            block.timestamp - priceTimestamp <= 10 minutes,
+            priceTimestamp - game.endTime <= 10 minutes ||
+                block.timestamp - priceTimestamp <= 10 minutes,
             "Old chainlink report"
         );
         if (
@@ -344,7 +352,7 @@ contract OneVsOneUpDown is AccessControl, Initializable {
                 Status.Finished
             );
         }
-        game.finalAssetPrice = finalPrice;
+        game.finalPrice = finalPrice;
         game.gameStatus = Status.Finished;
         games[gameId] = game;
     }

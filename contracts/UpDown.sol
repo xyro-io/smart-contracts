@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ITreasury} from "./interfaces/ITreasury.sol";
-import {IMockUpkeep} from "./interfaces/IMockUpkeep.sol";
+import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 
 contract UpDown is AccessControl, Initializable {
     event UpDownCreated(
@@ -143,10 +143,14 @@ contract UpDown is AccessControl, Initializable {
             "Not enough players"
         );
         address upkeep = ITreasury(treasury).upkeep();
-        game.startingPrice = IMockUpkeep(upkeep).verifyReport(
-            unverifiedReport,
-            game.feedId
+        (int192 startingPrice, uint32 priceTimestamp) = IDataStreamsVerifier(
+            upkeep
+        ).verifyReportWithTimestamp(unverifiedReport, game.feedId);
+        require(
+            block.timestamp - priceTimestamp <= 10 minutes,
+            "Old chainlink report"
         );
+        game.startingPrice = startingPrice;
         emit UpDownStarted(game.startingPrice, game.gameId);
     }
 
@@ -183,9 +187,14 @@ contract UpDown is AccessControl, Initializable {
         }
         require(game.startingPrice != 0, "Starting price must be set");
         address upkeep = ITreasury(treasury).upkeep();
-        int192 finalPrice = IMockUpkeep(upkeep).verifyReport(
-            unverifiedReport,
-            game.feedId
+        (int192 finalPrice, uint32 priceTimestamp) = IDataStreamsVerifier(
+            upkeep
+        ).verifyReportWithTimestamp(unverifiedReport, game.feedId);
+        //block.timestamp must be > priceTimestamp
+        require(
+            priceTimestamp - game.endTime <= 10 minutes ||
+                block.timestamp - priceTimestamp <= 10 minutes,
+            "Old chainlink report"
         );
         GameInfo memory _game = game;
         if (finalPrice > _game.startingPrice) {

@@ -10,12 +10,12 @@ import { Treasury } from "../typechain-types/contracts/Treasury.sol/Treasury";
 import { Treasury__factory } from "../typechain-types/factories/contracts/Treasury.sol/Treasury__factory";
 import { Bullseye } from "../typechain-types/contracts/Bullseye";
 import { Bullseye__factory } from "../typechain-types/factories/contracts/Bullseye__factory";
-import { MockUpkeep } from "../typechain-types/contracts/MockUpkeep";
-import { MockUpkeep__factory } from "../typechain-types/factories/contracts/MockUpkeep__factory";
-import { abiEncodeInt192 } from "../scripts/helper";
-import { FrontHelper } from "../typechain-types/contracts/FrontHelper";
-import { FrontHelper__factory } from "../typechain-types/factories/contracts/FrontHelper__factory";
+import { MockVerifier } from "../typechain-types/contracts/mock/MockVerifier";
+import { MockVerifier__factory } from "../typechain-types/factories/contracts/mock/MockVerifier__factory";
+import { abiEncodeInt192WithTimestamp } from "../scripts/helper";
+
 const parse18 = ethers.parseEther;
+const fortyFiveMinutes = 2700;
 
 describe("Bullseye", () => {
   let owner: HardhatEthersSigner;
@@ -25,13 +25,12 @@ describe("Bullseye", () => {
   let XyroToken: XyroToken;
   let Treasury: Treasury;
   let Game: Bullseye;
-  let Upkeep: MockUpkeep;
-  let FrontHelper:FrontHelper;
-  const feedId = "0x00037da06d56d083fe599397a4769a042d63aa73dc4ef57709d31e9971a5b439";
+  let Upkeep: MockVerifier;
+  const feedId =
+    "0x00037da06d56d083fe599397a4769a042d63aa73dc4ef57709d31e9971a5b439";
   const assetPrice = parse18("2310");
   before(async () => {
     [owner, opponent, alice] = await ethers.getSigners();
-    FrontHelper = await new FrontHelper__factory(owner).deploy();
     USDT = await new MockToken__factory(owner).deploy(
       parse18((1e13).toString())
     );
@@ -41,7 +40,7 @@ describe("Bullseye", () => {
       await XyroToken.getAddress()
     );
     Game = await new Bullseye__factory(owner).deploy();
-    Upkeep = await new MockUpkeep__factory(owner).deploy();
+    Upkeep = await new MockVerifier__factory(owner).deploy();
     await Game.setTreasury(await Treasury.getAddress());
     await Treasury.setUpkeep(await Upkeep.getAddress());
     await Treasury.setFee(100);
@@ -62,7 +61,6 @@ describe("Bullseye", () => {
       feedId
     );
     let bet = await Game.game();
-    console.log(bet)
     expect(bet.depositAmount).to.equal(parse18("100"));
   });
 
@@ -86,17 +84,34 @@ describe("Bullseye", () => {
   });
 
   it("should end bullseye game", async function () {
-    const data = await FrontHelper.getBullseyeData(await Game.getAddress())
-    console.log("data: ", data);
     let oldBalance = await USDT.balanceOf(alice.getAddress());
     await time.increase(2700);
-    const finalPrice = abiEncodeInt192(
-      ((assetPrice / BigInt(100)) * BigInt(95)).toString(),feedId
+    const finalPrice = abiEncodeInt192WithTimestamp(
+      ((assetPrice / BigInt(100)) * BigInt(95)).toString(),
+      feedId,
+      await time.latest()
     );
-    console.log("player",await Game.players(0))
     await Game.finalizeGame(finalPrice);
     let newBalance = await USDT.balanceOf(alice.getAddress());
-    // console.log("player",await Game.players(0))
     expect(newBalance).to.be.above(oldBalance);
+  });
+
+  it("should cancel game", async function () {
+    await Game.startGame(
+      (await time.latest()) + 2700,
+      (await time.latest()) + 900,
+      parse18("100"),
+      feedId
+    );
+    const finalPrice = abiEncodeInt192WithTimestamp(
+      ((assetPrice / BigInt(100)) * BigInt(95)).toString(),
+      feedId,
+      await time.latest()
+    );
+    await time.increase(2700);
+    await expect(Game.finalizeGame(finalPrice)).to.emit(
+      Game,
+      "BullseyeCancelled"
+    );
   });
 });

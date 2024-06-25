@@ -53,11 +53,14 @@ describe("Setup Game", () => {
       parse18((1e13).toString())
     );
     XyroToken = await new XyroToken__factory(owner).deploy(parse18("5000"));
-    Treasury = await new Treasury__factory(owner).deploy(
+    Treasury = await new Treasury__factory(owner).deploy();
+    await Treasury.initialize(
       await USDT.getAddress(),
       await XyroToken.getAddress()
     );
-    Game = await new Setup__factory(owner).deploy(await Treasury.getAddress());
+    Game = await new Setup__factory(owner).deploy();
+    await Game.initialize();
+    await Game.setTreasury(await Treasury.getAddress());
     Upkeep = await new MockVerifier__factory(owner).deploy();
     await Treasury.setFee(100);
     await Treasury.setUpkeep(await Upkeep.getAddress());
@@ -240,7 +243,8 @@ describe("Setup Game", () => {
   });
 
   it("should change treasury", async function () {
-    let temporaryTreasury = await new Treasury__factory(owner).deploy(
+    let temporaryTreasury = await new Treasury__factory(owner).deploy();
+    await temporaryTreasury.initialize(
       await USDT.getAddress(),
       await XyroToken.getAddress()
     );

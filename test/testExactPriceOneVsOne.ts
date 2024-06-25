@@ -54,11 +54,13 @@ describe("OneVsOneExactPrice", () => {
       parse18((1e13).toString())
     );
     XyroToken = await new XyroToken__factory(owner).deploy(parse18("5000"));
-    Treasury = await new Treasury__factory(owner).deploy(
+    Treasury = await new Treasury__factory(owner).deploy();
+    await Treasury.initialize(
       await USDT.getAddress(),
       await XyroToken.getAddress()
     );
     Game = await new OneVsOneExactPrice__factory(owner).deploy();
+    await Game.initialize();
     Upkeep = await new MockVerifier__factory(owner).deploy();
     await Game.setTreasury(await Treasury.getAddress());
     await USDT.mint(await opponent.getAddress(), parse18("1000"));

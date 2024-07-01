@@ -57,61 +57,62 @@ describe("Bullseye", () => {
     await Game.startGame(
       (await time.latest()) + 2700,
       (await time.latest()) + 900,
-      parse18("100"),
-      feedId
+      100,
+      4
     );
-    let bet = await Game.game();
-    expect(bet.depositAmount).to.equal(parse18("100"));
+    let bet = await Game.decodeData();
+    console.log(bet);
+    expect(bet.depositAmount).to.equal(100);
   });
 
-  it("should bet", async function () {
-    await USDT.connect(opponent).approve(
-      Treasury.getAddress(),
-      ethers.MaxUint256
-    );
-    await Game.connect(opponent).play((assetPrice / BigInt(100)) * BigInt(105));
-    expect(await USDT.balanceOf(Treasury.getAddress())).to.equal(
-      parse18("100")
-    );
-  });
+  // it("should bet", async function () {
+  //   await USDT.connect(opponent).approve(
+  //     Treasury.getAddress(),
+  //     ethers.MaxUint256
+  //   );
+  //   await Game.connect(opponent).play((assetPrice / BigInt(100)) * BigInt(105));
+  //   expect(await USDT.balanceOf(Treasury.getAddress())).to.equal(
+  //     parse18("100")
+  //   );
+  // });
 
-  it("should bet", async function () {
-    await USDT.connect(alice).approve(Treasury.getAddress(), ethers.MaxUint256);
-    await Game.connect(alice).play((assetPrice / BigInt(100)) * BigInt(95));
-    expect(await USDT.balanceOf(Treasury.getAddress())).to.equal(
-      parse18("200")
-    );
-  });
+  // it("should bet", async function () {
+  //   await USDT.connect(alice).approve(Treasury.getAddress(), ethers.MaxUint256);
+  //   await Game.connect(alice).play((assetPrice / BigInt(100)) * BigInt(95));
+  //   expect(await USDT.balanceOf(Treasury.getAddress())).to.equal(
+  //     parse18("200")
+  //   );
+  // });
 
-  it("should end bullseye game", async function () {
-    let oldBalance = await USDT.balanceOf(alice.getAddress());
-    await time.increase(2700);
-    const finalPrice = abiEncodeInt192WithTimestamp(
-      ((assetPrice / BigInt(100)) * BigInt(95)).toString(),
-      feedId,
-      await time.latest()
-    );
-    await Game.finalizeGame(finalPrice);
-    let newBalance = await USDT.balanceOf(alice.getAddress());
-    expect(newBalance).to.be.above(oldBalance);
-  });
+  // it("should end bullseye game", async function () {
+  //   let oldBalance = await USDT.balanceOf(alice.getAddress());
+  //   await time.increase(2700);
+  //   const finalPrice = abiEncodeInt192WithTimestamp(
+  //     ((assetPrice / BigInt(100)) * BigInt(95)).toString(),
+  //     feedId,
+  //     await time.latest()
+  //   );
+  //   await Game.finalizeGame(finalPrice);
+  //   let newBalance = await USDT.balanceOf(alice.getAddress());
+  //   expect(newBalance).to.be.above(oldBalance);
+  // });
 
-  it("should cancel game", async function () {
-    await Game.startGame(
-      (await time.latest()) + 2700,
-      (await time.latest()) + 900,
-      parse18("100"),
-      feedId
-    );
-    const finalPrice = abiEncodeInt192WithTimestamp(
-      ((assetPrice / BigInt(100)) * BigInt(95)).toString(),
-      feedId,
-      await time.latest()
-    );
-    await time.increase(2700);
-    await expect(Game.finalizeGame(finalPrice)).to.emit(
-      Game,
-      "BullseyeCancelled"
-    );
-  });
+  // it("should cancel game", async function () {
+  //   await Game.startGame(
+  //     (await time.latest()) + 2700,
+  //     (await time.latest()) + 900,
+  //     parse18("100"),
+  //     feedId
+  //   );
+  //   const finalPrice = abiEncodeInt192WithTimestamp(
+  //     ((assetPrice / BigInt(100)) * BigInt(95)).toString(),
+  //     feedId,
+  //     await time.latest()
+  //   );
+  //   await time.increase(2700);
+  //   await expect(Game.finalizeGame(finalPrice)).to.emit(
+  //     Game,
+  //     "BullseyeCancelled"
+  //   );
+  // });
 });

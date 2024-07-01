@@ -207,8 +207,52 @@ export function abiEncodeInt192(price: string, feedId: string): string {
   return encoded.slice(0, 3) + "0".repeat(16) + encoded.slice(3);
 }
 
-export function abiEncodeInt192WithTimestamp(price: string, feedId: string, timestamp: any): string {
-  const encoded = ethers.solidityPacked(["int192", "bytes32", "uint256"], [price, feedId, timestamp]);
+export function abiEncodeInt192WithTimestamp(
+  price: string,
+  feedId: number,
+  timestamp: any
+): string {
+  const encoded = ethers.solidityPacked(
+    ["int192", "uint8", "uint256"],
+    [price, feedId, timestamp]
+  );
+  // const end = encoded.length - 8;
+  // console.log(
+  //   encoded.slice(0, 3) +
+  //     "0".repeat(16) +
+  //     encoded.slice(3, 46) +
+  //     "0".repeat(62) +
+  //     encoded.slice(46)
+  // );
+  // console.log(encoded);
+  // console.log(
+  //   "first " + "0x00000000000000000000000000000080fb6ba7eda6ea".length
+  // );
+  // console.log(
+  //   "00000000000000000000000000000000000000000000000000000000000000".length
+  // );
+  // console.log(
+  //   "00000000000000000000000000000000000000000000000000000000".length
+  // );
+
+  return (
+    encoded.slice(0, 3) +
+    "0".repeat(16) +
+    encoded.slice(3, 46) +
+    "0".repeat(62) +
+    encoded.slice(46)
+  );
+}
+
+export function abiEncodeInt192WithTimestampOld(
+  price: string,
+  feedId: string,
+  timestamp: any
+): string {
+  const encoded = ethers.solidityPacked(
+    ["int192", "bytes32", "uint256"],
+    [price, feedId, timestamp]
+  );
   return encoded.slice(0, 3) + "0".repeat(16) + encoded.slice(3);
 }
 

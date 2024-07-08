@@ -40,11 +40,11 @@ describe("OneVsOneUpDown", () => {
   let Game: OneVsOneUpDown;
   let Upkeep: MockVerifier;
   let currentGameId: string;
-  const feedId =
-    "0x00037da06d56d083fe599397a4769a042d63aa73dc4ef57709d31e9971a5b439";
+  const feedId = 7;
   const startingPrice = parse18("2310").toString();
   const finalUpPrice = parse18("2330").toString();
   const finalDownPrice = parse18("2300").toString();
+  const usdtAmount = 100;
   before(async () => {
     [owner, opponent, alice] = await ethers.getSigners();
     USDT = await new MockToken__factory(owner).deploy(
@@ -73,16 +73,16 @@ describe("OneVsOneUpDown", () => {
       await opponent.getAddress(),
       (await time.latest()) + fortyFiveMinutes,
       false,
-      parse18("100"),
-      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest()),
-      feedId
+      usdtAmount,
+      feedId,
+      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest())
     );
 
     const receipt = await tx.wait();
-    currentGameId = receipt!.logs[1]!.args[0];
-    let bet = await Game.games(currentGameId);
-    expect(bet.initiator).to.equal(await owner.getAddress());
-    expect(bet.gameStatus).to.equal(0);
+    currentGameId = receipt!.logs[1]!.args[0][0];
+    let game = await Game.decodeData(currentGameId);
+    expect(game.initiator).to.equal(await owner.getAddress());
+    expect(game.gameStatus).to.equal(0);
   });
 
   it("should accept updown mode bet", async function () {
@@ -91,8 +91,8 @@ describe("OneVsOneUpDown", () => {
       ethers.MaxUint256
     );
     await Game.connect(opponent).acceptGame(currentGameId);
-    let bet = await Game.games(currentGameId);
-    expect(bet.gameStatus).to.equal(2);
+    let game = await Game.decodeData(currentGameId);
+    expect(game.gameStatus).to.equal(2);
   });
 
   it("should end updown game", async function () {
@@ -111,12 +111,12 @@ describe("OneVsOneUpDown", () => {
       await opponent.getAddress(),
       (await time.latest()) + fortyFiveMinutes,
       false,
-      parse18("100"),
-      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest()),
-      feedId
+      usdtAmount,
+      feedId,
+      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest())
     );
     const receipt = await tx.wait();
-    currentGameId = receipt!.logs[1]!.args[0];
+    currentGameId = receipt!.logs[1]!.args[0][0];
     await Game.connect(opponent).acceptGame(currentGameId);
 
     let oldBalance = await USDT.balanceOf(await owner.getAddress());
@@ -136,14 +136,14 @@ describe("OneVsOneUpDown", () => {
       ethers.ZeroAddress,
       (await time.latest()) + fortyFiveMinutes,
       false,
-      parse18("100"),
-      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest()),
-      feedId
+      usdtAmount,
+      feedId,
+      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest())
     );
     const receipt = await tx.wait();
-    currentGameId = receipt!.logs[1]!.args[0];
+    currentGameId = receipt!.logs[1]!.args[0][0];
     await Game.connect(opponent).acceptGame(currentGameId);
-    expect((await Game.games(currentGameId)).gameStatus).to.equal(2);
+    expect((await Game.decodeData(currentGameId)).gameStatus).to.equal(2);
   });
 
   it("should create and refuse updown game with refuseGame function", async function () {
@@ -151,14 +151,14 @@ describe("OneVsOneUpDown", () => {
       await opponent.getAddress(),
       (await time.latest()) + fortyFiveMinutes,
       false,
-      parse18("100"),
-      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest()),
-      feedId
+      usdtAmount,
+      feedId,
+      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest())
     );
     const receipt = await tx.wait();
-    currentGameId = receipt!.logs[1]!.args[0];
+    currentGameId = receipt!.logs[1]!.args[0][0];
     await Game.connect(opponent).refuseGame(currentGameId);
-    expect((await Game.games(currentGameId)).gameStatus).to.equal(4);
+    expect((await Game.decodeData(currentGameId)).gameStatus).to.equal(4);
   });
 
   it("should create and close updown game with closeGame function", async function () {
@@ -166,15 +166,15 @@ describe("OneVsOneUpDown", () => {
       await opponent.getAddress(),
       (await time.latest()) + fortyFiveMinutes,
       false,
-      parse18("100"),
-      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest()),
-      feedId
+      usdtAmount,
+      feedId,
+      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest())
     );
     const receipt = await tx.wait();
-    currentGameId = receipt!.logs[1]!.args[0];
+    currentGameId = receipt!.logs[1]!.args[0][0];
     await Game.connect(opponent).refuseGame(currentGameId);
     await Game.closeGame(currentGameId);
-    expect((await Game.games(currentGameId)).gameStatus).to.equal(1);
+    expect((await Game.decodeData(currentGameId)).gameStatus).to.equal(1);
   });
 
   it("should fail - wrong min bet duration", async function () {
@@ -183,13 +183,9 @@ describe("OneVsOneUpDown", () => {
         await opponent.getAddress(),
         (await time.latest()) + 1,
         false,
-        parse18("100"),
-        abiEncodeInt192WithTimestamp(
-          startingPrice,
-          feedId,
-          await time.latest()
-        ),
-        feedId
+        usdtAmount,
+        feedId,
+        abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest())
       )
     ).to.be.revertedWith(requireMinBetDuration);
   });
@@ -200,13 +196,9 @@ describe("OneVsOneUpDown", () => {
         await opponent.getAddress(),
         (await time.latest()) + monthUnix * 20,
         false,
-        parse18("100"),
-        abiEncodeInt192WithTimestamp(
-          startingPrice,
-          feedId,
-          await time.latest()
-        ),
-        feedId
+        usdtAmount,
+        feedId,
+        abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest())
       )
     ).to.be.revertedWith(requireMaxBetDuration);
   });
@@ -217,13 +209,9 @@ describe("OneVsOneUpDown", () => {
         await opponent.getAddress(),
         (await time.latest()) + fortyFiveMinutes,
         false,
-        parse18("1"),
-        abiEncodeInt192WithTimestamp(
-          startingPrice,
-          feedId,
-          await time.latest()
-        ),
-        feedId
+        1,
+        feedId,
+        abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest())
       )
     ).to.be.revertedWith(requireWrongBetAmount);
   });
@@ -233,12 +221,12 @@ describe("OneVsOneUpDown", () => {
       await opponent.getAddress(),
       (await time.latest()) + fortyFiveMinutes,
       false,
-      parse18("100"),
-      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest()),
-      feedId
+      usdtAmount,
+      feedId,
+      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest())
     );
     const receipt = await tx.wait();
-    currentGameId = receipt!.logs[1]!.args[0];
+    currentGameId = receipt!.logs[1]!.args[0][0];
     await Game.connect(opponent).refuseGame(currentGameId);
     await expect(
       Game.connect(opponent).acceptGame(currentGameId)
@@ -250,13 +238,13 @@ describe("OneVsOneUpDown", () => {
       await opponent.getAddress(),
       (await time.latest()) + fortyFiveMinutes,
       false,
-      parse18("100"),
-      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest()),
-      feedId
+      usdtAmount,
+      feedId,
+      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest())
     );
     await time.increase(fortyFiveMinutes / 3);
     const receipt = await tx.wait();
-    currentGameId = receipt!.logs[1]!.args[0];
+    currentGameId = receipt!.logs[1]!.args[0][0];
     await expect(
       Game.connect(opponent).acceptGame(currentGameId)
     ).to.be.revertedWith(requireGameClosed);
@@ -267,12 +255,12 @@ describe("OneVsOneUpDown", () => {
       await opponent.getAddress(),
       (await time.latest()) + fortyFiveMinutes,
       false,
-      parse18("100"),
-      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest()),
-      feedId
+      usdtAmount,
+      feedId,
+      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest())
     );
     const receipt = await tx.wait();
-    currentGameId = receipt!.logs[1]!.args[0];
+    currentGameId = receipt!.logs[1]!.args[0][0];
     await expect(
       Game.connect(alice).acceptGame(currentGameId)
     ).to.be.revertedWith(requireOnlyCertainAccount);
@@ -283,12 +271,13 @@ describe("OneVsOneUpDown", () => {
       await opponent.getAddress(),
       (await time.latest()) + fortyFiveMinutes,
       false,
-      parse18("100"),
-      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest()),
-      feedId
+      usdtAmount,
+      feedId,
+      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest())
     );
     const receipt = await tx.wait();
-    currentGameId = receipt!.logs[1]!.args[0];
+    currentGameId = receipt!.logs[1]!.args[0][0];
+    await Game.connect(opponent).acceptGame(currentGameId);
     await expect(Game.closeGame(currentGameId)).to.be.revertedWith(
       requireWrongStatus
     );
@@ -299,12 +288,12 @@ describe("OneVsOneUpDown", () => {
       await opponent.getAddress(),
       (await time.latest()) + fortyFiveMinutes,
       false,
-      parse18("100"),
-      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest()),
-      feedId
+      usdtAmount,
+      feedId,
+      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest())
     );
     const receipt = await tx.wait();
-    currentGameId = receipt!.logs[1]!.args[0];
+    currentGameId = receipt!.logs[1]!.args[0][0];
     await expect(
       Game.connect(alice).closeGame(currentGameId)
     ).to.be.revertedWith(requireWrongSender);
@@ -315,12 +304,12 @@ describe("OneVsOneUpDown", () => {
       await opponent.getAddress(),
       (await time.latest()) + fortyFiveMinutes,
       false,
-      parse18("100"),
-      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest()),
-      feedId
+      usdtAmount,
+      feedId,
+      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest())
     );
     const receipt = await tx.wait();
-    currentGameId = receipt!.logs[1]!.args[0];
+    currentGameId = receipt!.logs[1]!.args[0][0];
     await expect(
       Game.connect(alice).refuseGame(currentGameId)
     ).to.be.revertedWith(requireOnlyOpponent);
@@ -331,12 +320,12 @@ describe("OneVsOneUpDown", () => {
       await opponent.getAddress(),
       (await time.latest()) + fortyFiveMinutes,
       false,
-      parse18("100"),
-      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest()),
-      feedId
+      usdtAmount,
+      feedId,
+      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest())
     );
     const receipt = await tx.wait();
-    currentGameId = receipt!.logs[1]!.args[0];
+    currentGameId = receipt!.logs[1]!.args[0][0];
     await Game.connect(opponent).acceptGame(currentGameId);
     await expect(
       Game.connect(opponent).refuseGame(currentGameId)
@@ -348,12 +337,12 @@ describe("OneVsOneUpDown", () => {
       await opponent.getAddress(),
       (await time.latest()) + fortyFiveMinutes,
       false,
-      parse18("100"),
-      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest()),
-      feedId
+      usdtAmount,
+      feedId,
+      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest())
     );
     const receipt = await tx.wait();
-    currentGameId = receipt!.logs[1]!.args[0];
+    currentGameId = receipt!.logs[1]!.args[0][0];
     await expect(
       Game.finalizeGame(
         currentGameId,
@@ -367,12 +356,12 @@ describe("OneVsOneUpDown", () => {
       await opponent.getAddress(),
       (await time.latest()) + fortyFiveMinutes,
       false,
-      parse18("100"),
-      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest()),
-      feedId
+      usdtAmount,
+      feedId,
+      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest())
     );
     const receipt = await tx.wait();
-    currentGameId = receipt!.logs[1]!.args[0];
+    currentGameId = receipt!.logs[1]!.args[0][0];
     await Game.connect(opponent).acceptGame(currentGameId);
     await expect(
       Game.finalizeGame(
@@ -395,9 +384,9 @@ describe("OneVsOneUpDown", () => {
       await opponent.getAddress(),
       (await time.latest()) + fortyFiveMinutes,
       false,
-      parse18("100"),
-      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest()),
+      usdtAmount,
       feedId,
+      abiEncodeInt192WithTimestamp(startingPrice, feedId, await time.latest()),
       {
         deadline: deadline,
         v: result.v,
@@ -406,7 +395,8 @@ describe("OneVsOneUpDown", () => {
       }
     );
     const receipt = await tx.wait();
-    currentGameId = receipt!.logs[2]!.args[0];
+    console.log(receipt!.logs[1]!.args);
+    currentGameId = receipt!.logs[1]!.args[0][0];
 
     result = await getPermitSignature(
       opponent,

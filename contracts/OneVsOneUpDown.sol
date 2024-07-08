@@ -3,20 +3,10 @@ pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ITreasury} from "./interfaces/ITreasury.sol";
-import {IDataStreamsVerifierOptimized} from "./interfaces/IDataStreamsVerifierOptimized.sol";
+import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 
 contract OneVsOneUpDown is AccessControl {
-    event UpDownCreated(
-        bytes32 gameId,
-        uint8 feedId,
-        address opponent,
-        uint32 startTime,
-        uint32 endTime,
-        int192 startingAssetPrice,
-        bool isLong,
-        uint32 depositAmount,
-        address initiator
-    );
+    event UpDownCreated(CreateUpDown data);
     event UpDownAccepted(
         bytes32 gameId,
         address opponent,
@@ -39,16 +29,29 @@ contract OneVsOneUpDown is AccessControl {
         Finished,
         Refused
     }
+
+    struct CreateUpDown {
+        bytes32 gameId;
+        uint8 feedId;
+        address opponent;
+        uint32 startTime;
+        uint32 endTime;
+        int192 startingAssetPrice;
+        bool isLong;
+        uint32 depositAmount;
+        address initiator;
+    }
+
     struct GameInfo {
-        bytes32 feedId;
+        uint8 feedId;
         address initiator;
         uint256 startTime;
-        uint48 endTime;
+        uint256 endTime;
         address opponent;
         bool isLong; //Initiator choise
         uint256 depositAmount;
-        int192 startingAssetPrice;
-        int192 finalPrice;
+        uint256 startingAssetPrice;
+        uint256 finalPrice;
         Status gameStatus;
     }
 
@@ -94,17 +97,17 @@ contract OneVsOneUpDown is AccessControl {
         (
             int192 startingAssetPrice,
             uint32 priceTimestamp
-        ) = IDataStreamsVerifierOptimized(ITreasury(treasury).upkeep())
+        ) = IDataStreamsVerifier(ITreasury(treasury).upkeep())
                 .verifyReportWithTimestamp(unverifiedReport, feedId);
         //block.timestamp must be > priceTimestamp
         require(
             block.timestamp - priceTimestamp <= 10 minutes,
             "Old chainlink report"
         );
-        ITreasury(treasury).deposit(uint256(depositAmount), msg.sender);
+        ITreasury(treasury).deposit(depositAmount, msg.sender);
         uint256 packedData = uint(uint160(opponent));
         uint256 packedData2 = uint(uint160(msg.sender));
-        packedData |= uint256(uint192(startingAssetPrice)) << 160;
+        packedData |= uint256(uint192(startingAssetPrice / 1e14)) << 160;
         packedData |= block.timestamp << 192;
         packedData |= uint256(endTime) << 224;
         packedData2 |= uint256(depositAmount) << 160;
@@ -116,15 +119,17 @@ contract OneVsOneUpDown is AccessControl {
         );
         games[gameId] = GameInfoPacked(packedData, packedData2);
         emit UpDownCreated(
-            gameId,
-            feedId,
-            opponent,
-            uint32(block.timestamp),
-            endTime,
-            startingAssetPrice,
-            isLong,
-            depositAmount,
-            msg.sender
+            CreateUpDown(
+                gameId,
+                feedId,
+                opponent,
+                uint32(block.timestamp),
+                endTime,
+                startingAssetPrice,
+                isLong,
+                depositAmount,
+                msg.sender
+            )
         );
     }
 
@@ -135,240 +140,269 @@ contract OneVsOneUpDown is AccessControl {
     //@param depositAmount amount to enter the game
     //@param unverifiedReport Chainlink DataStreams report
     */
-    // function createGameWithPermit(
-    //     address opponent,
-    //     uint48 endTime,
-    //     bool isLong,
-    //     uint256 depositAmount,
-    //     bytes memory unverifiedReport,
-    //     bytes32 feedId,
-    //     ITreasury.PermitData calldata permitData
-    // ) public {
-    //     require(
-    //         endTime - block.timestamp >= minDuration,
-    //         "Min game duration must be higher"
-    //     );
-    //     require(
-    //         endTime - block.timestamp <= maxDuration,
-    //         "Max game duration must be lower"
-    //     );
-    //     require(depositAmount >= 1e19, "Wrong deposit amount");
-    //     (
-    //         int192 startingAssetPrice,
-    //         uint32 priceTimestamp
-    //     ) = IDataStreamsVerifier(ITreasury(treasury).upkeep())
-    //             .verifyReportWithTimestamp(unverifiedReport, feedId);
-    //     require(
-    //         block.timestamp - priceTimestamp <= 10 minutes,
-    //         "Old chainlink report"
-    //     );
-    //     GameInfo memory newGame;
-    //     newGame.startingAssetPrice = startingAssetPrice;
-    //     newGame.feedId = feedId;
-    //     newGame.initiator = msg.sender;
-    //     newGame.startTime = block.timestamp;
-    //     newGame.endTime = endTime;
-    //     ITreasury(treasury).depositWithPermit(
-    //         depositAmount,
-    //         msg.sender,
-    //         permitData.deadline,
-    //         permitData.v,
-    //         permitData.r,
-    //         permitData.s
-    //     );
-    //     newGame.depositAmount = depositAmount;
-    //     newGame.opponent = opponent;
-    //     newGame.isLong = isLong;
-    //     newGame.gameStatus = Status.Created;
-    //     bytes32 gameId = keccak256(
-    //         abi.encodePacked(endTime, block.timestamp, msg.sender, opponent)
-    //     );
-    //     games[gameId] = newGame;
-    //     emit UpDownCreated(
-    //         gameId,
-    //         feedId,
-    //         opponent,
-    //         block.timestamp,
-    //         endTime,
-    //         newGame.startingAssetPrice,
-    //         isLong,
-    //         depositAmount,
-    //         msg.sender
-    //     );
-    // }
+    function createGameWithPermit(
+        address opponent,
+        uint32 endTime,
+        bool isLong,
+        uint32 depositAmount,
+        uint8 feedId,
+        bytes memory unverifiedReport,
+        ITreasury.PermitData calldata permitData
+    ) public {
+        require(
+            endTime - block.timestamp >= minDuration,
+            "Min game duration must be higher"
+        );
+        require(
+            endTime - block.timestamp <= maxDuration,
+            "Max game duration must be lower"
+        );
+        require(depositAmount >= 10, "Wrong deposit amount");
+        (
+            int192 startingAssetPrice,
+            uint32 priceTimestamp
+        ) = IDataStreamsVerifier(ITreasury(treasury).upkeep())
+                .verifyReportWithTimestamp(unverifiedReport, feedId);
+        //block.timestamp must be > priceTimestamp
+        require(
+            block.timestamp - priceTimestamp <= 10 minutes,
+            "Old chainlink report"
+        );
+        ITreasury(treasury).depositWithPermit(
+            depositAmount,
+            msg.sender,
+            permitData.deadline,
+            permitData.v,
+            permitData.r,
+            permitData.s
+        );
+        uint256 packedData = uint(uint160(opponent));
+        uint256 packedData2 = uint(uint160(msg.sender));
+        packedData |= uint256(uint192(startingAssetPrice / 1e14)) << 160;
+        packedData |= block.timestamp << 192;
+        packedData |= uint256(endTime) << 224;
+        packedData2 |= uint256(depositAmount) << 160;
+        packedData2 |= uint256(feedId) << 192;
+        packedData2 |= uint256(Status.Created) << 200;
+        packedData2 |= isLong ? uint(1) << 208 : uint(0) << 208;
+        bytes32 gameId = keccak256(
+            abi.encodePacked(endTime, block.timestamp, msg.sender, opponent)
+        );
+        games[gameId] = GameInfoPacked(packedData, packedData2);
+        emit UpDownCreated(
+            CreateUpDown(
+                gameId,
+                feedId,
+                opponent,
+                uint32(block.timestamp),
+                endTime,
+                startingAssetPrice,
+                isLong,
+                depositAmount,
+                msg.sender
+            )
+        );
+    }
 
-    // /**
-    //  * Accepts 1vs1 up/down mode game
-    //  * @param gameId game id
-    //  */
-    // function acceptGame(bytes32 gameId) public {
-    //     GameInfo memory game = games[gameId];
-    //     require(game.gameStatus == Status.Created, "Wrong status!");
-    //     require(
-    //         game.startTime + (game.endTime - game.startTime) / 3 >=
-    //             block.timestamp,
-    //         "Game is closed for new players"
-    //     );
-    //     //If game is not private address should be 0
-    //     if (game.opponent != address(0)) {
-    //         require(
-    //             msg.sender == game.opponent,
-    //             "Only certain account can accept"
-    //         );
-    //     } else {
-    //         require(msg.sender != game.initiator, "Wrong opponent");
-    //         game.opponent = msg.sender;
-    //     }
-    //     ITreasury(treasury).deposit(game.depositAmount, msg.sender);
-    //     game.gameStatus = Status.Started;
-    //     games[gameId] = game;
-    //     emit UpDownAccepted(
-    //         gameId,
-    //         msg.sender,
-    //         !game.isLong,
-    //         game.depositAmount
-    //     );
-    // }
+    /**
+     * Accepts 1vs1 up/down mode game
+     * @param gameId game id
+     */
+    function acceptGame(bytes32 gameId) public {
+        GameInfo memory game = decodeData(gameId);
+        require(game.gameStatus == Status.Created, "Wrong status!");
+        require(
+            game.startTime + (game.endTime - game.startTime) / 3 >=
+                block.timestamp,
+            "Game is closed for new players"
+        );
+        //If game is not private address should be 0
+        if (game.opponent != address(0)) {
+            require(
+                msg.sender == game.opponent,
+                "Only certain account can accept"
+            );
+        } else {
+            require(msg.sender != game.initiator, "Wrong opponent");
+            games[gameId].packedData = uint256(uint160(msg.sender));
+        }
+        ITreasury(treasury).deposit(game.depositAmount, msg.sender);
+        games[gameId].packedData2 =
+            (games[gameId].packedData2 & ~(~uint256(0) << 200)) |
+            (uint256(uint8(Status.Started)) << 200);
+        emit UpDownAccepted(
+            gameId,
+            msg.sender,
+            !game.isLong,
+            game.depositAmount
+        );
+    }
 
-    // /**
-    //  * Accepts 1vs1 up/down mode game with permit
-    //  * @param gameId game id
-    //  */
-    // function acceptGameWithPermit(
-    //     bytes32 gameId,
-    //     ITreasury.PermitData calldata permitData
-    // ) public {
-    //     GameInfo memory game = games[gameId];
-    //     require(game.gameStatus == Status.Created, "Wrong status!");
-    //     require(
-    //         game.startTime + (game.endTime - game.startTime) / 3 >=
-    //             block.timestamp,
-    //         "Game is closed for new players"
-    //     );
-    //     //If game is not private address should be 0
-    //     if (game.opponent != address(0)) {
-    //         require(
-    //             msg.sender == game.opponent,
-    //             "Only certain account can accept"
-    //         );
-    //     } else {
-    //         require(msg.sender != game.initiator, "Wrong opponent");
-    //         game.opponent = msg.sender;
-    //     }
-    //     ITreasury(treasury).depositWithPermit(
-    //         game.depositAmount,
-    //         msg.sender,
-    //         permitData.deadline,
-    //         permitData.v,
-    //         permitData.r,
-    //         permitData.s
-    //     );
-    //     game.gameStatus = Status.Started;
-    //     games[gameId] = game;
-    //     emit UpDownAccepted(
-    //         gameId,
-    //         msg.sender,
-    //         !game.isLong,
-    //         game.depositAmount
-    //     );
-    // }
+    /**
+     * Accepts 1vs1 up/down mode game with permit
+     * @param gameId game id
+     */
+    function acceptGameWithPermit(
+        bytes32 gameId,
+        ITreasury.PermitData calldata permitData
+    ) public {
+        GameInfo memory game = decodeData(gameId);
+        require(game.gameStatus == Status.Created, "Wrong status!");
+        require(
+            game.startTime + (game.endTime - game.startTime) / 3 >=
+                block.timestamp,
+            "Game is closed for new players"
+        );
+        //If game is not private address should be 0
+        if (game.opponent != address(0)) {
+            require(
+                msg.sender == game.opponent,
+                "Only certain account can accept"
+            );
+        } else {
+            require(msg.sender != game.initiator, "Wrong opponent");
+            games[gameId].packedData = uint256(uint160(msg.sender));
+        }
+        ITreasury(treasury).depositWithPermit(
+            game.depositAmount,
+            msg.sender,
+            permitData.deadline,
+            permitData.v,
+            permitData.r,
+            permitData.s
+        );
+        games[gameId].packedData2 =
+            (games[gameId].packedData2 & ~(~uint256(0) << 200)) |
+            (uint256(uint8(Status.Started)) << 200);
+        emit UpDownAccepted(
+            gameId,
+            msg.sender,
+            !game.isLong,
+            game.depositAmount
+        );
+    }
 
-    // /**
-    //  * Changes game status if opponent refuses to play
-    //  * @param gameId game id
-    //  */
-    // function refuseGame(bytes32 gameId) public {
-    //     GameInfo memory game = games[gameId];
-    //     require(game.gameStatus == Status.Created, "Wrong status!");
-    //     require(msg.sender == game.opponent, "Only opponent can refuse");
-    //     game.gameStatus = Status.Refused;
-    //     games[gameId] = game;
-    //     emit UpDownRefused(gameId);
-    // }
+    /**
+     * Changes game status if opponent refuses to play
+     * @param gameId game id
+     */
+    function refuseGame(bytes32 gameId) public {
+        GameInfo memory game = decodeData(gameId);
+        require(game.gameStatus == Status.Created, "Wrong status!");
+        require(msg.sender == game.opponent, "Only opponent can refuse");
+        games[gameId].packedData2 =
+            (games[gameId].packedData2 & ~(~uint256(0) << 200)) |
+            (uint256(uint8(Status.Refused)) << 200);
+        emit UpDownRefused(gameId);
+    }
 
-    // /**
-    //  * Closes game and refunds tokens
-    //  * @param gameId game id
-    //  */
-    // function closeGame(bytes32 gameId) public {
-    //     GameInfo memory game = games[gameId];
-    //     require(game.initiator == msg.sender, "Wrong sender");
-    //     require(game.gameStatus == Status.Created, "Wrong status!");
-    //     ITreasury(treasury).refund(game.depositAmount, game.initiator);
-    //     game.gameStatus = Status.Cancelled;
-    //     games[gameId] = game;
-    //     emit UpDownCancelled(gameId);
-    // }
+    /**
+     * Closes game and refunds tokens
+     * @param gameId game id
+     */
+    function closeGame(bytes32 gameId) public {
+        GameInfo memory game = decodeData(gameId);
+        require(game.initiator == msg.sender, "Wrong sender");
+        require(
+            game.gameStatus == Status.Created ||
+                game.gameStatus == Status.Refused,
+            "Wrong status!"
+        );
+        ITreasury(treasury).refund(game.depositAmount, game.initiator);
+        games[gameId].packedData2 =
+            (games[gameId].packedData2 & ~(~uint256(0) << 200)) |
+            (uint256(uint8(Status.Cancelled)) << 200);
+        emit UpDownCancelled(gameId);
+    }
 
-    // /**
-    //  * Finalizes 1vs1 up/down mode game and distributes rewards to players
-    //  * @param gameId game id
-    //  * @param unverifiedReport Chainlink DataStreams report
-    //  */
-    // function finalizeGame(
-    //     bytes32 gameId,
-    //     bytes memory unverifiedReport
-    // ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    //     GameInfo memory game = games[gameId];
-    //     require(game.gameStatus == Status.Started, "Wrong status!");
-    //     require(block.timestamp >= game.endTime, "Too early to finish");
-    //     address upkeep = ITreasury(treasury).upkeep();
-    //     (int192 finalPrice, uint32 priceTimestamp) = IDataStreamsVerifier(
-    //         upkeep
-    //     ).verifyReportWithTimestamp(unverifiedReport, game.feedId);
-    //     require(
-    //         priceTimestamp - game.endTime <= 10 minutes ||
-    //             block.timestamp - priceTimestamp <= 10 minutes,
-    //         "Old chainlink report"
-    //     );
-    //     if (
-    //         game.isLong
-    //             ? game.startingAssetPrice < finalPrice
-    //             : game.startingAssetPrice > finalPrice
-    //     ) {
-    //         ITreasury(treasury).distribute(
-    //             game.depositAmount * 2,
-    //             game.initiator,
-    //             game.depositAmount,
-    //             fee
-    //         );
-    //         emit UpDownFinalized(
-    //             gameId,
-    //             game.isLong,
-    //             finalPrice,
-    //             Status.Finished
-    //         );
-    //     } else {
-    //         ITreasury(treasury).distribute(
-    //             game.depositAmount * 2,
-    //             game.opponent,
-    //             game.depositAmount,
-    //             fee
-    //         );
-    //         emit UpDownFinalized(
-    //             gameId,
-    //             !game.isLong,
-    //             finalPrice,
-    //             Status.Finished
-    //         );
-    //     }
-    //     game.finalPrice = finalPrice;
-    //     game.gameStatus = Status.Finished;
-    //     games[gameId] = game;
-    // }
+    /**
+     * Finalizes 1vs1 up/down mode game and distributes rewards to players
+     * @param gameId game id
+     * @param unverifiedReport Chainlink DataStreams report
+     */
+    function finalizeGame(
+        bytes32 gameId,
+        bytes memory unverifiedReport
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        GameInfo memory game = decodeData(gameId);
+        require(game.gameStatus == Status.Started, "Wrong status!");
+        require(block.timestamp >= game.endTime, "Too early to finish");
+        address upkeep = ITreasury(treasury).upkeep();
+        (int192 finalPrice, uint32 priceTimestamp) = IDataStreamsVerifier(
+            upkeep
+        ).verifyReportWithTimestamp(unverifiedReport, game.feedId);
+        require(
+            priceTimestamp - game.endTime <= 10 minutes ||
+                block.timestamp - priceTimestamp <= 10 minutes,
+            "Old chainlink report"
+        );
+        if (
+            game.isLong
+                ? game.startingAssetPrice < uint192(finalPrice) / 1e14
+                : game.startingAssetPrice > uint192(finalPrice) / 1e14
+        ) {
+            ITreasury(treasury).distribute(
+                game.depositAmount * 2,
+                game.initiator,
+                game.depositAmount,
+                fee
+            );
+            emit UpDownFinalized(
+                gameId,
+                game.isLong,
+                finalPrice,
+                Status.Finished
+            );
+        } else {
+            ITreasury(treasury).distribute(
+                game.depositAmount * 2,
+                game.opponent,
+                game.depositAmount,
+                fee
+            );
+            emit UpDownFinalized(
+                gameId,
+                !game.isLong,
+                finalPrice,
+                Status.Finished
+            );
+        }
+        games[gameId].packedData2 =
+            (games[gameId].packedData2 & ~(~uint256(0) << 200)) |
+            (uint256(uint8(Status.Finished)) << 200);
+        games[gameId].packedData2 |= uint256(uint192(finalPrice) / 1e14) << 216;
+    }
 
-    // /**
-    //  * Changes min and max game limits
-    //  * @param newMaxDuration new max game duration
-    //  * @param newMinDuration new min game duration
-    //  */
-    // function changeGameDuration(
-    //     uint256 newMaxDuration,
-    //     uint256 newMinDuration
-    // ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    //     minDuration = newMinDuration;
-    //     maxDuration = newMaxDuration;
-    // }
+    function decodeData(
+        bytes32 gameId
+    ) public view returns (GameInfo memory gameData) {
+        uint256 packedData = games[gameId].packedData;
+        uint256 packedData2 = games[gameId].packedData2;
+        gameData.opponent = address(uint160(packedData));
+        gameData.startingAssetPrice = uint256(uint32(packedData >> 160));
+        gameData.startTime = uint256(uint32(packedData >> 192));
+        gameData.endTime = uint256(uint32(packedData >> 224));
+
+        gameData.initiator = address(uint160(packedData2));
+        gameData.depositAmount = uint256(uint32(packedData2 >> 160));
+        gameData.feedId = uint8(packedData2 >> 192);
+        gameData.gameStatus = Status(uint8(packedData2 >> 200));
+        gameData.isLong = packedData2 >> 208 == 1;
+        gameData.finalPrice = uint256(uint32(packedData2 >> 216));
+    }
+
+    /**
+     * Changes min and max game limits
+     * @param newMaxDuration new max game duration
+     * @param newMinDuration new min game duration
+     */
+    function changeGameDuration(
+        uint256 newMaxDuration,
+        uint256 newMinDuration
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        minDuration = newMinDuration;
+        maxDuration = newMaxDuration;
+    }
 
     /**
      * Change treasury address

@@ -73,11 +73,11 @@ interface IFeeManager {
 
     function i_rewardManager() external view returns (address);
 }
- /**
+/**
  * @dev This contract implements functionality to verify Data Streams reports from
  * the Streams Direct API or WebSocket connection, with payment in LINK tokens.
  */
-contract ClientReportsVerifier {
+contract DataStreamsVerifier {
     error NothingToWithdraw(); // Thrown when a withdrawal attempt is made but the contract holds no tokens of the specified type.
     error NotOwner(address caller); // Thrown when a caller tries to execute a function that is restricted to the contract's owner.
 
@@ -103,7 +103,7 @@ contract ClientReportsVerifier {
         int192 ask; // Simulated price impact of a sell order up to the X% depth of liquidity utilisation
     }
 
-    mapping(bytes32 => IVerifierProxy) public verifiersProxy;
+    mapping(uint8 => IVerifierProxy) public verifiersProxy;
     // IVerifierProxy public s_verifierProxy;
 
     address private s_owner;
@@ -125,7 +125,10 @@ contract ClientReportsVerifier {
         _;
     }
 
-    function verifyReportWithTimestamp(bytes memory unverifiedReport, bytes32 feedId) external returns(int192, uint32) {
+    function verifyReportWithTimestamp(
+        bytes memory unverifiedReport,
+        uint8 feedId
+    ) external returns (int192, uint32) {
         // Report verification fees
         IFeeManager feeManager = IFeeManager(
             address(verifiersProxy[feedId].s_feeManager())
@@ -145,7 +148,7 @@ contract ClientReportsVerifier {
             reportData,
             feeTokenAddress
         );
-   // Approve rewardManager to spend this contract's balance in fees
+        // Approve rewardManager to spend this contract's balance in fees
         IERC20(feeTokenAddress).approve(address(rewardManager), fee.amount);
 
         // Verify the report
@@ -153,7 +156,7 @@ contract ClientReportsVerifier {
             unverifiedReport,
             abi.encode(feeTokenAddress)
         );
-          // Decode verified report data into BasicReport struct
+        // Decode verified report data into BasicReport struct
         // If your report is a PremiumReport, you should decode it as a PremiumReport
         BasicReport memory verifiedReport = abi.decode(
             verifiedReportData,
@@ -169,7 +172,10 @@ contract ClientReportsVerifier {
         return (verifiedReport.price, verifiedReport.validFromTimestamp);
     }
 
-    function verifyReport(bytes memory unverifiedReport, bytes32 feedId) external returns(int192) {
+    function verifyReport(
+        bytes memory unverifiedReport,
+        uint8 feedId
+    ) external returns (int192) {
         // Report verification fees
         IFeeManager feeManager = IFeeManager(
             address(verifiersProxy[feedId].s_feeManager())
@@ -189,7 +195,7 @@ contract ClientReportsVerifier {
             reportData,
             feeTokenAddress
         );
-   // Approve rewardManager to spend this contract's balance in fees
+        // Approve rewardManager to spend this contract's balance in fees
         IERC20(feeTokenAddress).approve(address(rewardManager), fee.amount);
 
         // Verify the report
@@ -197,7 +203,7 @@ contract ClientReportsVerifier {
             unverifiedReport,
             abi.encode(feeTokenAddress)
         );
-          // Decode verified report data into BasicReport struct
+        // Decode verified report data into BasicReport struct
         // If your report is a PremiumReport, you should decode it as a PremiumReport
         BasicReport memory verifiedReport = abi.decode(
             verifiedReportData,
@@ -212,7 +218,7 @@ contract ClientReportsVerifier {
         return verifiedReport.price;
     }
 
-    function setFeedId(bytes32 feedId, address verifierProxy) public {
+    function setFeedId(uint8 feedId, address verifierProxy) public {
         verifiersProxy[feedId] = IVerifierProxy(verifierProxy);
     }
 
@@ -235,7 +241,7 @@ contract ClientReportsVerifier {
         IERC20(_token).safeTransfer(_beneficiary, amount);
     }
 
-    function approve(bytes32 feedId, uint256 amount) public {
+    function approve(uint8 feedId, uint256 amount) public {
         IFeeManager feeManager = IFeeManager(
             address(verifiersProxy[feedId].s_feeManager())
         );

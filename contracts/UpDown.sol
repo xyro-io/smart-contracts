@@ -3,7 +3,8 @@ pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ITreasury} from "./interfaces/ITreasury.sol";
-import {IDataStreamsVerifierOptimized} from "./interfaces/IDataStreamsVerifierOptimized.sol";
+import "hardhat/console.sol";
+import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 
 contract UpDown is AccessControl {
     event UpDownCreated(
@@ -72,6 +73,202 @@ contract UpDown is AccessControl {
         );
     }
 
+    /**
+     * Take a participation in up/down game
+     * @param isLong up = true, down = false
+     * @param depositAmount amount to deposit in game
+     */
+    function play(
+        bool isLong,
+        uint256 depositAmount
+    ) public isParticipating(msg.sender) {
+        GameInfo memory game = decodeData();
+        require(
+            game.stopPredictAt >= block.timestamp,
+            "Game is closed for new players"
+        );
+        if (isLong) {
+            packedData =
+                (packedData & ~(~uint256(0) << 168)) |
+                ((depositAmount + game.totalDepositsUp) << 168);
+            UpPlayers.push(msg.sender);
+        } else {
+            packedData =
+                (packedData & ~(~uint256(0) << 136)) |
+                ((depositAmount + game.totalDepositsDown) << 136);
+            DownPlayers.push(msg.sender);
+        }
+        depositAmounts[msg.sender] = depositAmount;
+        ITreasury(treasury).deposit(depositAmount, msg.sender);
+        emit UpDownNewPlayer(msg.sender, isLong, depositAmount, currentGameId);
+    }
+
+    /**
+     * Take a participation in up/down game
+     * @param isLong up = true, down = false
+     */
+    function playWithPermit(
+        bool isLong,
+        uint256 depositAmount,
+        ITreasury.PermitData calldata permitData
+    ) public isParticipating(msg.sender) {
+        GameInfo memory game = decodeData();
+        require(
+            game.stopPredictAt >= block.timestamp,
+            "Game is closed for new players"
+        );
+        if (isLong) {
+            packedData =
+                (packedData & ~(~uint256(0) << 168)) |
+                ((depositAmount + game.totalDepositsUp) << 168);
+            UpPlayers.push(msg.sender);
+        } else {
+            packedData =
+                (packedData & ~(~uint256(0) << 136)) |
+                ((depositAmount + game.totalDepositsDown) << 136);
+            DownPlayers.push(msg.sender);
+        }
+        depositAmounts[msg.sender] = depositAmount;
+        ITreasury(treasury).depositWithPermit(
+            depositAmount,
+            msg.sender,
+            permitData.deadline,
+            permitData.v,
+            permitData.r,
+            permitData.s
+        );
+        emit UpDownNewPlayer(msg.sender, isLong, depositAmount, currentGameId);
+    }
+
+    function setStartingPrice(
+        bytes memory unverifiedReport
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        GameInfo memory game = decodeData();
+        require(block.timestamp >= game.stopPredictAt, "Too early");
+        require(
+            UpPlayers.length != 0 || DownPlayers.length != 0,
+            "Not enough players"
+        );
+        address upkeep = ITreasury(treasury).upkeep();
+        (int192 startingPrice, uint32 priceTimestamp) = IDataStreamsVerifier(
+            upkeep
+        ).verifyReportWithTimestamp(unverifiedReport, game.feedId);
+        require(
+            block.timestamp - priceTimestamp <= 10 minutes,
+            "Old chainlink report"
+        );
+        packedData |= uint192(startingPrice / 1e14) << 104;
+        emit UpDownStarted(startingPrice, currentGameId);
+    }
+
+    /**
+     * Finalizes up/down game and distributes rewards to players
+     * @param unverifiedReport Chainlink DataStreams report
+     */
+    function finalizeGame(
+        bytes memory unverifiedReport
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        GameInfo memory game = decodeData();
+        require(packedData != 0, "Start the game first");
+        require(block.timestamp >= game.endTime, "Too early to finish");
+        if (UpPlayers.length == 0 || DownPlayers.length == 0) {
+            if (UpPlayers.length > 0) {
+                for (uint i; i < UpPlayers.length; i++) {
+                    ITreasury(treasury).refund(
+                        depositAmounts[UpPlayers[i]],
+                        UpPlayers[i]
+                    );
+                }
+                delete UpPlayers;
+            } else if (DownPlayers.length > 0) {
+                for (uint i; i < DownPlayers.length; i++) {
+                    ITreasury(treasury).refund(
+                        depositAmounts[DownPlayers[i]],
+                        DownPlayers[i]
+                    );
+                }
+                delete DownPlayers;
+            }
+            emit UpDownCancelled(currentGameId);
+            packedData = 0;
+            currentGameId = bytes32(0);
+            return;
+        }
+        require(game.startingPrice != 0, "Starting price must be set");
+        address upkeep = ITreasury(treasury).upkeep();
+        (int192 finalPrice, uint32 priceTimestamp) = IDataStreamsVerifier(
+            upkeep
+        ).verifyReportWithTimestamp(unverifiedReport, game.feedId);
+        //block.timestamp must be > priceTimestamp
+        require(
+            priceTimestamp - game.endTime <= 10 minutes ||
+                block.timestamp - priceTimestamp <= 10 minutes,
+            "Old chainlink report"
+        );
+        GameInfo memory _game = game;
+        if (uint192(finalPrice / 1e14) > _game.startingPrice) {
+            uint256 finalRate = ITreasury(treasury).calculateUpDownRate(
+                _game.totalDepositsDown,
+                _game.totalDepositsUp,
+                fee
+            );
+            for (uint i = 0; i < UpPlayers.length; i++) {
+                ITreasury(treasury).distributeWithoutFee(
+                    finalRate,
+                    UpPlayers[i],
+                    depositAmounts[UpPlayers[i]]
+                );
+            }
+            emit UpDownFinalized(finalPrice, true, currentGameId);
+        } else {
+            uint256 finalRate = ITreasury(treasury).calculateUpDownRate(
+                _game.totalDepositsUp,
+                _game.totalDepositsDown,
+                fee
+            );
+            for (uint i = 0; i < DownPlayers.length; i++) {
+                ITreasury(treasury).distributeWithoutFee(
+                    finalRate,
+                    DownPlayers[i],
+                    depositAmounts[DownPlayers[i]]
+                );
+            }
+            emit UpDownFinalized(finalPrice, false, currentGameId);
+        }
+
+        for (uint i = 0; i < UpPlayers.length; i++) {
+            depositAmounts[UpPlayers[i]] = 0;
+        }
+        for (uint i = 0; i < DownPlayers.length; i++) {
+            depositAmounts[DownPlayers[i]] = 0;
+        }
+
+        delete DownPlayers;
+        delete UpPlayers;
+        currentGameId = bytes32(0);
+        packedData = 0;
+    }
+
+    function closeGame() public onlyRole(DEFAULT_ADMIN_ROLE) {
+        for (uint i; i < UpPlayers.length; i++) {
+            ITreasury(treasury).refund(
+                depositAmounts[UpPlayers[i]],
+                UpPlayers[i]
+            );
+        }
+        delete UpPlayers;
+        for (uint i; i < DownPlayers.length; i++) {
+            ITreasury(treasury).refund(
+                depositAmounts[DownPlayers[i]],
+                DownPlayers[i]
+            );
+        }
+        delete DownPlayers;
+        emit UpDownCancelled(currentGameId);
+        currentGameId = bytes32(0);
+        packedData = 0;
+    }
+
     function decodeData() public view returns (GameInfo memory data) {
         data.startTime = uint256(uint32(packedData));
         data.stopPredictAt = uint256(uint32(packedData >> 32));
@@ -81,188 +278,6 @@ contract UpDown is AccessControl {
         data.totalDepositsDown = uint256(uint32(packedData >> 136));
         data.totalDepositsUp = uint256(uint32(packedData >> 168));
     }
-
-    // /**
-    //  * Take a participation in up/down game
-    //  * @param isLong up = true, down = false
-    //  * @param depositAmount amount to deposit in game
-    //  */
-    // function play(
-    //     bool isLong,
-    //     uint256 depositAmount
-    // ) public isParticipating(msg.sender) {
-    //     require(
-    //         game.stopPredictAt >= block.timestamp,
-    //         "Game is closed for new players"
-    //     );
-    //     if (isLong) {
-    //         game.totalDepositsUp += depositAmount;
-    //         UpPlayers.push(msg.sender);
-    //     } else {
-    //         game.totalDepositsDown += depositAmount;
-    //         DownPlayers.push(msg.sender);
-    //     }
-    //     depositAmounts[msg.sender] = depositAmount;
-    //     ITreasury(treasury).deposit(depositAmount, msg.sender);
-    //     emit UpDownNewPlayer(msg.sender, isLong, depositAmount, game.gameId);
-    // }
-
-    // /**
-    //  * Take a participation in up/down game
-    //  * @param isLong up = true, down = false
-    //  */
-    // function playWithPermit(
-    //     bool isLong,
-    //     uint256 depositAmount,
-    //     ITreasury.PermitData calldata permitData
-    // ) public isParticipating(msg.sender) {
-    //     require(
-    //         game.stopPredictAt >= block.timestamp,
-    //         "Game is closed for new players"
-    //     );
-    //     if (isLong) {
-    //         game.totalDepositsUp += depositAmount;
-    //         UpPlayers.push(msg.sender);
-    //     } else {
-    //         game.totalDepositsDown += depositAmount;
-    //         DownPlayers.push(msg.sender);
-    //     }
-    //     depositAmounts[msg.sender] = depositAmount;
-    //     ITreasury(treasury).depositWithPermit(
-    //         depositAmount,
-    //         msg.sender,
-    //         permitData.deadline,
-    //         permitData.v,
-    //         permitData.r,
-    //         permitData.s
-    //     );
-    //     emit UpDownNewPlayer(msg.sender, isLong, depositAmount, game.gameId);
-    // }
-
-    // function setStartingPrice(
-    //     bytes memory unverifiedReport
-    // ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    //     require(block.timestamp >= game.stopPredictAt, "Too early");
-    //     require(
-    //         UpPlayers.length != 0 || DownPlayers.length != 0,
-    //         "Not enough players"
-    //     );
-    //     address upkeep = ITreasury(treasury).upkeep();
-    //     (int192 startingPrice, uint32 priceTimestamp) = IDataStreamsVerifier(
-    //         upkeep
-    //     ).verifyReportWithTimestamp(unverifiedReport, game.feedId);
-    //     require(
-    //         block.timestamp - priceTimestamp <= 10 minutes,
-    //         "Old chainlink report"
-    //     );
-    //     game.startingPrice = startingPrice;
-    //     emit UpDownStarted(game.startingPrice, game.gameId);
-    // }
-
-    // /**
-    //  * Finalizes up/down game and distributes rewards to players
-    //  * @param unverifiedReport Chainlink DataStreams report
-    //  */
-    // function finalizeGame(
-    //     bytes memory unverifiedReport
-    // ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    //     require(game.gameId != bytes32(0), "Start the game first");
-    //     require(block.timestamp >= game.endTime, "Too early to finish");
-    //     if (UpPlayers.length == 0 || DownPlayers.length == 0) {
-    //         if (UpPlayers.length > 0) {
-    //             for (uint i; i < UpPlayers.length; i++) {
-    //                 ITreasury(treasury).refund(
-    //                     depositAmounts[UpPlayers[i]],
-    //                     UpPlayers[i]
-    //                 );
-    //             }
-    //             delete UpPlayers;
-    //         } else if (DownPlayers.length > 0) {
-    //             for (uint i; i < DownPlayers.length; i++) {
-    //                 ITreasury(treasury).refund(
-    //                     depositAmounts[DownPlayers[i]],
-    //                     DownPlayers[i]
-    //                 );
-    //             }
-    //             delete DownPlayers;
-    //         }
-    //         emit UpDownCancelled(game.gameId);
-    //         delete game;
-    //         return;
-    //     }
-    //     require(game.startingPrice != 0, "Starting price must be set");
-    //     address upkeep = ITreasury(treasury).upkeep();
-    //     (int192 finalPrice, uint32 priceTimestamp) = IDataStreamsVerifier(
-    //         upkeep
-    //     ).verifyReportWithTimestamp(unverifiedReport, game.feedId);
-    //     //block.timestamp must be > priceTimestamp
-    //     require(
-    //         priceTimestamp - game.endTime <= 10 minutes ||
-    //             block.timestamp - priceTimestamp <= 10 minutes,
-    //         "Old chainlink report"
-    //     );
-    //     GameInfo memory _game = game;
-    //     if (finalPrice > _game.startingPrice) {
-    //         uint256 finalRate = ITreasury(treasury).calculateUpDownRate(
-    //             _game.totalDepositsDown,
-    //             _game.totalDepositsUp,
-    //             fee
-    //         );
-    //         for (uint i = 0; i < UpPlayers.length; i++) {
-    //             ITreasury(treasury).distributeWithoutFee(
-    //                 finalRate,
-    //                 UpPlayers[i],
-    //                 depositAmounts[UpPlayers[i]]
-    //             );
-    //         }
-    //         emit UpDownFinalized(finalPrice, true, game.gameId);
-    //     } else {
-    //         uint256 finalRate = ITreasury(treasury).calculateUpDownRate(
-    //             _game.totalDepositsUp,
-    //             _game.totalDepositsDown,
-    //             fee
-    //         );
-    //         for (uint i = 0; i < DownPlayers.length; i++) {
-    //             ITreasury(treasury).distributeWithoutFee(
-    //                 finalRate,
-    //                 DownPlayers[i],
-    //                 depositAmounts[DownPlayers[i]]
-    //             );
-    //         }
-    //         emit UpDownFinalized(finalPrice, false, game.gameId);
-    //     }
-
-    //     //Do we need to erase mapping
-    //     for (uint i = 0; i < UpPlayers.length; i++) {
-    //         depositAmounts[UpPlayers[i]] = 0;
-    //     }
-    //     for (uint i = 0; i < DownPlayers.length; i++) {
-    //         depositAmounts[DownPlayers[i]] = 0;
-    //     }
-
-    //     delete DownPlayers;
-    //     delete UpPlayers;
-    //     delete game;
-    // }
-
-    // function closeGame() public onlyRole(DEFAULT_ADMIN_ROLE) {
-    //     for (uint i; i < UpPlayers.length; i++) {
-    //         ITreasury(treasury).refund(
-    //             depositAmounts[UpPlayers[i]],
-    //             UpPlayers[i]
-    //         );
-    //     }
-    //     delete UpPlayers;
-    //     for (uint i; i < DownPlayers.length; i++) {
-    //         ITreasury(treasury).refund(
-    //             depositAmounts[DownPlayers[i]],
-    //             DownPlayers[i]
-    //         );
-    //     }
-    //     delete DownPlayers;
-    //     emit UpDownCancelled(game.gameId);
-    //     delete game;
-    // }
 
     function getTotalPlayers() public view returns (uint256, uint256) {
         return (UpPlayers.length, DownPlayers.length);

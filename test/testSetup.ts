@@ -8,13 +8,12 @@ import { MockToken } from "../typechain-types/contracts/mock/MockERC20.sol/MockT
 import { MockToken__factory } from "../typechain-types/factories/contracts/mock/MockERC20.sol/MockToken__factory";
 import { Treasury } from "../typechain-types/contracts/Treasury.sol/Treasury";
 import { Treasury__factory } from "../typechain-types/factories/contracts/Treasury.sol/Treasury__factory";
-import { Setup2 } from "../typechain-types/contracts/Setup2";
-import { Setup2__factory } from "../typechain-types/factories/contracts/Setup2__factory";
-import { MockVerifierOptimized } from "../typechain-types/contracts/mock/MockVerifierOptimized";
-import { MockVerifierOptimized__factory } from "../typechain-types/factories/contracts/mock/MockVerifierOptimized__factory";
+import { Setup } from "../typechain-types/contracts/Setup";
+import { Setup__factory } from "../typechain-types/factories/contracts/Setup__factory";
+import { MockVerifier } from "../typechain-types/contracts/mock/MockVerifier";
+import { MockVerifier__factory } from "../typechain-types/factories/contracts/mock/MockVerifier__factory";
 import {
   abiEncodeInt192WithTimestamp,
-  abiEncodeInt192WithTimestampOld,
   getPermitSignature,
 } from "../scripts/helper";
 
@@ -27,7 +26,6 @@ const lowGameDuration = "Min game duration must be higher";
 const wrongStatus = "Wrong status!";
 const gameClosed = "Game is closed for new players";
 const isParticipating = "You are already in the game";
-const oldReport = "Old chainlink report";
 const cantEnd = "Can't end";
 
 describe("Setup Game", () => {
@@ -37,16 +35,16 @@ describe("Setup Game", () => {
   let USDT: MockToken;
   let XyroToken: XyroToken;
   let Treasury: Treasury;
-  let Game: Setup2;
-  let Upkeep: MockVerifierOptimized;
+  let Game: Setup;
+  let Upkeep: MockVerifier;
   let currentGameId: string;
-  const tpPrice = parse18("2500");
-  const slPrice = parse18("2000");
-  const finalPriceTP = parse18("2600");
-  const finalPriceSL = parse18("1900");
-  const feedId =
-    "0x00037da06d56d083fe599397a4769a042d63aa73dc4ef57709d31e9971a5b439";
-  const assetPrice = parse18("2310");
+  const tpPrice = 650000000;
+  const slPrice = 620000000;
+  const usdtAmount = 100;
+  const finalPriceTP = parse18("66000");
+  const finalPriceSL = parse18("62500");
+  const feedId = 1;
+  const assetPrice = parse18("63000");
   before(async () => {
     [owner, bob, alice] = await ethers.getSigners();
 
@@ -58,8 +56,8 @@ describe("Setup Game", () => {
       await USDT.getAddress(),
       await XyroToken.getAddress()
     );
-    Game = await new Setup2__factory(owner).deploy(await Treasury.getAddress());
-    Upkeep = await new MockVerifierOptimized__factory(owner).deploy();
+    Game = await new Setup__factory(owner).deploy(await Treasury.getAddress());
+    Upkeep = await new MockVerifier__factory(owner).deploy();
     await Treasury.setFee(100);
     await Treasury.setUpkeep(await Upkeep.getAddress());
     await USDT.mint(bob.address, parse18("1000"));
@@ -79,281 +77,346 @@ describe("Setup Game", () => {
     let tx = await Game.createSetup(
       false,
       (await time.latest()) + fortyFiveMinutes,
-      13000,
-      10000,
-      1,
+      tpPrice,
+      slPrice,
+      feedId,
       abiEncodeInt192WithTimestamp(
         assetPrice.toString(),
-        1,
+        feedId,
         await time.latest()
       )
     );
     const receipt = await tx.wait();
-    // console.log(receipt?.logs[0]?.args[0][0]);
     currentGameId = receipt?.logs[0]?.args[0][0];
-    let bet = await Game.decodeData(currentGameId);
-    console.log(bet);
+    let game = await Game.decodeData(currentGameId);
 
-    // expect(bet.initiator).to.equal(owner.address);
-    // expect(bet.gameStatus).to.equal(0);
+    expect(game.initiator).to.equal(owner.address);
+    expect(game.gameStatus).to.equal(0);
   });
 
-  it("should create SL bet", async function () {
+  it("should create SL game", async function () {
     await USDT.connect(bob).approve(
       await Treasury.getAddress(),
       ethers.MaxUint256
     );
-    await Game.connect(bob).play(false, 10, currentGameId);
-    let bet = await Game.decodeData(currentGameId);
-    console.log(bet);
-    expect(bet.totalDepositsSL).to.equal(10);
+    await Game.connect(bob).play(false, usdtAmount, currentGameId);
+    let game = await Game.decodeData(currentGameId);
+    expect(game.totalDepositsSL).to.equal(usdtAmount);
   });
 
-  // it("should create TP bet", async function () {
-  //   await USDT.connect(alice).approve(
-  //     await Treasury.getAddress(),
-  //     ethers.MaxUint256
-  //   );
-  //   await Game.connect(alice).play(true, parse18("300"), currentGameId);
-  //   let bet = await Game.games(currentGameId);
-  //   expect(bet.totalDepositsTP).to.equal(parse18("300"));
-  // });
+  it("should create TP game", async function () {
+    await USDT.connect(alice).approve(
+      await Treasury.getAddress(),
+      ethers.MaxUint256
+    );
+    await Game.connect(alice).play(true, usdtAmount, currentGameId);
+    let game = await Game.decodeData(currentGameId);
+    expect(game.totalDepositsTP).to.equal(usdtAmount);
+  });
 
-  // it("should end setup game", async function () {
-  //   let oldBalance = await USDT.balanceOf(bob.address);
-  //   await time.increase(fortyFiveMinutes);
-  //   await Game.finalizeGame(
-  //     abiEncodeInt192WithTimestamp(
-  //       finalPriceSL.toString(),
-  //       feedId,
-  //       await time.latest()
-  //     ),
-  //     currentGameId
-  //   );
-  //   let newBalance = await USDT.balanceOf(bob.address);
-  //   expect(newBalance).to.be.above(oldBalance);
-  // });
+  it("should end setup game", async function () {
+    let oldBalance = await USDT.balanceOf(bob.address);
+    await time.increase(fortyFiveMinutes);
+    await Game.finalizeGame(
+      abiEncodeInt192WithTimestamp(
+        finalPriceSL.toString(),
+        feedId,
+        await time.latest()
+      ),
+      currentGameId
+    );
+    let newBalance = await USDT.balanceOf(bob.address);
+    expect(newBalance).to.be.above(oldBalance);
+  });
 
-  // it("should create TP setup game", async function () {
-  //   let tx = await Game.createSetup(
-  //     false,
-  //     (await time.latest()) + fortyFiveMinutes,
-  //     tpPrice,
-  //     slPrice,
-  //     abiEncodeInt192WithTimestamp(
-  //       finalPriceSL.toString(),
-  //       feedId,
-  //       await time.latest()
-  //     ),
-  //     feedId
-  //   );
-  //   const receipt = await tx.wait();
-  //   currentGameId = receipt!.logs[0]!.args[0];
-  //   let bet = await Game.games(currentGameId);
-  //   expect(bet.initiator).to.equal(owner.address);
-  //   expect(bet.gameStatus).to.equal(0);
-  // });
+  it("should create TP setup game", async function () {
+    let tx = await Game.createSetup(
+      false,
+      (await time.latest()) + fortyFiveMinutes,
+      tpPrice,
+      slPrice,
+      feedId,
+      abiEncodeInt192WithTimestamp(
+        finalPriceSL.toString(),
+        feedId,
+        await time.latest()
+      )
+    );
+    const receipt = await tx.wait();
+    currentGameId = receipt?.logs[0]?.args[0][0];
+    let game = await Game.decodeData(currentGameId);
+    expect(game.initiator).to.equal(owner.address);
+    expect(game.gameStatus).to.equal(0);
+  });
 
-  // it("should create SL game", async function () {
-  //   await USDT.connect(bob).approve(
-  //     await Treasury.getAddress(),
-  //     ethers.MaxUint256
-  //   );
-  //   await Game.connect(bob).play(false, parse18("500"), currentGameId);
-  //   let game = await Game.games(currentGameId);
-  //   expect(game.totalDepositsSL).to.equal(parse18("500"));
-  // });
+  it("should create SL game", async function () {
+    await USDT.connect(bob).approve(
+      await Treasury.getAddress(),
+      ethers.MaxUint256
+    );
+    await Game.connect(bob).play(false, usdtAmount, currentGameId);
+    let game = await Game.decodeData(currentGameId);
+    expect(game.totalDepositsSL).to.equal(usdtAmount);
+  });
 
-  // it("should create TP game", async function () {
-  //   await USDT.connect(alice).approve(
-  //     await Treasury.getAddress(),
-  //     ethers.MaxUint256
-  //   );
-  //   await Game.connect(alice).play(true, parse18("125"), currentGameId);
-  //   let game = await Game.games(currentGameId);
-  //   expect(game.totalDepositsTP).to.equal(parse18("125"));
-  // });
+  it("should create TP game", async function () {
+    await USDT.connect(alice).approve(
+      await Treasury.getAddress(),
+      ethers.MaxUint256
+    );
+    await Game.connect(alice).play(true, usdtAmount, currentGameId);
+    let game = await Game.decodeData(currentGameId);
+    expect(game.totalDepositsTP).to.equal(usdtAmount);
+  });
 
-  // it("should end setup game", async function () {
-  //   let oldBalance = await USDT.balanceOf(bob.address);
-  //   await time.increase(fortyFiveMinutes);
-  //   await Game.finalizeGame(
-  //     abiEncodeInt192WithTimestamp(
-  //       finalPriceTP.toString(),
-  //       feedId,
-  //       await time.latest()
-  //     ),
-  //     currentGameId
-  //   );
-  //   let newBalance = await USDT.balanceOf(bob.address);
-  //   expect(newBalance).to.be.above(oldBalance);
-  // });
+  it("should end setup game", async function () {
+    let oldBalance = await USDT.balanceOf(bob.address);
+    await time.increase(fortyFiveMinutes);
+    await Game.finalizeGame(
+      abiEncodeInt192WithTimestamp(
+        finalPriceTP.toString(),
+        feedId,
+        await time.latest()
+      ),
+      currentGameId
+    );
+    let newBalance = await USDT.balanceOf(bob.address);
+    expect(newBalance).to.be.above(oldBalance);
+  });
 
-  // it("should fail - high game duration", async function () {
-  //   await expect(
-  //     Game.createSetup(
-  //       true,
-  //       (await time.latest()) + monthUnix * 12,
-  //       tpPrice,
-  //       slPrice,
-  //       abiEncodeInt192WithTimestamp(
-  //         assetPrice.toString(),
-  //         feedId,
-  //         await time.latest()
-  //       ),
-  //       feedId
-  //     )
-  //   ).to.be.revertedWith(highGameDuration);
-  // });
+  it("should fail - high game duration", async function () {
+    await expect(
+      Game.createSetup(
+        true,
+        (await time.latest()) + monthUnix * 12,
+        tpPrice,
+        slPrice,
+        feedId,
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedId,
+          await time.latest()
+        )
+      )
+    ).to.be.revertedWith(highGameDuration);
+  });
 
-  // it("should fail - low game duration", async function () {
-  //   await expect(
-  //     Game.createSetup(
-  //       true,
-  //       (await time.latest()) + fifteenMinutes,
-  //       tpPrice,
-  //       slPrice,
-  //       abiEncodeInt192WithTimestamp(
-  //         assetPrice.toString(),
-  //         feedId,
-  //         await time.latest()
-  //       ),
-  //       feedId
-  //     )
-  //   ).to.be.revertedWith(lowGameDuration);
-  // });
+  it("should fail - low game duration", async function () {
+    await expect(
+      Game.createSetup(
+        true,
+        (await time.latest()) + fifteenMinutes,
+        tpPrice,
+        slPrice,
+        feedId,
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedId,
+          await time.latest()
+        )
+      )
+    ).to.be.revertedWith(lowGameDuration);
+  });
 
-  // it("should close setup game", async function () {
-  //   let tx = await Game.createSetup(
-  //     true,
-  //     (await time.latest()) + fortyFiveMinutes,
-  //     tpPrice,
-  //     slPrice,
-  //     abiEncodeInt192WithTimestamp(
-  //       assetPrice.toString(),
-  //       feedId,
-  //       await time.latest()
-  //     ),
-  //     feedId
-  //   );
-  //   const receipt = await tx.wait();
-  //   currentGameId = receipt!.logs[0]!.args[0];
-  //   await time.increase(fortyFiveMinutes);
-  //   await Game.closeGame(currentGameId);
-  //   let game = await Game.games(currentGameId);
-  //   expect(game.gameStatus).to.equal(1);
-  // });
+  it("should close setup game", async function () {
+    let tx = await Game.createSetup(
+      true,
+      (await time.latest()) + fortyFiveMinutes,
+      tpPrice,
+      slPrice,
+      feedId,
+      abiEncodeInt192WithTimestamp(
+        assetPrice.toString(),
+        feedId,
+        await time.latest()
+      )
+    );
+    const receipt = await tx.wait();
+    currentGameId = receipt?.logs[0]?.args[0][0];
+    await time.increase(fortyFiveMinutes);
+    await Game.closeGame(currentGameId);
+    let game = await Game.decodeData(currentGameId);
+    expect(game.gameStatus).to.equal(1);
+  });
 
-  // it("should change treasury", async function () {
-  //   let temporaryTreasury = await new Treasury__factory(owner).deploy(
-  //     await USDT.getAddress(),
-  //     await XyroToken.getAddress()
-  //   );
-  //   await Game.setTreasury(await temporaryTreasury.getAddress());
-  //   expect(await Game.treasury()).to.equal(
-  //     await temporaryTreasury.getAddress()
-  //   );
-  //   //return treasury back
-  //   await Game.setTreasury(await Treasury.getAddress());
-  //   expect(await Game.treasury()).to.equal(await Treasury.getAddress());
-  // });
+  it("should change treasury", async function () {
+    let temporaryTreasury = await new Treasury__factory(owner).deploy(
+      await USDT.getAddress(),
+      await XyroToken.getAddress()
+    );
+    await Game.setTreasury(await temporaryTreasury.getAddress());
+    expect(await Game.treasury()).to.equal(
+      await temporaryTreasury.getAddress()
+    );
+    //return treasury back
+    await Game.setTreasury(await Treasury.getAddress());
+    expect(await Game.treasury()).to.equal(await Treasury.getAddress());
+  });
 
-  // it("should refund if only tp team count = 0", async function () {
-  //   let oldAliceBalance = await USDT.balanceOf(alice);
-  //   let oldOwnerBalance = await USDT.balanceOf(owner);
-  //   let tx = await Game.createSetup(
-  //     true,
-  //     (await time.latest()) + fortyFiveMinutes,
-  //     tpPrice,
-  //     slPrice,
-  //     abiEncodeInt192WithTimestamp(
-  //       assetPrice.toString(),
-  //       feedId,
-  //       await time.latest()
-  //     ),
-  //     feedId
-  //   );
-  //   const receipt = await tx.wait();
-  //   currentGameId = receipt!.logs[0]!.args[0];
-  //   await Game.connect(alice).play(false, parse18("100"), currentGameId);
-  //   await Game.connect(owner).play(false, parse18("100"), currentGameId);
-  //   await Game.finalizeGame(
-  //     abiEncodeInt192WithTimestamp(
-  //       finalPriceTP.toString(),
-  //       feedId,
-  //       await time.latest()
-  //     ),
-  //     currentGameId
-  //   );
-  //   expect(oldAliceBalance).to.be.equal(await USDT.balanceOf(alice));
-  //   expect(oldOwnerBalance).to.be.equal(await USDT.balanceOf(owner));
-  // });
+  it("should refund if only tp team count = 0", async function () {
+    let oldAliceBalance = await USDT.balanceOf(alice);
+    let oldOwnerBalance = await USDT.balanceOf(owner);
+    let tx = await Game.createSetup(
+      true,
+      (await time.latest()) + fortyFiveMinutes,
+      tpPrice,
+      slPrice,
+      feedId,
+      abiEncodeInt192WithTimestamp(
+        assetPrice.toString(),
+        feedId,
+        await time.latest()
+      )
+    );
+    const receipt = await tx.wait();
+    currentGameId = receipt?.logs[0]?.args[0][0];
+    await Game.connect(alice).play(false, usdtAmount, currentGameId);
+    await Game.connect(owner).play(false, usdtAmount, currentGameId);
+    await Game.finalizeGame(
+      abiEncodeInt192WithTimestamp(
+        finalPriceTP.toString(),
+        feedId,
+        await time.latest()
+      ),
+      currentGameId
+    );
+    expect(oldAliceBalance).to.be.equal(await USDT.balanceOf(alice));
+    expect(oldOwnerBalance).to.be.equal(await USDT.balanceOf(owner));
+  });
 
-  // it("should fail - play wrong status", async function () {
-  //   await expect(
-  //     Game.play(true, parse18("100"), currentGameId)
-  //   ).to.be.revertedWith(wrongStatus);
-  // });
+  it("should fail - play wrong status", async function () {
+    let tx = await Game.createSetup(
+      true,
+      (await time.latest()) + fortyFiveMinutes,
+      tpPrice,
+      slPrice,
+      feedId,
+      abiEncodeInt192WithTimestamp(
+        assetPrice.toString(),
+        feedId,
+        await time.latest()
+      )
+    );
+    const receipt = await tx.wait();
+    currentGameId = receipt?.logs[0]?.args[0][0];
+    await time.increase(fortyFiveMinutes);
+    await Game.closeGame(currentGameId);
+    await expect(Game.play(true, usdtAmount, currentGameId)).to.be.revertedWith(
+      wrongStatus
+    );
+  });
 
-  // it("should play with permit", async function () {
-  //   let oldTreasuryBalance = await USDT.balanceOf(await Treasury.getAddress());
-  //   let tx = await Game.createSetup(
-  //     true,
-  //     (await time.latest()) + fortyFiveMinutes,
-  //     tpPrice,
-  //     slPrice,
-  //     abiEncodeInt192WithTimestamp(
-  //       assetPrice.toString(),
-  //       feedId,
-  //       await time.latest()
-  //     ),
-  //     feedId
-  //   );
-  //   const receipt = await tx.wait();
-  //   currentGameId = receipt!.logs[0]!.args[0];
-  //   const deadline = (await time.latest()) + fortyFiveMinutes;
-  //   let ownerPermit = await getPermitSignature(
-  //     owner,
-  //     USDT,
-  //     await Treasury.getAddress(),
-  //     parse18("100"),
-  //     BigInt(deadline)
-  //   );
-  //   let alicePermit = await getPermitSignature(
-  //     alice,
-  //     USDT,
-  //     await Treasury.getAddress(),
-  //     parse18("100"),
-  //     BigInt(deadline)
-  //   );
-  //   await Game.playWithPermit(false, parse18("100"), currentGameId, {
-  //     deadline: deadline,
-  //     v: ownerPermit.v,
-  //     r: ownerPermit.r,
-  //     s: ownerPermit.s,
-  //   });
-  //   await Game.connect(alice).playWithPermit(
-  //     true,
-  //     parse18("100"),
-  //     currentGameId,
-  //     {
-  //       deadline: deadline,
-  //       v: alicePermit.v,
-  //       r: alicePermit.r,
-  //       s: alicePermit.s,
-  //     }
-  //   );
-  //   let newTreasuryBalance = await USDT.balanceOf(await Treasury.getAddress());
-  //   expect(newTreasuryBalance).to.be.above(oldTreasuryBalance);
-  // });
+  it("should fail - enter time is up", async function () {
+    let tx = await Game.createSetup(
+      true,
+      (await time.latest()) + fortyFiveMinutes,
+      tpPrice,
+      slPrice,
+      feedId,
+      abiEncodeInt192WithTimestamp(
+        assetPrice.toString(),
+        feedId,
+        await time.latest()
+      )
+    );
+    const receipt = await tx.wait();
+    await time.increase(fortyFiveMinutes);
+    currentGameId = receipt?.logs[0]?.args[0][0];
+    await expect(
+      Game.connect(alice).play(false, usdtAmount, currentGameId)
+    ).to.be.revertedWith(gameClosed);
+    await Game.closeGame(currentGameId);
+  });
 
-  // it("should change min and max game duration", async function () {
-  //   let min = await Game.minDuration();
-  //   let max = await Game.maxDuration();
+  it("should fail - can't enter twice", async function () {
+    let tx = await Game.createSetup(
+      true,
+      (await time.latest()) + fortyFiveMinutes,
+      tpPrice,
+      slPrice,
+      feedId,
+      abiEncodeInt192WithTimestamp(
+        assetPrice.toString(),
+        feedId,
+        await time.latest()
+      )
+    );
+    const receipt = await tx.wait();
+    currentGameId = receipt?.logs[0]?.args[0][0];
+    await Game.connect(alice).play(false, usdtAmount, currentGameId);
+    await expect(
+      Game.connect(alice).play(false, usdtAmount, currentGameId)
+    ).to.be.revertedWith(isParticipating);
+  });
 
-  //   //increase by 1 minute
-  //   await Game.changeGameDuration(max + BigInt(60), min + BigInt(60));
-  //   expect(await Game.minDuration()).to.equal(min + BigInt(60));
-  //   expect(await Game.maxDuration()).to.equal(max + BigInt(60));
-  // });
+  it("should fail - old chainlink report", async function () {
+    await Game.connect(bob).play(true, usdtAmount, currentGameId);
+    await expect(
+      Game.finalizeGame(
+        abiEncodeInt192WithTimestamp(
+          parse18("60000").toString(),
+          feedId,
+          await time.latest()
+        ),
+        currentGameId
+      )
+    ).to.be.revertedWith(cantEnd);
+  });
+
+  it("should play with permit", async function () {
+    let oldTreasuryBalance = await USDT.balanceOf(await Treasury.getAddress());
+    let tx = await Game.createSetup(
+      true,
+      (await time.latest()) + fortyFiveMinutes,
+      tpPrice,
+      slPrice,
+      feedId,
+      abiEncodeInt192WithTimestamp(
+        assetPrice.toString(),
+        feedId,
+        await time.latest()
+      )
+    );
+    const receipt = await tx.wait();
+    currentGameId = receipt?.logs[0]?.args[0][0];
+    const deadline = (await time.latest()) + fortyFiveMinutes;
+    let ownerPermit = await getPermitSignature(
+      owner,
+      USDT,
+      await Treasury.getAddress(),
+      parse18(usdtAmount.toString()),
+      BigInt(deadline)
+    );
+    let alicePermit = await getPermitSignature(
+      alice,
+      USDT,
+      await Treasury.getAddress(),
+      parse18(usdtAmount.toString()),
+      BigInt(deadline)
+    );
+    await Game.playWithPermit(false, usdtAmount, currentGameId, {
+      deadline: deadline,
+      v: ownerPermit.v,
+      r: ownerPermit.r,
+      s: ownerPermit.s,
+    });
+    await Game.connect(alice).playWithPermit(true, usdtAmount, currentGameId, {
+      deadline: deadline,
+      v: alicePermit.v,
+      r: alicePermit.r,
+      s: alicePermit.s,
+    });
+    let newTreasuryBalance = await USDT.balanceOf(await Treasury.getAddress());
+    expect(newTreasuryBalance).to.be.above(oldTreasuryBalance);
+  });
+
+  it("should change min and max game duration", async function () {
+    let min = await Game.minDuration();
+    let max = await Game.maxDuration();
+
+    //increase by 1 minute
+    await Game.changeGameDuration(max + BigInt(60), min + BigInt(60));
+    expect(await Game.minDuration()).to.equal(min + BigInt(60));
+    expect(await Game.maxDuration()).to.equal(max + BigInt(60));
+  });
 });

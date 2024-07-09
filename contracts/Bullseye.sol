@@ -322,6 +322,8 @@ contract Bullseye is AccessControl {
         uint256 deposit = game.depositAmount;
         for (uint i; i < players.length; i++) {
             ITreasury(treasury).refund(deposit, players[i]);
+            assetPrices[players[i]] = 0;
+            playerTimestamp[players[i]] = 0;
         }
         emit BullseyeCancelled(game.gameId);
         delete game;

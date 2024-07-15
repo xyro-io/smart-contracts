@@ -7,6 +7,7 @@ import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 
 contract Bullseye is AccessControl {
     uint256 constant DENOMINATOR = 10000;
+    int192 public exactRange = 100;
     uint256 public fee = 100;
     uint256[3] public rate = [5000, 3500, 1500];
     uint256[3] public exactRate = [7500, 1500, 1000];
@@ -17,7 +18,7 @@ contract Bullseye is AccessControl {
         uint32 stopPredictAt,
         uint32 endTime,
         uint32 depositAmount,
-        uint8 feedId,
+        uint8 feedNumber,
         bytes32 gameId
     );
     event BullseyeNewPlayer(
@@ -35,7 +36,7 @@ contract Bullseye is AccessControl {
     event BullseyeCancelled(bytes32 gameId);
 
     struct GameInfo {
-        uint8 feedId;
+        uint8 feedNumber;
         uint256 startTime;
         uint256 endTime;
         uint256 stopPredictAt;
@@ -63,13 +64,13 @@ contract Bullseye is AccessControl {
         uint32 endTime,
         uint32 stopPredictAt,
         uint32 depositAmount,
-        uint8 feedId
+        uint8 feedNumber
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(packedData == 0, "Finish previous game first");
         packedData = (block.timestamp |
             (uint256(stopPredictAt) << 32) |
             (uint256(endTime) << 64) |
-            (uint256(feedId) << 96) |
+            (uint256(feedNumber) << 96) |
             (uint256(depositAmount) << 104));
         currentGameId = keccak256(
             abi.encodePacked(endTime, block.timestamp, address(this))
@@ -79,7 +80,7 @@ contract Bullseye is AccessControl {
             stopPredictAt,
             endTime,
             depositAmount,
-            feedId,
+            feedNumber,
             currentGameId
         );
     }
@@ -168,13 +169,13 @@ contract Bullseye is AccessControl {
         address upkeep = ITreasury(treasury).upkeep();
         (int192 finalPrice, uint32 priceTimestamp) = IDataStreamsVerifier(
             upkeep
-        ).verifyReportWithTimestamp(unverifiedReport, game.feedId);
+        ).verifyReportWithTimestamp(unverifiedReport, game.feedNumber);
+        finalPrice /= 1e14;
         require(
             priceTimestamp - game.endTime <= 10 minutes ||
                 block.timestamp - priceTimestamp <= 10 minutes,
             "Old chainlink report"
         );
-        int192 exactRange = finalPrice / 10000;
         if (players.length == 2) {
             address playerOne = players[0];
             address playerTwo = players[1];
@@ -304,7 +305,6 @@ contract Bullseye is AccessControl {
                         game.depositAmount,
                         fee
                     );
-                    totalDeposited -= wonAmount[i];
                 }
             }
             emit BullseyeFinalized(
@@ -323,6 +323,9 @@ contract Bullseye is AccessControl {
         delete players;
     }
 
+    /**
+     * Closes game and makes refund
+     */
     function closeGame() public onlyRole(DEFAULT_ADMIN_ROLE) {
         GameInfo memory game = decodeData();
         uint256 deposit = game.depositAmount;
@@ -337,26 +340,20 @@ contract Bullseye is AccessControl {
         delete players;
     }
 
+    /**
+     * Unpackes data
+     */
     function decodeData() public view returns (GameInfo memory data) {
         data.startTime = uint256(uint32(packedData));
         data.stopPredictAt = uint256(uint32(packedData >> 32));
         data.endTime = uint256(uint32(packedData >> 64));
-        data.feedId = uint8(packedData >> 96);
+        data.feedNumber = uint8(packedData >> 96);
         data.depositAmount = uint256(uint32(packedData >> 104));
     }
 
     function getTotalPlayers() public view returns (uint256) {
         return players.length;
     }
-
-    /**
-     * Do we need this?
-     */
-    // function changeDepositAmount(
-    //     uint256 newDepositAmount
-    // ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    //     game.depositAmount = newDepositAmount;
-    // }
 
     /**
      * Change treasury address
@@ -366,5 +363,15 @@ contract Bullseye is AccessControl {
         address newTreasury
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         treasury = newTreasury;
+    }
+
+    /**
+     * Change exact range
+     * @param newRange new exact range
+     */
+    function setExactRange(
+        int192 newRange
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        exactRange = newRange;
     }
 }

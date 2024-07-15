@@ -22,12 +22,8 @@ const fortyFiveMinutes = 2700;
 const fifteenMinutes = 900;
 const requireFinishedGame = "Finish previous game first";
 const requireOpenedGame = "Game is closed for new players";
-const requireOnTime = "Too early";
-const requireMoreThanZeroPlayers = "Not enough players";
-const requireValidChainlinkReport = "Old chainlink report";
 const requireStartedGame = "Start the game first";
 const requirePastEndTime = "Too early to finish";
-const requireStartingPrice = "Starting price must be set";
 const requireNewPlayer = "You are already in the game";
 
 describe("Bullseye", () => {
@@ -40,9 +36,8 @@ describe("Bullseye", () => {
   let Treasury: Treasury;
   let Game: Bullseye;
   let Upkeep: MockVerifier;
-  const feedId = 4;
+  const feedNumber = 4;
   const usdtAmount = 100;
-  const assetPrice = 600000000;
   const guessPriceOpponent = 630000000;
   const guessPriceAlice = 580000000;
   const guessBobPrice = 570000000;
@@ -65,234 +60,238 @@ describe("Bullseye", () => {
     await Treasury.setFee(100);
     await USDT.mint(await opponent.getAddress(), parse18("10000000"));
     await USDT.mint(await alice.getAddress(), parse18("10000000"));
+    await USDT.mint(await bob.getAddress(), parse18("10000000"));
     await Treasury.grantRole(
       await Treasury.DISTRIBUTOR_ROLE(),
       await Game.getAddress()
     );
-  });
-
-  it("should create bullseye game", async function () {
-    await USDT.approve(await Treasury.getAddress(), ethers.MaxUint256);
-    await Game.startGame(
-      (await time.latest()) + fortyFiveMinutes,
-      (await time.latest()) + fifteenMinutes,
-      usdtAmount,
-      4
-    );
-    let game = await Game.decodeData();
-    expect(game.depositAmount).to.equal(usdtAmount);
-  });
-
-  it("should participate high asset guess price", async function () {
+    await USDT.approve(Treasury.getAddress(), ethers.MaxUint256);
     await USDT.connect(opponent).approve(
       Treasury.getAddress(),
       ethers.MaxUint256
     );
-    await Game.connect(opponent).play(guessPriceOpponent);
-    expect(await USDT.balanceOf(Treasury.getAddress())).to.equal(
-      parse18("100")
-    );
-  });
-
-  it("should participate low asset guess price", async function () {
     await USDT.connect(alice).approve(Treasury.getAddress(), ethers.MaxUint256);
-    await Game.connect(alice).play(guessPriceAlice);
-    expect(await USDT.balanceOf(Treasury.getAddress())).to.equal(
-      parse18("200")
-    );
+    await USDT.connect(bob).approve(Treasury.getAddress(), ethers.MaxUint256);
   });
 
-  it("should end bullseye game", async function () {
-    let oldBalance = await USDT.balanceOf(alice.getAddress());
-    await time.increase(fortyFiveMinutes);
-    await Game.finalizeGame(
-      abiEncodeInt192WithTimestamp(
-        finalPriceExact.toString(),
-        feedId,
-        await time.latest()
-      )
-    );
-    let newBalance = await USDT.balanceOf(alice.getAddress());
-    expect(newBalance).to.be.above(oldBalance);
-  });
+  describe("Create game", async function () {
+    it("should create bullseye game", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = (await time.latest()) + fifteenMinutes;
+      await Game.startGame(endTime, stopPredictAt, usdtAmount, feedNumber);
+      let game = await Game.decodeData();
+      expect(game.endTime).to.be.equal(endTime);
+      expect(game.stopPredictAt).to.be.equal(stopPredictAt);
+      expect(game.depositAmount).to.equal(usdtAmount);
+    });
 
-  it("should cancel game", async function () {
-    await Game.startGame(
-      (await time.latest()) + fortyFiveMinutes,
-      (await time.latest()) + fifteenMinutes,
-      usdtAmount,
-      feedId
-    );
-    const finalPrice = abiEncodeInt192WithTimestamp(
-      finalPriceExact.toString(),
-      feedId,
-      await time.latest()
-    );
-    await time.increase(fortyFiveMinutes);
-    await expect(Game.finalizeGame(finalPrice)).to.emit(
-      Game,
-      "BullseyeCancelled"
-    );
-  });
-
-  it("should fail - game not started", async function () {
-    await expect(
-      Game.finalizeGame(
-        abiEncodeInt192WithTimestamp(
-          finalPriceExact.toString(),
-          feedId,
-          await time.latest()
+    it("should fail - start new game without finishing previous", async function () {
+      await expect(
+        Game.startGame(
+          (await time.latest()) + fortyFiveMinutes,
+          (await time.latest()) + fifteenMinutes,
+          usdtAmount,
+          feedNumber
         )
-      )
-    ).to.be.revertedWith(requireStartedGame);
+      ).to.be.revertedWith(requireFinishedGame);
+    });
   });
 
-  it("should fail - start new game without finishing previous", async function () {
-    await Game.startGame(
-      (await time.latest()) + fortyFiveMinutes,
-      (await time.latest()) + fifteenMinutes,
-      usdtAmount,
-      feedId
-    );
-    await expect(
-      Game.startGame(
+  describe("Play game", async function () {
+    it("should play", async function () {
+      await Game.connect(opponent).play(guessPriceOpponent);
+      expect(await USDT.balanceOf(Treasury.getAddress())).to.equal(
+        parse18(usdtAmount.toString())
+      );
+      expect(await Game.players(0)).to.be.equal(opponent.address);
+      expect(await Game.assetPrices(opponent.address)).to.be.equal(
+        guessPriceOpponent
+      );
+    });
+
+    it("should fail - already participating", async function () {
+      await expect(
+        Game.connect(opponent).play(guessPriceAlice)
+      ).to.be.revertedWith(requireNewPlayer);
+    });
+
+    it("should fail - play after time is up", async function () {
+      await time.increase(fifteenMinutes);
+      await expect(
+        Game.connect(alice).play(guessPriceAlice)
+      ).to.be.revertedWith(requireOpenedGame);
+      await Game.closeGame();
+    });
+  });
+
+  describe("Close game", async function () {
+    it("should close game and refund (closeGame)", async function () {
+      await Game.startGame(
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
-        feedId
-      )
-    ).to.be.revertedWith(requireFinishedGame);
-  });
-
-  it("should fail - play after time is up", async function () {
-    await time.increase(fifteenMinutes);
-    await expect(Game.connect(alice).play(guessPriceAlice)).to.be.revertedWith(
-      requireOpenedGame
-    );
-    await Game.closeGame();
-  });
-
-  it("should fail - too early to finish", async function () {
-    await Game.startGame(
-      (await time.latest()) + fortyFiveMinutes,
-      (await time.latest()) + fifteenMinutes,
-      usdtAmount,
-      feedId
-    );
-
-    await expect(
-      Game.finalizeGame(
-        abiEncodeInt192WithTimestamp(
-          finalPriceExact.toString(),
-          feedId,
-          await time.latest()
-        )
-      )
-    ).to.be.revertedWith(requirePastEndTime);
-  });
-
-  it("should fail - already participating", async function () {
-    await Game.connect(alice).play(guessPriceAlice);
-    await expect(Game.connect(alice).play(guessPriceAlice)).to.be.revertedWith(
-      requireNewPlayer
-    );
-  });
-
-  it("should close game and refund (finalzieGame)", async function () {
-    let oldBalance = await USDT.balanceOf(alice.getAddress());
-    await time.increase(fortyFiveMinutes);
-    await expect(
-      Game.finalizeGame(
-        abiEncodeInt192WithTimestamp(
-          finalPriceExact.toString(),
-          feedId,
-          await time.latest()
-        )
-      )
-    ).to.emit(Game, "BullseyeCancelled");
-    let newBalance = await USDT.balanceOf(alice.getAddress());
-    expect(newBalance).to.be.above(oldBalance);
-  });
-
-  it("should close game and refund (closeGame)", async function () {
-    await Game.startGame(
-      (await time.latest()) + fortyFiveMinutes,
-      (await time.latest()) + fifteenMinutes,
-      usdtAmount,
-      feedId
-    );
-    await Game.connect(alice).play(guessPriceAlice);
-    let oldBalance = await USDT.balanceOf(alice.getAddress());
-    await time.increase(fortyFiveMinutes);
-    await expect(Game.closeGame()).to.emit(Game, "BullseyeCancelled");
-    let newBalance = await USDT.balanceOf(alice.getAddress());
-    expect(newBalance).to.be.above(oldBalance);
-  });
-
-  it("should finish game with 2 players", async function () {
-    await Game.startGame(
-      (await time.latest()) + fortyFiveMinutes,
-      (await time.latest()) + fifteenMinutes,
-      usdtAmount,
-      feedId
-    );
-    await Game.connect(opponent).play(guessPriceOpponent);
-    await Game.connect(alice).play(guessPriceAlice);
-    let oldBalance = await USDT.balanceOf(alice.getAddress());
-    await time.increase(fortyFiveMinutes);
-    await Game.finalizeGame(
-      abiEncodeInt192WithTimestamp(
-        finalPriceCloser.toString(),
-        feedId,
-        await time.latest()
-      )
-    );
-    let newBalance = await USDT.balanceOf(alice.getAddress());
-    expect(newBalance).to.be.above(oldBalance);
-  });
-
-  it("should play with permit", async function () {
-    let oldBalance = await USDT.balanceOf(owner.getAddress());
-    await Game.startGame(
-      (await time.latest()) + fortyFiveMinutes,
-      (await time.latest()) + fifteenMinutes,
-      usdtAmount,
-      feedId
-    );
-
-    const deadline = (await time.latest()) + fortyFiveMinutes;
-    let result = await getPermitSignature(
-      owner,
-      USDT,
-      await Treasury.getAddress(),
-      parse18("100"),
-      BigInt(deadline)
-    );
-
-    await Game.playWithPermit(guessPriceOpponent, {
-      deadline: deadline,
-      v: result.v,
-      r: result.r,
-      s: result.s,
+        feedNumber
+      );
+      await Game.connect(alice).play(guessPriceAlice);
+      let oldBalance = await USDT.balanceOf(alice.getAddress());
+      await time.increase(fortyFiveMinutes);
+      await expect(Game.closeGame()).to.emit(Game, "BullseyeCancelled");
+      expect(await Game.assetPrices(alice.address)).to.be.equal(0);
+      expect(await Game.playerTimestamp(alice.address)).to.be.equal(0);
+      let newBalance = await USDT.balanceOf(alice.getAddress());
+      expect(newBalance).to.be.above(oldBalance);
     });
-    let newBalance = await USDT.balanceOf(alice.getAddress());
-    expect(oldBalance).to.be.above(newBalance);
   });
 
-  it("should finish game with 3+ players", async function () {
-    await Game.connect(opponent).play(guessPriceOpponent);
-    await Game.connect(alice).play(guessPriceAlice);
-    let oldBalance = await USDT.balanceOf(alice.getAddress());
-    await time.increase(fortyFiveMinutes);
-    await Game.finalizeGame(
-      abiEncodeInt192WithTimestamp(
-        finalPriceCloser.toString(),
-        feedId,
-        await time.latest()
-      )
+  describe("Finalize game", async function () {
+    it("should fail - game not started", async function () {
+      await expect(
+        Game.finalizeGame(
+          abiEncodeInt192WithTimestamp(
+            finalPriceExact.toString(),
+            feedNumber,
+            await time.latest()
+          )
+        )
+      ).to.be.revertedWith(requireStartedGame);
+    });
+
+    it("should fail - too early to finish", async function () {
+      await Game.startGame(
+        (await time.latest()) + fortyFiveMinutes,
+        (await time.latest()) + fifteenMinutes,
+        usdtAmount,
+        feedNumber
+      );
+
+      await expect(
+        Game.finalizeGame(
+          abiEncodeInt192WithTimestamp(
+            finalPriceExact.toString(),
+            feedNumber,
+            await time.latest()
+          )
+        )
+      ).to.be.revertedWith(requirePastEndTime);
+    });
+    it("should close game and refund (finalzieGame)", async function () {
+      let oldBalance = await USDT.balanceOf(alice.getAddress());
+      await Game.connect(alice).play(guessPriceAlice);
+      await time.increase(fortyFiveMinutes);
+      await expect(
+        Game.finalizeGame(
+          abiEncodeInt192WithTimestamp(
+            finalPriceExact.toString(),
+            feedNumber,
+            await time.latest()
+          )
+        )
+      ).to.emit(Game, "BullseyeCancelled");
+      let newBalance = await USDT.balanceOf(alice.getAddress());
+      expect(newBalance).to.be.equal(oldBalance);
+    });
+
+    it("should finish game with 2 players (exact price)", async function () {
+      await Game.startGame(
+        (await time.latest()) + fortyFiveMinutes,
+        (await time.latest()) + fifteenMinutes,
+        usdtAmount,
+        feedNumber
+      );
+      await Game.connect(opponent).play(guessPriceOpponent);
+      await Game.connect(alice).play(guessPriceAlice);
+      let oldAliceBalance = await USDT.balanceOf(alice.getAddress());
+      let oldOpponentBalance = await USDT.balanceOf(opponent.getAddress());
+      await time.increase(fortyFiveMinutes);
+      await Game.finalizeGame(
+        abiEncodeInt192WithTimestamp(
+          finalPriceCloser.toString(),
+          feedNumber,
+          await time.latest()
+        )
+      );
+      let newAliceBalance = await USDT.balanceOf(alice.getAddress());
+      let newOpponentBalance = await USDT.balanceOf(opponent.getAddress());
+      expect(newAliceBalance - oldAliceBalance).to.be.above(parse18("48"));
+      expect(newOpponentBalance - oldOpponentBalance).to.be.above(
+        parse18("148")
+      );
+    });
+
+    it("should end bullseye game", async function () {
+      await Game.startGame(
+        (await time.latest()) + fortyFiveMinutes,
+        (await time.latest()) + fifteenMinutes,
+        usdtAmount,
+        feedNumber
+      );
+      await Game.connect(opponent).play(guessPriceOpponent);
+      await Game.connect(alice).play(guessPriceAlice);
+      await Game.connect(bob).play(guessBobPrice);
+      let oldBalance = await USDT.balanceOf(alice.getAddress());
+      await time.increase(fortyFiveMinutes);
+      await Game.finalizeGame(
+        abiEncodeInt192WithTimestamp(
+          finalPriceExact.toString(),
+          feedNumber,
+          await time.latest()
+        )
+      );
+      let newBalance = await USDT.balanceOf(alice.getAddress());
+      expect(newBalance).to.be.above(oldBalance);
+    });
+  });
+
+  describe("Permit", async function () {
+    it("should play with permit", async function () {
+      let oldBalance = await USDT.balanceOf(owner.getAddress());
+      await Game.startGame(
+        (await time.latest()) + fortyFiveMinutes,
+        (await time.latest()) + fifteenMinutes,
+        usdtAmount,
+        feedNumber
+      );
+
+      const deadline = (await time.latest()) + fortyFiveMinutes;
+      let result = await getPermitSignature(
+        owner,
+        USDT,
+        await Treasury.getAddress(),
+        parse18(usdtAmount.toString()),
+        BigInt(deadline)
+      );
+
+      await Game.playWithPermit(guessPriceOpponent, {
+        deadline: deadline,
+        v: result.v,
+        r: result.r,
+        s: result.s,
+      });
+      let newBalance = await USDT.balanceOf(alice.getAddress());
+      expect(oldBalance).to.be.above(newBalance);
+    });
+  });
+
+  it("should change exact rate", async function () {
+    const newRange = 10000;
+    const oldRange = 100;
+    expect(await Game.exactRange()).to.be.equal(oldRange);
+    await Game.setExactRange(newRange);
+    expect(await Game.exactRange()).to.be.equal(newRange);
+  });
+
+  it("should change treasury", async function () {
+    let temporaryTreasury = await new Treasury__factory(owner).deploy(
+      await USDT.getAddress(),
+      await XyroToken.getAddress()
     );
-    let newBalance = await USDT.balanceOf(alice.getAddress());
-    expect(newBalance).to.be.above(oldBalance);
+    await Game.setTreasury(await temporaryTreasury.getAddress());
+    expect(await Game.treasury()).to.equal(
+      await temporaryTreasury.getAddress()
+    );
+    //return treasury back
+    await Game.setTreasury(await Treasury.getAddress());
+    expect(await Game.treasury()).to.equal(await Treasury.getAddress());
   });
 
   it("should return player amount", async function () {

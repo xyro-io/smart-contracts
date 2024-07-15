@@ -6,13 +6,13 @@ import {ITreasury} from "./interfaces/ITreasury.sol";
 import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 
 contract Bullseye is AccessControl {
-    uint256 constant DENOMINATOR = 10000;
+    uint256 constant DENOMINATOR = 100;
     int192 public exactRange = 100;
     uint256 public fee = 100;
-    uint256[3] public rate = [5000, 3500, 1500];
-    uint256[3] public exactRate = [7500, 1500, 1000];
-    uint256[2] public twoPlayersRate = [7500, 2500];
-    uint256[2] public twoPlayersExactRate = [8000, 2000];
+    uint256[3] public rate = [50, 35, 15];
+    uint256[3] public exactRate = [75, 15, 10];
+    uint256[2] public twoPlayersRate = [75, 25];
+    uint256[2] public twoPlayersExactRate = [80, 20];
     event BullseyeStart(
         uint256 startTime,
         uint32 stopPredictAt,
@@ -67,6 +67,7 @@ contract Bullseye is AccessControl {
         uint8 feedNumber
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(packedData == 0, "Finish previous game first");
+        require(depositAmount >= 10, "Wrong deposit amount");
         packedData = (block.timestamp |
             (uint256(stopPredictAt) << 32) |
             (uint256(endTime) << 64) |

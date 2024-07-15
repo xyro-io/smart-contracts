@@ -231,6 +231,7 @@ contract OneVsOneUpDown is AccessControl {
             games[gameId].packedData = uint256(uint160(msg.sender));
         }
         ITreasury(treasury).deposit(game.depositAmount, msg.sender);
+        //rewrites status
         games[gameId].packedData2 =
             (games[gameId].packedData2 & ~(uint256(0xFF) << 200)) |
             (uint256(uint8(Status.Started)) << 200);
@@ -275,6 +276,7 @@ contract OneVsOneUpDown is AccessControl {
             permitData.r,
             permitData.s
         );
+        //rewrites status
         games[gameId].packedData2 =
             (games[gameId].packedData2 & ~(uint256(0xFF) << 200)) |
             (uint256(uint8(Status.Started)) << 200);
@@ -294,6 +296,7 @@ contract OneVsOneUpDown is AccessControl {
         GameInfo memory game = decodeData(gameId);
         require(game.gameStatus == Status.Created, "Wrong status!");
         require(msg.sender == game.opponent, "Only opponent can refuse");
+        //rewrites status
         games[gameId].packedData2 =
             (games[gameId].packedData2 & ~(uint256(0xFF) << 200)) |
             (uint256(uint8(Status.Refused)) << 200);
@@ -313,6 +316,7 @@ contract OneVsOneUpDown is AccessControl {
             "Wrong status!"
         );
         ITreasury(treasury).refund(game.depositAmount, game.initiator);
+        //rewrites status
         games[gameId].packedData2 =
             (games[gameId].packedData2 & ~(uint256(0xFF) << 200)) |
             (uint256(uint8(Status.Cancelled)) << 200);
@@ -372,12 +376,17 @@ contract OneVsOneUpDown is AccessControl {
                 Status.Finished
             );
         }
+        //rewrites status
         games[gameId].packedData2 =
             (games[gameId].packedData2 & ~(uint256(0xFF) << 200)) |
             (uint256(uint8(Status.Finished)) << 200);
         games[gameId].packedData2 |= uint256(uint192(finalPrice) / 1e14) << 216;
     }
 
+    /**
+     * Returns decoded game data
+     * @param gameId game id
+     */
     function decodeData(
         bytes32 gameId
     ) public view returns (GameInfo memory gameData) {

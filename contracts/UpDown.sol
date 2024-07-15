@@ -87,13 +87,15 @@ contract UpDown is AccessControl {
             "Game is closed for new players"
         );
         if (isLong) {
+            //rewrites totalDepositsUp
             packedData =
-                (packedData & ~(uint256(0) << 168)) |
+                (packedData & ~(uint256(0xFFFFFFFF) << 168)) |
                 ((depositAmount + game.totalDepositsUp) << 168);
             UpPlayers.push(msg.sender);
         } else {
+            //rewrites totalDepositsDown
             packedData =
-                (packedData & ~(uint256(0) << 136)) |
+                (packedData & ~(uint256(0xFFFFFFFF) << 136)) |
                 ((depositAmount + game.totalDepositsDown) << 136);
             DownPlayers.push(msg.sender);
         }
@@ -117,13 +119,15 @@ contract UpDown is AccessControl {
             "Game is closed for new players"
         );
         if (isLong) {
+            //rewrites totalDepositsUp
             packedData =
-                (packedData & ~(uint256(0) << 168)) |
+                (packedData & ~(uint256(0xFFFFFFFF) << 168)) |
                 ((depositAmount + game.totalDepositsUp) << 168);
             UpPlayers.push(msg.sender);
         } else {
+            //rewrites totalDepositsDown
             packedData =
-                (packedData & ~(uint256(0) << 136)) |
+                (packedData & ~(uint256(0xFFFFFFFF) << 136)) |
                 ((depositAmount + game.totalDepositsDown) << 136);
             DownPlayers.push(msg.sender);
         }
@@ -268,6 +272,9 @@ contract UpDown is AccessControl {
         packedData = 0;
     }
 
+    /**
+     * Returns decoded game data
+     */
     function decodeData() public view returns (GameInfo memory data) {
         data.startTime = uint256(uint32(packedData));
         data.stopPredictAt = uint256(uint32(packedData >> 32));
@@ -278,6 +285,9 @@ contract UpDown is AccessControl {
         data.totalDepositsUp = uint256(uint32(packedData >> 168));
     }
 
+    /**
+     * Returns total amount of participants
+     */
     function getTotalPlayers() public view returns (uint256, uint256) {
         return (UpPlayers.length, DownPlayers.length);
     }

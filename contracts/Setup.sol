@@ -178,11 +178,13 @@ contract Setup is AccessControl {
         depositAmounts[gameId][msg.sender] = depositAmount;
         if (isLong) {
             games[gameId].teamTP.push(msg.sender);
+            //rewrites totalDepositsTP
             games[gameId].packedData2 =
                 (games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 113)) |
                 ((depositAmount + data.totalDepositsTP) << 113);
         } else {
             games[gameId].teamSL.push(msg.sender);
+            //rewrites totalDepositsSL
             games[gameId].packedData2 =
                 (games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 81)) |
                 ((depositAmount + data.totalDepositsSL) << 81);
@@ -227,12 +229,13 @@ contract Setup is AccessControl {
         depositAmounts[gameId][msg.sender] = depositAmount;
         if (isLong) {
             games[gameId].teamTP.push(msg.sender);
-
+            //rewrites totalDepositsTP
             games[gameId].packedData2 =
                 (games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 113)) |
                 ((depositAmount + data.totalDepositsTP) << 113);
         } else {
             games[gameId].teamSL.push(msg.sender);
+            //rewrites totalDepositsSL
             games[gameId].packedData2 =
                 (games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 81)) |
                 ((depositAmount + data.totalDepositsSL) << 81);
@@ -267,7 +270,7 @@ contract Setup is AccessControl {
                 games[gameId].teamTP[i]
             );
         }
-        //encode gamaStatus
+        //rewrites status
         games[gameId].packedData2 =
             (games[gameId].packedData2 & ~(uint256(0xFF) << 72)) |
             (uint256(uint8(Status.Cancelled)) << 72);
@@ -304,6 +307,7 @@ contract Setup is AccessControl {
                     games[gameId].teamTP[i]
                 );
             }
+            //rewrites status
             games[gameId].packedData2 =
                 (games[gameId].packedData2 & ~(uint256(0xFF) << 72)) |
                 (uint256(uint8(Status.Cancelled)) << 72);
@@ -421,10 +425,11 @@ contract Setup is AccessControl {
         }
 
         uint256 packedData2 = games[gameId].packedData2;
-
+        //rewrites endTime
         games[gameId].packedData =
             (games[gameId].packedData & ~(uint256(0xFFFFFFFF) << 192)) |
             (uint256(endTime) << 192);
+        //rewrites status
         packedData2 =
             (packedData2 & ~(uint256(0xFF) << 72)) |
             (uint256(uint8(Status.Finished)) << 72);

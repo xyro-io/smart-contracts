@@ -342,7 +342,7 @@ contract Bullseye is AccessControl {
     }
 
     /**
-     * Unpackes data
+     * Returns decoded game data
      */
     function decodeData() public view returns (GameInfo memory data) {
         data.startTime = uint256(uint32(packedData));

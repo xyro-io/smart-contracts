@@ -32,7 +32,7 @@ contract OneVsOneUpDown is AccessControl {
 
     struct CreateUpDown {
         bytes32 gameId;
-        uint8 feedId;
+        uint8 feedNumber;
         address opponent;
         uint32 startTime;
         uint32 endTime;
@@ -43,7 +43,7 @@ contract OneVsOneUpDown is AccessControl {
     }
 
     struct GameInfo {
-        uint8 feedId;
+        uint8 feedNumber;
         address initiator;
         uint256 startTime;
         uint256 endTime;
@@ -82,7 +82,7 @@ contract OneVsOneUpDown is AccessControl {
         uint32 endTime,
         bool isLong,
         uint32 depositAmount,
-        uint8 feedId,
+        uint8 feedNumber,
         bytes memory unverifiedReport
     ) public {
         require(
@@ -98,22 +98,24 @@ contract OneVsOneUpDown is AccessControl {
             int192 startingAssetPrice,
             uint32 priceTimestamp
         ) = IDataStreamsVerifier(ITreasury(treasury).upkeep())
-                .verifyReportWithTimestamp(unverifiedReport, feedId);
+                .verifyReportWithTimestamp(unverifiedReport, feedNumber);
         //block.timestamp must be > priceTimestamp
         require(
             block.timestamp - priceTimestamp <= 10 minutes,
             "Old chainlink report"
         );
         ITreasury(treasury).deposit(depositAmount, msg.sender);
-        uint256 packedData = uint(uint160(opponent));
-        uint256 packedData2 = uint(uint160(msg.sender));
+        uint256 packedData = uint256(uint160(opponent));
+        uint256 packedData2 = uint256(uint160(msg.sender));
         packedData |= uint256(uint192(startingAssetPrice / 1e14)) << 160;
         packedData |= block.timestamp << 192;
         packedData |= uint256(endTime) << 224;
         packedData2 |= uint256(depositAmount) << 160;
-        packedData2 |= uint256(feedId) << 192;
+        packedData2 |= uint256(feedNumber) << 192;
         packedData2 |= uint256(Status.Created) << 200;
-        packedData2 |= isLong ? uint(1) << 208 : uint(0) << 208;
+        if (isLong) {
+            packedData2 |= uint256(1) << 208;
+        }
         bytes32 gameId = keccak256(
             abi.encodePacked(endTime, block.timestamp, msg.sender, opponent)
         );
@@ -121,7 +123,7 @@ contract OneVsOneUpDown is AccessControl {
         emit UpDownCreated(
             CreateUpDown(
                 gameId,
-                feedId,
+                feedNumber,
                 opponent,
                 uint32(block.timestamp),
                 endTime,
@@ -145,7 +147,7 @@ contract OneVsOneUpDown is AccessControl {
         uint32 endTime,
         bool isLong,
         uint32 depositAmount,
-        uint8 feedId,
+        uint8 feedNumber,
         bytes memory unverifiedReport,
         ITreasury.PermitData calldata permitData
     ) public {
@@ -162,7 +164,7 @@ contract OneVsOneUpDown is AccessControl {
             int192 startingAssetPrice,
             uint32 priceTimestamp
         ) = IDataStreamsVerifier(ITreasury(treasury).upkeep())
-                .verifyReportWithTimestamp(unverifiedReport, feedId);
+                .verifyReportWithTimestamp(unverifiedReport, feedNumber);
         //block.timestamp must be > priceTimestamp
         require(
             block.timestamp - priceTimestamp <= 10 minutes,
@@ -176,15 +178,17 @@ contract OneVsOneUpDown is AccessControl {
             permitData.r,
             permitData.s
         );
-        uint256 packedData = uint(uint160(opponent));
-        uint256 packedData2 = uint(uint160(msg.sender));
+        uint256 packedData = uint256(uint160(opponent));
+        uint256 packedData2 = uint256(uint160(msg.sender));
         packedData |= uint256(uint192(startingAssetPrice / 1e14)) << 160;
         packedData |= block.timestamp << 192;
         packedData |= uint256(endTime) << 224;
         packedData2 |= uint256(depositAmount) << 160;
-        packedData2 |= uint256(feedId) << 192;
+        packedData2 |= uint256(feedNumber) << 192;
         packedData2 |= uint256(Status.Created) << 200;
-        packedData2 |= isLong ? uint(1) << 208 : uint(0) << 208;
+        if (isLong) {
+            packedData2 |= uint256(1) << 208;
+        }
         bytes32 gameId = keccak256(
             abi.encodePacked(endTime, block.timestamp, msg.sender, opponent)
         );
@@ -192,7 +196,7 @@ contract OneVsOneUpDown is AccessControl {
         emit UpDownCreated(
             CreateUpDown(
                 gameId,
-                feedId,
+                feedNumber,
                 opponent,
                 uint32(block.timestamp),
                 endTime,
@@ -228,7 +232,7 @@ contract OneVsOneUpDown is AccessControl {
         }
         ITreasury(treasury).deposit(game.depositAmount, msg.sender);
         games[gameId].packedData2 =
-            (games[gameId].packedData2 & ~(~uint256(0) << 200)) |
+            (games[gameId].packedData2 & ~(uint256(0xFF) << 200)) |
             (uint256(uint8(Status.Started)) << 200);
         emit UpDownAccepted(
             gameId,
@@ -272,7 +276,7 @@ contract OneVsOneUpDown is AccessControl {
             permitData.s
         );
         games[gameId].packedData2 =
-            (games[gameId].packedData2 & ~(~uint256(0) << 200)) |
+            (games[gameId].packedData2 & ~(uint256(0xFF) << 200)) |
             (uint256(uint8(Status.Started)) << 200);
         emit UpDownAccepted(
             gameId,
@@ -291,7 +295,7 @@ contract OneVsOneUpDown is AccessControl {
         require(game.gameStatus == Status.Created, "Wrong status!");
         require(msg.sender == game.opponent, "Only opponent can refuse");
         games[gameId].packedData2 =
-            (games[gameId].packedData2 & ~(~uint256(0) << 200)) |
+            (games[gameId].packedData2 & ~(uint256(0xFF) << 200)) |
             (uint256(uint8(Status.Refused)) << 200);
         emit UpDownRefused(gameId);
     }
@@ -310,8 +314,9 @@ contract OneVsOneUpDown is AccessControl {
         );
         ITreasury(treasury).refund(game.depositAmount, game.initiator);
         games[gameId].packedData2 =
-            (games[gameId].packedData2 & ~(~uint256(0) << 200)) |
+            (games[gameId].packedData2 & ~(uint256(0xFF) << 200)) |
             (uint256(uint8(Status.Cancelled)) << 200);
+
         emit UpDownCancelled(gameId);
     }
 
@@ -330,7 +335,7 @@ contract OneVsOneUpDown is AccessControl {
         address upkeep = ITreasury(treasury).upkeep();
         (int192 finalPrice, uint32 priceTimestamp) = IDataStreamsVerifier(
             upkeep
-        ).verifyReportWithTimestamp(unverifiedReport, game.feedId);
+        ).verifyReportWithTimestamp(unverifiedReport, game.feedNumber);
         require(
             priceTimestamp - game.endTime <= 10 minutes ||
                 block.timestamp - priceTimestamp <= 10 minutes,
@@ -368,7 +373,7 @@ contract OneVsOneUpDown is AccessControl {
             );
         }
         games[gameId].packedData2 =
-            (games[gameId].packedData2 & ~(~uint256(0) << 200)) |
+            (games[gameId].packedData2 & ~(uint256(0xFF) << 200)) |
             (uint256(uint8(Status.Finished)) << 200);
         games[gameId].packedData2 |= uint256(uint192(finalPrice) / 1e14) << 216;
     }
@@ -385,7 +390,7 @@ contract OneVsOneUpDown is AccessControl {
 
         gameData.initiator = address(uint160(packedData2));
         gameData.depositAmount = uint256(uint32(packedData2 >> 160));
-        gameData.feedId = uint8(packedData2 >> 192);
+        gameData.feedNumber = uint8(packedData2 >> 192);
         gameData.gameStatus = Status(uint8(packedData2 >> 200));
         gameData.isLong = packedData2 >> 208 == 1;
         gameData.finalPrice = uint256(uint32(packedData2 >> 216));

@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ITreasury} from "./interfaces/ITreasury.sol";
-import "hardhat/console.sol";
 import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 
 contract UpDown is AccessControl {
@@ -11,7 +10,7 @@ contract UpDown is AccessControl {
         uint256 startTime,
         uint32 stopPredictAt,
         uint32 endTime,
-        uint8 feedId,
+        uint8 feedNumber,
         bytes32 gameId
     );
     event UpDownNewPlayer(
@@ -31,7 +30,7 @@ contract UpDown is AccessControl {
         uint256 startingPrice;
         uint256 totalDepositsUp;
         uint256 totalDepositsDown;
-        uint8 feedId;
+        uint8 feedNumber;
     }
 
     uint256 packedData;
@@ -54,13 +53,13 @@ contract UpDown is AccessControl {
     function startGame(
         uint32 endTime,
         uint32 stopPredictAt,
-        uint8 feedId
+        uint8 feedNumber
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(packedData == 0, "Finish previous game first");
         packedData = (block.timestamp |
             (uint256(stopPredictAt) << 32) |
             (uint256(endTime) << 64) |
-            (uint256(feedId) << 96));
+            (uint256(feedNumber) << 96));
         currentGameId = keccak256(
             abi.encodePacked(endTime, block.timestamp, address(this))
         );
@@ -68,7 +67,7 @@ contract UpDown is AccessControl {
             block.timestamp,
             stopPredictAt,
             endTime,
-            feedId,
+            feedNumber,
             currentGameId
         );
     }
@@ -89,12 +88,12 @@ contract UpDown is AccessControl {
         );
         if (isLong) {
             packedData =
-                (packedData & ~(~uint256(0) << 168)) |
+                (packedData & ~(uint256(0) << 168)) |
                 ((depositAmount + game.totalDepositsUp) << 168);
             UpPlayers.push(msg.sender);
         } else {
             packedData =
-                (packedData & ~(~uint256(0) << 136)) |
+                (packedData & ~(uint256(0) << 136)) |
                 ((depositAmount + game.totalDepositsDown) << 136);
             DownPlayers.push(msg.sender);
         }
@@ -119,12 +118,12 @@ contract UpDown is AccessControl {
         );
         if (isLong) {
             packedData =
-                (packedData & ~(~uint256(0) << 168)) |
+                (packedData & ~(uint256(0) << 168)) |
                 ((depositAmount + game.totalDepositsUp) << 168);
             UpPlayers.push(msg.sender);
         } else {
             packedData =
-                (packedData & ~(~uint256(0) << 136)) |
+                (packedData & ~(uint256(0) << 136)) |
                 ((depositAmount + game.totalDepositsDown) << 136);
             DownPlayers.push(msg.sender);
         }
@@ -152,7 +151,7 @@ contract UpDown is AccessControl {
         address upkeep = ITreasury(treasury).upkeep();
         (int192 startingPrice, uint32 priceTimestamp) = IDataStreamsVerifier(
             upkeep
-        ).verifyReportWithTimestamp(unverifiedReport, game.feedId);
+        ).verifyReportWithTimestamp(unverifiedReport, game.feedNumber);
         require(
             block.timestamp - priceTimestamp <= 10 minutes,
             "Old chainlink report"
@@ -198,7 +197,7 @@ contract UpDown is AccessControl {
         address upkeep = ITreasury(treasury).upkeep();
         (int192 finalPrice, uint32 priceTimestamp) = IDataStreamsVerifier(
             upkeep
-        ).verifyReportWithTimestamp(unverifiedReport, game.feedId);
+        ).verifyReportWithTimestamp(unverifiedReport, game.feedNumber);
         //block.timestamp must be > priceTimestamp
         require(
             priceTimestamp - game.endTime <= 10 minutes ||
@@ -273,7 +272,7 @@ contract UpDown is AccessControl {
         data.startTime = uint256(uint32(packedData));
         data.stopPredictAt = uint256(uint32(packedData >> 32));
         data.endTime = uint256(uint32(packedData >> 64));
-        data.feedId = uint8(packedData >> 96);
+        data.feedNumber = uint8(packedData >> 96);
         data.startingPrice = uint256(uint32(packedData >> 104));
         data.totalDepositsDown = uint256(uint32(packedData >> 136));
         data.totalDepositsUp = uint256(uint32(packedData >> 168));

@@ -8,6 +8,6 @@ interface IDataStreamsVerifier {
 
     function verifyReportWithTimestamp(
         bytes memory unverifiedReport,
-        uint8 feedId
+        uint8 feedNumber
     ) external returns (int192, uint32);
 }

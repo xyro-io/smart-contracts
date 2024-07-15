@@ -8,7 +8,7 @@ import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 contract OneVsOneExactPrice is AccessControl {
     event ExactPriceCreated(
         bytes32 gameId,
-        uint8 feedId,
+        uint8 feedNumber,
         address opponent,
         uint32 startTime,
         uint32 endTime,
@@ -40,7 +40,7 @@ contract OneVsOneExactPrice is AccessControl {
     }
 
     struct GameInfo {
-        uint8 feedId;
+        uint8 feedNumber;
         address initiator;
         uint256 startTime;
         uint256 endTime;
@@ -75,11 +75,11 @@ contract OneVsOneExactPrice is AccessControl {
      * @param depositAmount amount to enter the game
      */
     function createGame(
-        uint8 feedId,
+        uint8 feedNumber,
         address opponent,
         uint32 endTime,
-        uint24 initiatorPrice,
-        uint24 depositAmount
+        uint32 initiatorPrice,
+        uint16 depositAmount
     ) public {
         require(
             endTime - block.timestamp >= minDuration,
@@ -99,15 +99,15 @@ contract OneVsOneExactPrice is AccessControl {
         uint256 packedData2 = uint(uint160(msg.sender));
         packedData |= uint256(endTime) << 160;
         packedData |= uint256(initiatorPrice) << 192;
-        packedData |= uint256(feedId) << 216;
         packedData2 |= block.timestamp << 160;
         packedData2 |= uint256(depositAmount) << 192;
-        packedData2 |= uint256(Status.Created) << 216;
+        packedData2 |= uint256(Status.Created) << 208;
+        packedData2 |= uint256(feedNumber) << 216;
         games[gameId].packedData = packedData;
         games[gameId].packedData2 = packedData2;
         emit ExactPriceCreated(
             gameId,
-            feedId,
+            feedNumber,
             opponent,
             uint32(block.timestamp),
             endTime,
@@ -125,11 +125,11 @@ contract OneVsOneExactPrice is AccessControl {
      * @param depositAmount amount to enter the game
      */
     function createGameWithPermit(
-        uint8 feedId,
+        uint8 feedNumber,
         address opponent,
         uint32 endTime,
-        uint24 initiatorPrice,
-        uint24 depositAmount,
+        uint32 initiatorPrice,
+        uint16 depositAmount,
         ITreasury.PermitData calldata permitData
     ) public {
         require(
@@ -157,15 +157,15 @@ contract OneVsOneExactPrice is AccessControl {
         uint256 packedData2 = uint(uint160(msg.sender));
         packedData |= uint256(endTime) << 160;
         packedData |= uint256(initiatorPrice) << 192;
-        packedData |= uint256(feedId) << 216;
         packedData2 |= block.timestamp << 160;
         packedData2 |= uint256(depositAmount) << 192;
-        packedData2 |= uint256(Status.Created) << 216;
+        packedData2 |= uint256(Status.Created) << 208;
+        packedData2 |= uint256(feedNumber) << 216;
         games[gameId].packedData = packedData;
         games[gameId].packedData2 = packedData2;
         emit ExactPriceCreated(
             gameId,
-            feedId,
+            feedNumber,
             opponent,
             uint32(block.timestamp),
             endTime,
@@ -202,8 +202,8 @@ contract OneVsOneExactPrice is AccessControl {
         games[gameId].packedData |= uint256(opponentPrice) << 224;
         ITreasury(treasury).deposit(game.depositAmount, msg.sender);
         games[gameId].packedData2 =
-            (games[gameId].packedData2 & ~(~uint256(0) << 216)) |
-            (uint256(uint8(Status.Started)) << 216);
+            (games[gameId].packedData2 & ~(uint256(0xFF) << 208)) |
+            (uint256(uint8(Status.Started)) << 208);
         emit ExactPriceAccepted(gameId, msg.sender, opponentPrice);
     }
 
@@ -245,8 +245,8 @@ contract OneVsOneExactPrice is AccessControl {
             permitData.s
         );
         games[gameId].packedData2 =
-            (games[gameId].packedData2 & ~(~uint256(0) << 216)) |
-            (uint256(uint8(Status.Started)) << 216);
+            (games[gameId].packedData2 & ~(uint256(0xFF) << 208)) |
+            (uint256(uint8(Status.Started)) << 208);
         emit ExactPriceAccepted(gameId, msg.sender, opponentPrice);
     }
 
@@ -264,8 +264,8 @@ contract OneVsOneExactPrice is AccessControl {
         );
         ITreasury(treasury).refund(game.depositAmount, game.initiator);
         games[gameId].packedData2 =
-            (games[gameId].packedData2 & ~(~uint256(0) << 216)) |
-            (uint256(uint8(Status.Cancelled)) << 216);
+            (games[gameId].packedData2 & ~(uint256(0xFF) << 208)) |
+            (uint256(uint8(Status.Cancelled)) << 208);
         emit ExactPriceCancelled(gameId);
     }
 
@@ -278,8 +278,8 @@ contract OneVsOneExactPrice is AccessControl {
         require(game.gameStatus == Status.Created, "Wrong status!");
         require(msg.sender == game.opponent, "Only opponent can refuse");
         games[gameId].packedData2 =
-            (games[gameId].packedData2 & ~(~uint256(0) << 216)) |
-            (uint256(uint8(Status.Refused)) << 216);
+            (games[gameId].packedData2 & ~(uint256(0xFF) << 208)) |
+            (uint256(uint8(Status.Refused)) << 208);
         emit ExactPriceRefused(gameId);
     }
 
@@ -296,7 +296,7 @@ contract OneVsOneExactPrice is AccessControl {
         GameInfo memory game = decodeData(gameId);
         (int192 finalPrice, uint32 priceTimestamp) = IDataStreamsVerifier(
             upkeep
-        ).verifyReportWithTimestamp(unverifiedReport, game.feedId);
+        ).verifyReportWithTimestamp(unverifiedReport, game.feedNumber);
         require(game.gameStatus == Status.Started, "Wrong status!");
         require(block.timestamp >= game.endTime, "Too early to finish");
         require(
@@ -310,7 +310,6 @@ contract OneVsOneExactPrice is AccessControl {
         uint256 diff2 = game.opponentPrice > uint192(finalPrice) / 1e14
             ? game.opponentPrice - uint192(finalPrice) / 1e14
             : uint192(finalPrice) / 1e14 - game.opponentPrice;
-
         if (diff1 < diff2) {
             ITreasury(treasury).distribute(
                 game.depositAmount * 2,
@@ -341,11 +340,9 @@ contract OneVsOneExactPrice is AccessControl {
             );
         }
         games[gameId].packedData2 =
-            (games[gameId].packedData2 & ~(~uint256(0) << 216)) |
-            (uint256(uint8(Status.Finished)) << 216);
-        games[gameId].packedData2 |=
-            uint256(uint32(uint192(finalPrice / 1e14))) <<
-            224;
+            (games[gameId].packedData2 & ~(uint256(0xFF) << 208)) |
+            (uint256(uint8(Status.Finished)) << 208);
+        games[gameId].packedData2 |= uint256(uint192(finalPrice / 1e14)) << 224;
     }
 
     function decodeData(
@@ -355,14 +352,14 @@ contract OneVsOneExactPrice is AccessControl {
         uint256 packedData2 = games[gameId].packedData2;
         gameData.opponent = address(uint160(packedData));
         gameData.endTime = uint256(uint32(packedData >> 160));
-        gameData.initiatorPrice = uint256(uint24(packedData >> 192));
-        gameData.feedId = uint8(packedData >> 216);
+        gameData.initiatorPrice = uint256(uint32(packedData >> 192));
         gameData.opponentPrice = uint256(uint32(packedData >> 224));
 
         gameData.initiator = address(uint160(packedData2));
         gameData.startTime = uint256(uint32(packedData2 >> 160));
-        gameData.depositAmount = uint256(uint24(packedData2 >> 192));
-        gameData.gameStatus = Status(uint8(packedData2 >> 216));
+        gameData.depositAmount = uint256(uint16(packedData2 >> 192));
+        gameData.gameStatus = Status(uint8(packedData2 >> 208));
+        gameData.feedNumber = uint8(packedData2 >> 216);
         gameData.finalPrice = uint256(uint32(packedData2 >> 224));
     }
 

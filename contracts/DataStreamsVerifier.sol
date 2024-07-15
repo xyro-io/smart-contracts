@@ -82,7 +82,7 @@ contract DataStreamsVerifier {
     error NotOwner(address caller); // Thrown when a caller tries to execute a function that is restricted to the contract's owner.
 
     struct BasicReport {
-        bytes32 feedId; // The feed ID the report has data for
+        bytes32 feedNumber; // The feed ID the report has data for
         uint32 validFromTimestamp; // Earliest timestamp for which price is applicable
         uint32 observationsTimestamp; // Latest timestamp for which price is applicable
         uint192 nativeFee; // Base cost to validate a transaction using the report, denominated in the chain’s native token (WETH/ETH)
@@ -92,7 +92,7 @@ contract DataStreamsVerifier {
     }
 
     struct PremiumReport {
-        bytes32 feedId; // The feed ID the report has data for
+        bytes32 feedNumber; // The feed ID the report has data for
         uint32 validFromTimestamp; // Earliest timestamp for which price is applicable
         uint32 observationsTimestamp; // Latest timestamp for which price is applicable
         uint192 nativeFee; // Base cost to validate a transaction using the report, denominated in the chain’s native token (WETH/ETH)
@@ -127,11 +127,11 @@ contract DataStreamsVerifier {
 
     function verifyReportWithTimestamp(
         bytes memory unverifiedReport,
-        uint8 feedId
+        uint8 feedNumber
     ) external returns (int192, uint32) {
         // Report verification fees
         IFeeManager feeManager = IFeeManager(
-            address(verifiersProxy[feedId].s_feeManager())
+            address(verifiersProxy[feedNumber].s_feeManager())
         );
 
         IRewardManager rewardManager = IRewardManager(
@@ -152,7 +152,7 @@ contract DataStreamsVerifier {
         IERC20(feeTokenAddress).approve(address(rewardManager), fee.amount);
 
         // Verify the report
-        bytes memory verifiedReportData = verifiersProxy[feedId].verify(
+        bytes memory verifiedReportData = verifiersProxy[feedNumber].verify(
             unverifiedReport,
             abi.encode(feeTokenAddress)
         );
@@ -166,7 +166,7 @@ contract DataStreamsVerifier {
         // Log price from report
         emit DecodedPrice(verifiedReport.price);
 
-        // require(feedId == verifiedReport.feedId, "Wrong feed id");
+        // require(feedNumber == verifiedReport.feedNumber, "Wrong feed id");
         last_decoded_price = verifiedReport.price;
         last_validFromTimestamp = verifiedReport.validFromTimestamp;
         return (verifiedReport.price, verifiedReport.validFromTimestamp);
@@ -174,11 +174,11 @@ contract DataStreamsVerifier {
 
     function verifyReport(
         bytes memory unverifiedReport,
-        uint8 feedId
+        uint8 feedNumber
     ) external returns (int192) {
         // Report verification fees
         IFeeManager feeManager = IFeeManager(
-            address(verifiersProxy[feedId].s_feeManager())
+            address(verifiersProxy[feedNumber].s_feeManager())
         );
 
         IRewardManager rewardManager = IRewardManager(
@@ -199,7 +199,7 @@ contract DataStreamsVerifier {
         IERC20(feeTokenAddress).approve(address(rewardManager), fee.amount);
 
         // Verify the report
-        bytes memory verifiedReportData = verifiersProxy[feedId].verify(
+        bytes memory verifiedReportData = verifiersProxy[feedNumber].verify(
             unverifiedReport,
             abi.encode(feeTokenAddress)
         );
@@ -213,13 +213,13 @@ contract DataStreamsVerifier {
         // Log price from report
         emit DecodedPrice(verifiedReport.price);
 
-        // require(feedId == verifiedReport.feedId, "Wrong feed id");
+        // require(feedNumber == verifiedReport.feedNumber, "Wrong feed id");
         last_decoded_price = verifiedReport.price;
         return verifiedReport.price;
     }
 
-    function setFeedId(uint8 feedId, address verifierProxy) public {
-        verifiersProxy[feedId] = IVerifierProxy(verifierProxy);
+    function setfeedNumber(uint8 feedNumber, address verifierProxy) public {
+        verifiersProxy[feedNumber] = IVerifierProxy(verifierProxy);
     }
 
     /**
@@ -241,9 +241,9 @@ contract DataStreamsVerifier {
         IERC20(_token).safeTransfer(_beneficiary, amount);
     }
 
-    function approve(uint8 feedId, uint256 amount) public {
+    function approve(uint8 feedNumber, uint256 amount) public {
         IFeeManager feeManager = IFeeManager(
-            address(verifiersProxy[feedId].s_feeManager())
+            address(verifiersProxy[feedNumber].s_feeManager())
         );
 
         IRewardManager rewardManager = IRewardManager(

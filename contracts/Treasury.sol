@@ -6,6 +6,7 @@ import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC2
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 interface IERC20Mint {
+    function decimals() external view returns (uint256);
     function mint(address to, uint256 value) external returns (bool);
 }
 
@@ -35,7 +36,7 @@ contract Treasury is AccessControl {
      * Set new token for in game usage
      * @param token new token address
      */
-    function setToken(address token) onlyRole(DEFAULT_ADMIN_ROLE) public {
+    function setToken(address token) public onlyRole(DEFAULT_ADMIN_ROLE) {
         approvedToken = token;
     }
 
@@ -75,7 +76,7 @@ contract Treasury is AccessControl {
             IERC20(approvedToken),
             from,
             address(this),
-            amount
+            amount * 10 ** IERC20Mint(approvedToken).decimals()
         );
     }
 
@@ -95,7 +96,7 @@ contract Treasury is AccessControl {
         IERC20Permit(approvedToken).permit(
             from,
             address(this),
-            amount,
+            amount * 10 ** IERC20Mint(approvedToken).decimals(),
             deadline,
             v,
             r,
@@ -105,7 +106,7 @@ contract Treasury is AccessControl {
             IERC20(approvedToken),
             from,
             address(this),
-            amount
+            amount * 10 ** IERC20Mint(approvedToken).decimals()
         );
     }
 
@@ -114,16 +115,26 @@ contract Treasury is AccessControl {
      * @param amount token amount
      * @param to reciever address
      */
-    function refund(uint256 amount, address to) onlyRole(DISTRIBUTOR_ROLE) public {
+    function refund(
+        uint256 amount,
+        address to
+    ) public onlyRole(DISTRIBUTOR_ROLE) {
         IERC20(approvedToken).approve(to, amount);
-        SafeERC20.safeTransfer(IERC20(approvedToken), to, amount);
+        SafeERC20.safeTransfer(
+            IERC20(approvedToken),
+            to,
+            amount * 10 ** IERC20Mint(approvedToken).decimals()
+        );
     }
 
     /**
      * Withrad earned fees
      * @param amount amount to withdraw
      */
-    function withdrawFees(uint256 amount, address to) onlyRole(DEFAULT_ADMIN_ROLE) public {
+    function withdrawFees(
+        uint256 amount,
+        address to
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         IERC20(approvedToken).approve(to, amount);
         SafeERC20.safeTransfer(IERC20(approvedToken), to, amount);
     }
@@ -141,6 +152,8 @@ contract Treasury is AccessControl {
         uint256 initialDeposit,
         uint256 gameFee
     ) public onlyRole(DISTRIBUTOR_ROLE) {
+        amount *= 10 ** IERC20Mint(approvedToken).decimals();
+        initialDeposit *= 10 ** IERC20Mint(approvedToken).decimals();
         uint256 withdrawnFees = (amount * gameFee) / FEE_DENOMINATOR;
         uint256 wonAmount = amount -
             (withdrawnFees -
@@ -164,6 +177,7 @@ contract Treasury is AccessControl {
         address to,
         uint256 initialDeposit
     ) public onlyRole(DISTRIBUTOR_ROLE) {
+        initialDeposit *= 10 ** IERC20Mint(approvedToken).decimals();
         uint256 withdrawnFees = (initialDeposit * fee) / FEE_DENOMINATOR;
         uint256 wonAmount = (initialDeposit - withdrawnFees) +
             ((initialDeposit - withdrawnFees) * rate) /
@@ -186,6 +200,8 @@ contract Treasury is AccessControl {
         uint256 wonTeamTotal,
         address initiator
     ) external returns (uint256, uint256) {
+        lostTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
+        wonTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
         uint256 withdrawnFee = (lostTeamTotal * fee) / FEE_DENOMINATOR;
         collectedFee += withdrawnFee;
         uint256 lostTeamFee = (lostTeamTotal * setupInitiatorFee) /
@@ -198,9 +214,8 @@ contract Treasury is AccessControl {
             lostTeamFee + wonTeamFee
         );
         //collect dust
-        uint256 rate =
-            ((lostTeamTotal - withdrawnFee - lostTeamFee) * FEE_DENOMINATOR) /
-            (wonTeamTotal - wonTeamFee);
+        uint256 rate = ((lostTeamTotal - withdrawnFee - lostTeamFee) *
+            FEE_DENOMINATOR) / (wonTeamTotal - wonTeamFee);
         return (rate, lostTeamFee + wonTeamFee);
     }
 
@@ -215,6 +230,8 @@ contract Treasury is AccessControl {
         uint256 wonTeamTotal,
         uint256 updownFee
     ) external returns (uint256 rate) {
+        lostTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
+        wonTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
         uint256 lostTeamFee = (lostTeamTotal * updownFee) / FEE_DENOMINATOR;
         uint256 wonTeamFee = (wonTeamTotal * updownFee) / FEE_DENOMINATOR;
         collectedFee += lostTeamFee + wonTeamFee;
@@ -278,7 +295,7 @@ contract Treasury is AccessControl {
      * Changes Chainlink upkeep address
      * @param newUpkeep new upkeep address
      */
-    function setUpkeep(address newUpkeep) onlyRole(DEFAULT_ADMIN_ROLE) public {
+    function setUpkeep(address newUpkeep) public onlyRole(DEFAULT_ADMIN_ROLE) {
         upkeep = newUpkeep;
     }
 }

@@ -6,40 +6,40 @@ import {ITreasury} from "./interfaces/ITreasury.sol";
 import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 
 contract Bullseye is AccessControl {
-    uint256 constant DENOMINATOR = 10000;
+    uint256 constant DENOMINATOR = 100;
+    int192 public exactRange = 100;
     uint256 public fee = 100;
-    uint256[3] public rate = [5000, 3500, 1500];
-    uint256[3] public exactRate = [7500, 1500, 1000];
-    uint256[2] public twoPlayersRate = [7500, 2500];
-    uint256[2] public twoPlayersExactRate = [8000, 2000];
+    uint256[3] public rate = [50, 35, 15];
+    uint256[3] public exactRate = [75, 15, 10];
+    uint256[2] public twoPlayersRate = [75, 25];
+    uint256[2] public twoPlayersExactRate = [80, 20];
     event BullseyeStart(
         uint256 startTime,
-        uint48 stopPredictAt,
-        uint48 endTime,
-        uint256 depositAmount,
-        bytes32 feedId,
-        bytes32 indexed gameId
+        uint32 stopPredictAt,
+        uint32 endTime,
+        uint32 depositAmount,
+        uint8 feedNumber,
+        bytes32 gameId
     );
     event BullseyeNewPlayer(
         address player,
         int192 assetPrice,
         uint256 depositAmount,
-        bytes32 indexed gameId
+        bytes32 gameId
     );
     event BullseyeFinalized(
         address[3] players,
         int192 finalPrice,
         bool isExact,
-        bytes32 indexed gameId
+        bytes32 gameId
     );
-    event BullseyeCancelled(bytes32 indexed gameId);
+    event BullseyeCancelled(bytes32 gameId);
 
     struct GameInfo {
-        bytes32 feedId;
-        bytes32 gameId;
+        uint8 feedNumber;
         uint256 startTime;
-        uint48 endTime;
-        uint48 stopPredictAt;
+        uint256 endTime;
+        uint256 stopPredictAt;
         uint256 depositAmount;
     }
 
@@ -47,7 +47,8 @@ contract Bullseye is AccessControl {
     mapping(address => int192) public assetPrices;
     mapping(address => uint256) public playerTimestamp;
 
-    GameInfo public game;
+    uint256 packedData;
+    bytes32 public currentGameId;
     address public treasury;
 
     constructor() {
@@ -60,18 +61,19 @@ contract Bullseye is AccessControl {
      * @param depositAmount amount to enter the game
      */
     function startGame(
-        uint48 endTime,
-        uint48 stopPredictAt,
-        uint256 depositAmount,
-        bytes32 feedId
+        uint32 endTime,
+        uint32 stopPredictAt,
+        uint32 depositAmount,
+        uint8 feedNumber
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(game.startTime == 0, "Finish previous game first");
-        game.feedId = feedId;
-        game.startTime = block.timestamp;
-        game.stopPredictAt = stopPredictAt;
-        game.endTime = endTime;
-        game.depositAmount = depositAmount;
-        game.gameId = keccak256(
+        require(packedData == 0, "Finish previous game first");
+        require(depositAmount >= 10, "Wrong deposit amount");
+        packedData = (block.timestamp |
+            (uint256(stopPredictAt) << 32) |
+            (uint256(endTime) << 64) |
+            (uint256(feedNumber) << 96) |
+            (uint256(depositAmount) << 104));
+        currentGameId = keccak256(
             abi.encodePacked(endTime, block.timestamp, address(this))
         );
         emit BullseyeStart(
@@ -79,8 +81,8 @@ contract Bullseye is AccessControl {
             stopPredictAt,
             endTime,
             depositAmount,
-            feedId,
-            game.gameId
+            feedNumber,
+            currentGameId
         );
     }
 
@@ -89,6 +91,7 @@ contract Bullseye is AccessControl {
      * @param assetPrice player's picked asset price
      */
     function play(int192 assetPrice) public {
+        GameInfo memory game = decodeData();
         require(
             game.stopPredictAt >= block.timestamp,
             "Game is closed for new players"
@@ -102,7 +105,7 @@ contract Bullseye is AccessControl {
             msg.sender,
             assetPrice,
             game.depositAmount,
-            game.gameId
+            currentGameId
         );
     }
 
@@ -114,6 +117,7 @@ contract Bullseye is AccessControl {
         int192 assetPrice,
         ITreasury.PermitData calldata permitData
     ) public {
+        GameInfo memory game = decodeData();
         require(
             game.stopPredictAt >= block.timestamp,
             "Game is closed for new players"
@@ -134,7 +138,7 @@ contract Bullseye is AccessControl {
             msg.sender,
             assetPrice,
             game.depositAmount,
-            game.gameId
+            currentGameId
         );
     }
 
@@ -145,7 +149,8 @@ contract Bullseye is AccessControl {
     function finalizeGame(
         bytes memory unverifiedReport
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(game.gameId != bytes32(0), "Start the game first");
+        GameInfo memory game = decodeData();
+        require(currentGameId != bytes32(0), "Start the game first");
         require(block.timestamp >= game.endTime, "Too early to finish");
         if (players.length < 2) {
             address player;
@@ -156,21 +161,22 @@ contract Bullseye is AccessControl {
                 playerTimestamp[players[0]] = 0;
                 delete players;
             }
-            emit BullseyeCancelled(game.gameId);
-            delete game;
+            emit BullseyeCancelled(currentGameId);
+            packedData = 0;
+            currentGameId = bytes32(0);
             return;
         }
 
         address upkeep = ITreasury(treasury).upkeep();
         (int192 finalPrice, uint32 priceTimestamp) = IDataStreamsVerifier(
             upkeep
-        ).verifyReportWithTimestamp(unverifiedReport, game.feedId);
+        ).verifyReportWithTimestamp(unverifiedReport, game.feedNumber);
+        finalPrice /= 1e14;
         require(
             priceTimestamp - game.endTime <= 10 minutes ||
                 block.timestamp - priceTimestamp <= 10 minutes,
             "Old chainlink report"
         );
-        int192 exactRange = finalPrice / 10000;
         if (players.length == 2) {
             address playerOne = players[0];
             address playerTwo = players[1];
@@ -212,7 +218,7 @@ contract Bullseye is AccessControl {
                     [playerOne, playerTwo, address(0)],
                     finalPrice,
                     playerOneDiff <= exactRange,
-                    game.gameId
+                    currentGameId
                 );
             } else {
                 // player 2 closer
@@ -246,7 +252,7 @@ contract Bullseye is AccessControl {
                     [playerTwo, playerOne, address(0)],
                     finalPrice,
                     playerTwoDiff <= exactRange,
-                    game.gameId
+                    currentGameId
                 );
             }
         } else {
@@ -300,45 +306,54 @@ contract Bullseye is AccessControl {
                         game.depositAmount,
                         fee
                     );
-                    totalDeposited -= wonAmount[i];
                 }
             }
             emit BullseyeFinalized(
                 topPlayers,
                 finalPrice,
                 closestDiff[0] <= exactRange,
-                game.gameId
+                currentGameId
             );
         }
         for (uint256 i = 0; i < players.length; i++) {
             assetPrices[players[i]] = 0;
             playerTimestamp[players[i]] = 0;
         }
-        delete game;
+        packedData = 0;
+        currentGameId = bytes32(0);
         delete players;
     }
 
+    /**
+     * Closes game and makes refund
+     */
     function closeGame() public onlyRole(DEFAULT_ADMIN_ROLE) {
+        GameInfo memory game = decodeData();
         uint256 deposit = game.depositAmount;
         for (uint i; i < players.length; i++) {
             ITreasury(treasury).refund(deposit, players[i]);
+            assetPrices[players[i]] = 0;
+            playerTimestamp[players[i]] = 0;
         }
-        emit BullseyeCancelled(game.gameId);
-        delete game;
+        emit BullseyeCancelled(currentGameId);
+        packedData = 0;
+        currentGameId = bytes32(0);
         delete players;
+    }
+
+    /**
+     * Returns decoded game data
+     */
+    function decodeData() public view returns (GameInfo memory data) {
+        data.startTime = uint256(uint32(packedData));
+        data.stopPredictAt = uint256(uint32(packedData >> 32));
+        data.endTime = uint256(uint32(packedData >> 64));
+        data.feedNumber = uint8(packedData >> 96);
+        data.depositAmount = uint256(uint32(packedData >> 104));
     }
 
     function getTotalPlayers() public view returns (uint256) {
         return players.length;
-    }
-
-    /**
-     * Do we need this?
-     */
-    function changeDepositAmount(
-        uint256 newDepositAmount
-    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        game.depositAmount = newDepositAmount;
     }
 
     /**
@@ -349,5 +364,15 @@ contract Bullseye is AccessControl {
         address newTreasury
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         treasury = newTreasury;
+    }
+
+    /**
+     * Change exact range
+     * @param newRange new exact range
+     */
+    function setExactRange(
+        int192 newRange
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        exactRange = newRange;
     }
 }

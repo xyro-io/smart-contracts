@@ -201,13 +201,9 @@ contract Bullseye is AccessControl {
                     game.depositAmount,
                     fee
                 );
-                uint256 wonAmountSecond = (2 *
-                    game.depositAmount *
-                    (
-                        playerOneDiff <= exactRange
-                            ? twoPlayersExactRate[1]
-                            : twoPlayersRate[1]
-                    )) / DENOMINATOR;
+                uint256 wonAmountSecond = 2 *
+                    game.depositAmount -
+                    wonAmountFirst;
                 ITreasury(treasury).distribute(
                     wonAmountSecond,
                     playerTwo,
@@ -235,13 +231,9 @@ contract Bullseye is AccessControl {
                     game.depositAmount,
                     fee
                 );
-                uint256 wonAmountSecond = (2 *
-                    game.depositAmount *
-                    (
-                        playerTwoDiff <= exactRange
-                            ? twoPlayersExactRate[1]
-                            : twoPlayersRate[1]
-                    )) / DENOMINATOR;
+                uint256 wonAmountSecond = 2 *
+                    game.depositAmount -
+                    wonAmountFirst;
                 ITreasury(treasury).distribute(
                     wonAmountSecond,
                     playerOne,

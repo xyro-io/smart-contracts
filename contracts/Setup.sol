@@ -112,13 +112,13 @@ contract Setup is AccessControl {
         ).verifyReportWithTimestamp(unverifiedReport, feedNumber);
         if (isLong) {
             require(
-                uint192(startingPrice) / 1e14 > stopLossPrice ||
+                uint192(startingPrice) / 1e14 > stopLossPrice &&
                     uint192(startingPrice) / 1e14 < takeProfitPrice,
                 "Wrong tp or sl price"
             );
         } else {
             require(
-                uint192(startingPrice) / 1e14 < stopLossPrice ||
+                uint192(startingPrice) / 1e14 < stopLossPrice &&
                     uint192(startingPrice) / 1e14 > takeProfitPrice,
                 "Wrong tp or sl price"
             );

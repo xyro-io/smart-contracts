@@ -119,7 +119,6 @@ contract Treasury is AccessControl {
         uint256 amount,
         address to
     ) public onlyRole(DISTRIBUTOR_ROLE) {
-        IERC20(approvedToken).approve(to, amount);
         SafeERC20.safeTransfer(
             IERC20(approvedToken),
             to,
@@ -135,7 +134,6 @@ contract Treasury is AccessControl {
         uint256 amount,
         address to
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        IERC20(approvedToken).approve(to, amount);
         SafeERC20.safeTransfer(IERC20(approvedToken), to, amount);
     }
 

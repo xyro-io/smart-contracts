@@ -54,6 +54,8 @@ describe("OneVsOneExactPrice", () => {
   const usdtAmount = 100;
   const initiatorPrice = (assetPrice / 100) * 123;
   const opponentPrice = (assetPrice / 100) * 105;
+  const equalOpponentDiffPrice = 617000000;
+  const equalInitiatorDiffPrice = 619000000;
   const finalPrice = parse18("61800");
   const finalPrice2 = parse18("73800");
   before(async () => {
@@ -401,6 +403,36 @@ describe("OneVsOneExactPrice", () => {
       expect(newBalance - oldBalance).to.be.equal(
         parse18((usdtAmount * 2 - (usdtAmount * 2) / 100).toString())
       );
+    });
+
+    it("should refund with equal price diff", async function () {
+      const tx = await Game.createGame(
+        feedNumber,
+        opponent.address,
+        (await time.latest()) + fortyFiveMinutes,
+        equalInitiatorDiffPrice,
+        usdtAmount
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt!.logs[1]!.args[0];
+      let oldBalance = await USDT.balanceOf(opponent.address);
+      await Game.connect(opponent).acceptGame(
+        currentGameId,
+        equalOpponentDiffPrice
+      );
+      await time.increase(fortyFiveMinutes);
+      await Game.finalizeGame(
+        currentGameId,
+        abiEncodeInt192WithTimestamp(
+          finalPrice.toString(),
+          feedNumber,
+          await time.latest()
+        )
+      );
+      const game = await Game.decodeData(currentGameId);
+      expect(game.gameStatus).to.be.equal(Status.Finished);
+      let newBalance = await USDT.balanceOf(opponent.address);
+      expect(newBalance).to.be.equal(oldBalance);
     });
 
     it("should fail - finalizeGame wrong status", async function () {

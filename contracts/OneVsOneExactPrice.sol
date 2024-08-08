@@ -328,7 +328,7 @@ contract OneVsOneExactPrice is AccessControl {
                 finalPrice,
                 Status.Finished
             );
-        } else {
+        } else if (diff1 > diff2) {
             ITreasury(treasury).distribute(
                 game.depositAmount * 2,
                 game.opponent,
@@ -342,6 +342,10 @@ contract OneVsOneExactPrice is AccessControl {
                 finalPrice,
                 Status.Finished
             );
+        } else {
+            ITreasury(treasury).refund(game.depositAmount, game.initiator);
+            ITreasury(treasury).refund(game.depositAmount, game.opponent);
+            emit ExactPriceCancelled(gameId);
         }
         //rewrites status
         games[gameId].packedData2 =

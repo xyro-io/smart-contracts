@@ -303,6 +303,35 @@ describe("UpDown", () => {
       expect(newBalance).to.be.above(oldBalance);
     });
 
+    it("should refund if starting price and final price are equal", async function () {
+      let oldBalance = await USDT.balanceOf(alice.getAddress());
+      await Game.startGame(
+        (await time.latest()) + fortyFiveMinutes,
+        (await time.latest()) + fifteenMinutes,
+        feedNumber
+      );
+      await Game.connect(alice).play(true, usdtAmount);
+      await Game.connect(opponent).play(false, usdtAmount);
+      await time.increase(fifteenMinutes);
+      await Game.setStartingPrice(
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          await time.latest()
+        )
+      );
+      await time.increase(fortyFiveMinutes);
+      await Game.finalizeGame(
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          await time.latest()
+        )
+      );
+      let newBalance = await USDT.balanceOf(alice.getAddress());
+      expect(newBalance).to.be.equal(oldBalance);
+    });
+
     it("should refund if players only in up team", async function () {
       let oldBalance = await USDT.balanceOf(opponent.getAddress());
       await Game.startGame(

@@ -223,7 +223,7 @@ contract UpDown is AccessControl {
                 );
             }
             emit UpDownFinalized(finalPrice, true, currentGameId);
-        } else {
+        } else if (uint192(finalPrice / 1e14) < _game.startingPrice) {
             uint256 finalRate = ITreasury(treasury).calculateUpDownRate(
                 _game.totalDepositsUp,
                 _game.totalDepositsDown,
@@ -237,6 +237,25 @@ contract UpDown is AccessControl {
                 );
             }
             emit UpDownFinalized(finalPrice, false, currentGameId);
+        } else if (uint192(finalPrice / 1e14) == _game.startingPrice) {
+            for (uint i; i < UpPlayers.length; i++) {
+                ITreasury(treasury).refund(
+                    depositAmounts[UpPlayers[i]],
+                    UpPlayers[i]
+                );
+            }
+            delete UpPlayers;
+            for (uint i; i < DownPlayers.length; i++) {
+                ITreasury(treasury).refund(
+                    depositAmounts[DownPlayers[i]],
+                    DownPlayers[i]
+                );
+            }
+            delete DownPlayers;
+            emit UpDownCancelled(currentGameId);
+            packedData = 0;
+            currentGameId = bytes32(0);
+            return;
         }
 
         for (uint i = 0; i < UpPlayers.length; i++) {

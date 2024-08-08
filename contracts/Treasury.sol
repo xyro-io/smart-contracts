@@ -7,7 +7,7 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 interface IERC20Mint {
     function decimals() external view returns (uint256);
-    function mint(address to, uint256 value) external returns (bool);
+    function mint(address to, uint256 value) external;
 }
 
 contract Treasury is AccessControl {

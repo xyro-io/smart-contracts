@@ -71,7 +71,10 @@ contract Treasury is AccessControl {
      * @param amount token amount
      * @param from token sender
      */
-    function deposit(uint256 amount, address from) public {
+    function deposit(
+        uint256 amount,
+        address from
+    ) public onlyRole(DISTRIBUTOR_ROLE) {
         SafeERC20.safeTransferFrom(
             IERC20(approvedToken),
             from,
@@ -92,7 +95,7 @@ contract Treasury is AccessControl {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) public {
+    ) public onlyRole(DISTRIBUTOR_ROLE) {
         IERC20Permit(approvedToken).permit(
             from,
             address(this),

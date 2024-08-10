@@ -56,6 +56,7 @@ contract UpDown is AccessControl {
         uint8 feedNumber
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(packedData == 0, "Finish previous game first");
+        require(endTime > stopPredictAt, "Stop predict time must be higher");
         packedData = (block.timestamp |
             (uint256(stopPredictAt) << 32) |
             (uint256(endTime) << 64) |

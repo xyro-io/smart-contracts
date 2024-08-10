@@ -220,7 +220,7 @@ contract Treasury is AccessControl {
     }
 
     /**
-     * Calculates updown reward rate and distributes fee for setup creator
+     * Calculates updown reward rate
      * @param lostTeamTotal summ of lost team deposits
      * @param wonTeamTotal summ of won team deposits
      * @param updownFee updown game fee

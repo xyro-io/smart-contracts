@@ -104,7 +104,8 @@ contract Setup is AccessControl {
                 block.timestamp,
                 endTime,
                 takeProfitPrice,
-                stopLossPrice
+                stopLossPrice,
+                msg.sender
             )
         );
         (int192 startingPrice, uint32 startTime) = IDataStreamsVerifier(

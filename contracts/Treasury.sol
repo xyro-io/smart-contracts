@@ -283,10 +283,10 @@ contract Treasury is AccessControl {
             : targetBalance / (2500 * 10 ** 18);
 
         if (tier == 4) {
-            //10-20%
+            //30%
             comissionCut = 3000;
         } else if (tier > 0) {
-            //30%
+            //10-20%
             comissionCut = 1000 + 500 * tier - 1;
         }
     }

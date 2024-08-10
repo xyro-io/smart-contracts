@@ -37,6 +37,7 @@ contract Treasury is AccessControl {
      * @param token new token address
      */
     function setToken(address token) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(token != address(0), "Zero address");
         approvedToken = token;
     }
 
@@ -296,6 +297,7 @@ contract Treasury is AccessControl {
      * @param newUpkeep new upkeep address
      */
     function setUpkeep(address newUpkeep) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newUpkeep != address(0), "Zero address");
         upkeep = newUpkeep;
     }
 }

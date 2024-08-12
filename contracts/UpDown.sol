@@ -147,7 +147,7 @@ contract UpDown is AccessControl {
         bytes memory unverifiedReport
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         GameInfo memory game = decodeData();
-        require(block.timestamp >= game.stopPredictAt, "Too early");
+        require(block.timestamp > game.stopPredictAt, "Too early");
         require(
             UpPlayers.length != 0 || DownPlayers.length != 0,
             "Not enough players"

@@ -17,6 +17,7 @@ contract Treasury is AccessControl {
     uint256 public fee = 100; //100 for 1%
     uint256 public setupInitiatorFee = 100;
     uint256 public constant FEE_DENOMINATOR = 10000;
+    uint256 public constant PRECISION_AMPLIFIER = 100000;
     bytes32 public constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
     bytes32 public constant DAO_ROLE = keccak256("DAO_ROLE");
     uint256 public collectedFee;
@@ -181,7 +182,7 @@ contract Treasury is AccessControl {
         uint256 withdrawnFees = (initialDeposit * fee) / FEE_DENOMINATOR;
         uint256 wonAmount = (initialDeposit - withdrawnFees) +
             ((initialDeposit - withdrawnFees) * rate) /
-            FEE_DENOMINATOR;
+            (FEE_DENOMINATOR * PRECISION_AMPLIFIER);
         IERC20(approvedToken).approve(to, wonAmount);
         SafeERC20.safeTransfer(IERC20(approvedToken), to, wonAmount);
         if (getRakebackAmount(to, initialDeposit) != 0) {
@@ -215,7 +216,8 @@ contract Treasury is AccessControl {
         );
         //collect dust
         uint256 rate = ((lostTeamTotal - withdrawnFee - lostTeamFee) *
-            FEE_DENOMINATOR) / (wonTeamTotal - wonTeamFee);
+            (FEE_DENOMINATOR * PRECISION_AMPLIFIER)) /
+            (wonTeamTotal - wonTeamFee);
         return (rate, lostTeamFee + wonTeamFee);
     }
 
@@ -237,7 +239,8 @@ contract Treasury is AccessControl {
         collectedFee += lostTeamFee + wonTeamFee;
         //collect dust
         rate =
-            ((lostTeamTotal - lostTeamFee) * FEE_DENOMINATOR) /
+            ((lostTeamTotal - lostTeamFee) *
+                (FEE_DENOMINATOR * PRECISION_AMPLIFIER)) /
             (wonTeamTotal - wonTeamFee);
     }
 

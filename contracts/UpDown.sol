@@ -37,6 +37,7 @@ contract UpDown is AccessControl {
 
     address[] public UpPlayers;
     address[] public DownPlayers;
+    mapping(address => bool) public isParticipating;
     mapping(address => uint256) public depositAmounts;
     bytes32 public currentGameId;
     address public treasury;
@@ -77,10 +78,8 @@ contract UpDown is AccessControl {
      * @param isLong up = true, down = false
      * @param depositAmount amount to deposit in game
      */
-    function play(
-        bool isLong,
-        uint256 depositAmount
-    ) public isParticipating(msg.sender) {
+    function play(bool isLong, uint256 depositAmount) public {
+        require(!isParticipating[msg.sender], "Already participating");
         GameInfo memory game = decodeData();
         require(
             game.stopPredictAt >= block.timestamp,
@@ -101,6 +100,7 @@ contract UpDown is AccessControl {
         }
         depositAmounts[msg.sender] = depositAmount;
         ITreasury(treasury).deposit(depositAmount, msg.sender);
+        isParticipating[msg.sender] = true;
         emit UpDownNewPlayer(msg.sender, isLong, depositAmount, currentGameId);
     }
 
@@ -112,7 +112,8 @@ contract UpDown is AccessControl {
         bool isLong,
         uint256 depositAmount,
         ITreasury.PermitData calldata permitData
-    ) public isParticipating(msg.sender) {
+    ) public {
+        require(!isParticipating[msg.sender], "Already participating");
         GameInfo memory game = decodeData();
         require(
             game.stopPredictAt >= block.timestamp,
@@ -140,6 +141,7 @@ contract UpDown is AccessControl {
             permitData.r,
             permitData.s
         );
+        isParticipating[msg.sender] = true;
         emit UpDownNewPlayer(msg.sender, isLong, depositAmount, currentGameId);
     }
 
@@ -181,6 +183,7 @@ contract UpDown is AccessControl {
                         depositAmounts[UpPlayers[i]],
                         UpPlayers[i]
                     );
+                    isParticipating[UpPlayers[i]] = false;
                 }
                 delete UpPlayers;
             } else if (DownPlayers.length > 0) {
@@ -189,6 +192,7 @@ contract UpDown is AccessControl {
                         depositAmounts[DownPlayers[i]],
                         DownPlayers[i]
                     );
+                    isParticipating[DownPlayers[i]] = false;
                 }
                 delete DownPlayers;
             }
@@ -241,9 +245,11 @@ contract UpDown is AccessControl {
 
         for (uint i = 0; i < UpPlayers.length; i++) {
             depositAmounts[UpPlayers[i]] = 0;
+            isParticipating[UpPlayers[i]] = false;
         }
         for (uint i = 0; i < DownPlayers.length; i++) {
             depositAmounts[DownPlayers[i]] = 0;
+            isParticipating[DownPlayers[i]] = false;
         }
 
         delete DownPlayers;
@@ -258,6 +264,7 @@ contract UpDown is AccessControl {
                 depositAmounts[UpPlayers[i]],
                 UpPlayers[i]
             );
+            isParticipating[UpPlayers[i]] = false;
         }
         delete UpPlayers;
         for (uint i; i < DownPlayers.length; i++) {
@@ -265,6 +272,7 @@ contract UpDown is AccessControl {
                 depositAmounts[DownPlayers[i]],
                 DownPlayers[i]
             );
+            isParticipating[DownPlayers[i]] = false;
         }
         delete DownPlayers;
         emit UpDownCancelled(currentGameId);
@@ -290,20 +298,6 @@ contract UpDown is AccessControl {
      */
     function getTotalPlayers() public view returns (uint256, uint256) {
         return (UpPlayers.length, DownPlayers.length);
-    }
-
-    /**
-     * Checks if player is participating in the game
-     * @param player player address
-     */
-    modifier isParticipating(address player) {
-        for (uint i = 0; i < UpPlayers.length; i++) {
-            require(UpPlayers[i] != player, "Already participating");
-        }
-        for (uint i = 0; i < DownPlayers.length; i++) {
-            require(DownPlayers[i] != player, "Already participating");
-        }
-        _;
     }
 
     /**

@@ -81,6 +81,7 @@ contract OneVsOneExactPrice is AccessControl {
         uint32 initiatorPrice,
         uint16 depositAmount
     ) public {
+        require(opponent != msg.sender, "Wrong opponent");
         require(
             endTime - block.timestamp >= minDuration,
             "Min game duration must be higher"
@@ -132,6 +133,7 @@ contract OneVsOneExactPrice is AccessControl {
         uint16 depositAmount,
         ITreasury.PermitData calldata permitData
     ) public {
+        require(opponent != msg.sender, "Wrong opponent");
         require(
             endTime - block.timestamp >= minDuration,
             "Min game duration must be higher"

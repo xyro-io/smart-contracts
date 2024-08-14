@@ -202,13 +202,9 @@ contract Bullseye is AccessControl {
                     game.depositAmount,
                     fee
                 );
-                uint256 wonAmountSecond = (2 *
-                    game.depositAmount *
-                    (
-                        playerOneDiff <= exactRange
-                            ? twoPlayersExactRate[1]
-                            : twoPlayersRate[1]
-                    )) / DENOMINATOR;
+                uint256 wonAmountSecond = 2 *
+                    game.depositAmount -
+                    wonAmountFirst;
                 ITreasury(treasury).distribute(
                     wonAmountSecond,
                     playerTwo,
@@ -236,13 +232,9 @@ contract Bullseye is AccessControl {
                     game.depositAmount,
                     fee
                 );
-                uint256 wonAmountSecond = (2 *
-                    game.depositAmount *
-                    (
-                        playerTwoDiff <= exactRange
-                            ? twoPlayersExactRate[1]
-                            : twoPlayersRate[1]
-                    )) / DENOMINATOR;
+                uint256 wonAmountSecond = 2 *
+                    game.depositAmount -
+                    wonAmountFirst;
                 ITreasury(treasury).distribute(
                     wonAmountSecond,
                     playerOne,
@@ -301,12 +293,25 @@ contract Bullseye is AccessControl {
             }
             for (uint256 i = 0; i < 3; i++) {
                 if (topPlayers[i] != address(0)) {
-                    ITreasury(treasury).distribute(
-                        (totalDeposited * wonAmount[i]) / DENOMINATOR,
-                        topPlayers[i],
-                        game.depositAmount,
-                        fee
-                    );
+                    if (i != 3) {
+                        ITreasury(treasury).distribute(
+                            (totalDeposited * wonAmount[i]) / DENOMINATOR,
+                            topPlayers[i],
+                            game.depositAmount,
+                            fee
+                        );
+                    } else {
+                        ITreasury(treasury).distribute(
+                            totalDeposited -
+                                ((totalDeposited * wonAmount[0]) /
+                                    DENOMINATOR +
+                                    (totalDeposited * wonAmount[1]) /
+                                    DENOMINATOR),
+                            topPlayers[i],
+                            game.depositAmount,
+                            fee
+                        );
+                    }
                 }
             }
             emit BullseyeFinalized(

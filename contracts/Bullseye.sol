@@ -7,7 +7,7 @@ import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 
 contract Bullseye is AccessControl {
     uint256 constant DENOMINATOR = 100;
-    int192 public exactRange = 100;
+    uint256 public exactRange = 100;
     uint256 public fee = 100;
     uint256[3] public rate = [50, 35, 15];
     uint256[3] public exactRate = [75, 15, 10];
@@ -23,7 +23,7 @@ contract Bullseye is AccessControl {
     );
     event BullseyeNewPlayer(
         address player,
-        int192 assetPrice,
+        uint32 assetPrice,
         uint256 depositAmount,
         bytes32 gameId
     );
@@ -44,7 +44,7 @@ contract Bullseye is AccessControl {
     }
 
     address[] public players;
-    mapping(address => int192) public assetPrices;
+    mapping(address => uint32) public assetPrices;
     mapping(address => uint256) public playerTimestamp;
 
     uint256 packedData;
@@ -68,6 +68,7 @@ contract Bullseye is AccessControl {
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(packedData == 0, "Finish previous game first");
         require(depositAmount >= 10, "Wrong deposit amount");
+        require(endTime > block.timestamp, "Wrong ending time");
         packedData = (block.timestamp |
             (uint256(stopPredictAt) << 32) |
             (uint256(endTime) << 64) |
@@ -90,7 +91,7 @@ contract Bullseye is AccessControl {
      * Participate in bullseye game
      * @param assetPrice player's picked asset price
      */
-    function play(int192 assetPrice) public {
+    function play(uint32 assetPrice) public {
         GameInfo memory game = decodeData();
         require(
             game.stopPredictAt >= block.timestamp,
@@ -114,7 +115,7 @@ contract Bullseye is AccessControl {
      * @param assetPrice player's picked asset price
      */
     function playWithPermit(
-        int192 assetPrice,
+        uint32 assetPrice,
         ITreasury.PermitData calldata permitData
     ) public {
         GameInfo memory game = decodeData();
@@ -156,9 +157,9 @@ contract Bullseye is AccessControl {
             address player;
             if (players.length == 1) {
                 player = players[0];
-                ITreasury(treasury).refund(game.depositAmount, players[0]);
-                assetPrices[players[0]] = 0;
-                playerTimestamp[players[0]] = 0;
+                ITreasury(treasury).refund(game.depositAmount, player);
+                assetPrices[player] = 0;
+                playerTimestamp[player] = 0;
                 delete players;
             }
             emit BullseyeCancelled(currentGameId);
@@ -180,12 +181,12 @@ contract Bullseye is AccessControl {
         if (players.length == 2) {
             address playerOne = players[0];
             address playerTwo = players[1];
-            int192 playerOneDiff = assetPrices[playerOne] > finalPrice
-                ? assetPrices[playerOne] - finalPrice
-                : finalPrice - assetPrices[playerOne];
-            int192 playerTwoDiff = assetPrices[playerTwo] > finalPrice
-                ? assetPrices[playerTwo] - finalPrice
-                : finalPrice - assetPrices[playerTwo];
+            uint256 playerOneDiff = assetPrices[playerOne] > uint192(finalPrice)
+                ? assetPrices[playerOne] - uint192(finalPrice)
+                : uint192(finalPrice) - assetPrices[playerOne];
+            uint256 playerTwoDiff = assetPrices[playerTwo] > uint192(finalPrice)
+                ? assetPrices[playerTwo] - uint192(finalPrice)
+                : uint192(finalPrice) - assetPrices[playerTwo];
             if (playerOneDiff < playerTwoDiff) {
                 // player 1 closer
                 uint256 wonAmountFirst = (2 *
@@ -257,17 +258,17 @@ contract Bullseye is AccessControl {
             }
         } else {
             address[3] memory topPlayers;
-            int192[3] memory closestDiff = [
-                type(int192).max,
-                type(int192).max,
-                type(int192).max
+            uint256[3] memory closestDiff = [
+                type(uint256).max,
+                type(uint256).max,
+                type(uint256).max
             ];
             for (uint256 j = 0; j < players.length; j++) {
                 address currentAddress = players[j];
-                int192 currentGuess = assetPrices[currentAddress];
-                int192 currentDiff = currentGuess > finalPrice
-                    ? currentGuess - finalPrice
-                    : finalPrice - currentGuess;
+                uint256 currentGuess = assetPrices[currentAddress];
+                uint256 currentDiff = currentGuess > uint192(finalPrice)
+                    ? currentGuess - uint192(finalPrice)
+                    : uint192(finalPrice) - currentGuess;
                 uint256 currentTimestamp = playerTimestamp[currentAddress];
                 for (uint256 i = 0; i < 3; i++) {
                     if (currentDiff < closestDiff[i]) {
@@ -363,6 +364,7 @@ contract Bullseye is AccessControl {
     function setTreasury(
         address newTreasury
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newTreasury != address(0), "Zero address");
         treasury = newTreasury;
     }
 
@@ -371,7 +373,7 @@ contract Bullseye is AccessControl {
      * @param newRange new exact range
      */
     function setExactRange(
-        int192 newRange
+        uint256 newRange
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         exactRange = newRange;
     }

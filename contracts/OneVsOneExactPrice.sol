@@ -21,7 +21,6 @@ contract OneVsOneExactPrice is AccessControl {
         address opponent,
         uint32 opponentPrice
     );
-    event ExactPriceRefused(bytes32 gameId);
     event ExactPriceCancelled(bytes32 gameId);
     event ExactPriceFinalized(
         bytes32 gameId,
@@ -36,8 +35,7 @@ contract OneVsOneExactPrice is AccessControl {
         Created,
         Cancelled,
         Started,
-        Finished,
-        Refused
+        Finished
     }
 
     struct GameInfo {
@@ -96,6 +94,7 @@ contract OneVsOneExactPrice is AccessControl {
         bytes32 gameId = keccak256(
             abi.encodePacked(endTime, block.timestamp, msg.sender, opponent)
         );
+        require(games[gameId].packedData == 0, "Game exists");
         uint256 packedData = uint(uint160(opponent));
         uint256 packedData2 = uint(uint160(msg.sender));
         packedData |= uint256(endTime) << 160;
@@ -260,32 +259,13 @@ contract OneVsOneExactPrice is AccessControl {
     function closeGame(bytes32 gameId) public {
         GameInfo memory game = decodeData(gameId);
         require(game.initiator == msg.sender, "Wrong sender");
-        require(
-            game.gameStatus == Status.Created ||
-                game.gameStatus == Status.Refused,
-            "Wrong status!"
-        );
+        require(game.gameStatus == Status.Created, "Wrong status!");
         ITreasury(treasury).refund(game.depositAmount, game.initiator);
         //rewrites status
         games[gameId].packedData2 =
             (games[gameId].packedData2 & ~(uint256(0xFF) << 208)) |
             (uint256(uint8(Status.Cancelled)) << 208);
         emit ExactPriceCancelled(gameId);
-    }
-
-    /**
-     * Changes game status if opponent refuses to play
-     * @param gameId game id
-     */
-    function refuseGame(bytes32 gameId) public {
-        GameInfo memory game = decodeData(gameId);
-        require(game.gameStatus == Status.Created, "Wrong status!");
-        require(msg.sender == game.opponent, "Only opponent can refuse");
-        //rewrites status
-        games[gameId].packedData2 =
-            (games[gameId].packedData2 & ~(uint256(0xFF) << 208)) |
-            (uint256(uint8(Status.Refused)) << 208);
-        emit ExactPriceRefused(gameId);
     }
 
     /**
@@ -329,7 +309,7 @@ contract OneVsOneExactPrice is AccessControl {
                 finalPrice,
                 Status.Finished
             );
-        } else {
+        } else if (diff1 > diff2) {
             ITreasury(treasury).distribute(
                 game.depositAmount * 2,
                 game.opponent,
@@ -343,6 +323,10 @@ contract OneVsOneExactPrice is AccessControl {
                 finalPrice,
                 Status.Finished
             );
+        } else {
+            ITreasury(treasury).refund(game.depositAmount, game.initiator);
+            ITreasury(treasury).refund(game.depositAmount, game.opponent);
+            emit ExactPriceCancelled(gameId);
         }
         //rewrites status
         games[gameId].packedData2 =
@@ -393,6 +377,7 @@ contract OneVsOneExactPrice is AccessControl {
     function setTreasury(
         address newTreasury
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newTreasury != address(0), "Zero address");
         treasury = newTreasury;
     }
 }

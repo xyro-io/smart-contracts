@@ -7,7 +7,7 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 interface IERC20Mint {
     function decimals() external view returns (uint256);
-    function mint(address to, uint256 value) external returns (bool);
+    function mint(address to, uint256 value) external;
 }
 
 contract Treasury is AccessControl {
@@ -37,6 +37,7 @@ contract Treasury is AccessControl {
      * @param token new token address
      */
     function setToken(address token) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(token != address(0), "Zero address");
         approvedToken = token;
     }
 
@@ -128,15 +129,12 @@ contract Treasury is AccessControl {
     }
 
     /**
-     * Withrad earned fees
-     * @param amount amount to withdraw
+     * Withdraws earned fees
+     * @param to account that will recieve fee
      */
-    function withdrawFees(
-        uint256 amount,
-        address to
-    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        IERC20(approvedToken).approve(to, amount);
-        SafeERC20.safeTransfer(IERC20(approvedToken), to, amount);
+    function withdrawFees(address to) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        SafeERC20.safeTransfer(IERC20(approvedToken), to, collectedFee);
+        collectedFee = 0;
     }
 
     /**
@@ -199,7 +197,7 @@ contract Treasury is AccessControl {
         uint256 lostTeamTotal,
         uint256 wonTeamTotal,
         address initiator
-    ) external returns (uint256, uint256) {
+    ) external onlyRole(DISTRIBUTOR_ROLE) returns (uint256, uint256) {
         lostTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
         wonTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
         uint256 withdrawnFee = (lostTeamTotal * fee) / FEE_DENOMINATOR;
@@ -220,7 +218,7 @@ contract Treasury is AccessControl {
     }
 
     /**
-     * Calculates updown reward rate and distributes fee for setup creator
+     * Calculates updown reward rate
      * @param lostTeamTotal summ of lost team deposits
      * @param wonTeamTotal summ of won team deposits
      * @param updownFee updown game fee
@@ -229,7 +227,7 @@ contract Treasury is AccessControl {
         uint256 lostTeamTotal,
         uint256 wonTeamTotal,
         uint256 updownFee
-    ) external returns (uint256 rate) {
+    ) external onlyRole(DISTRIBUTOR_ROLE) returns (uint256 rate) {
         lostTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
         wonTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
         uint256 lostTeamFee = (lostTeamTotal * updownFee) / FEE_DENOMINATOR;
@@ -283,10 +281,10 @@ contract Treasury is AccessControl {
             : targetBalance / (2500 * 10 ** 18);
 
         if (tier == 4) {
-            //10-20%
+            //30%
             comissionCut = 3000;
         } else if (tier > 0) {
-            //30%
+            //10-20%
             comissionCut = 1000 + 500 * tier - 1;
         }
     }
@@ -296,6 +294,7 @@ contract Treasury is AccessControl {
      * @param newUpkeep new upkeep address
      */
     function setUpkeep(address newUpkeep) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newUpkeep != address(0), "Zero address");
         upkeep = newUpkeep;
     }
 }

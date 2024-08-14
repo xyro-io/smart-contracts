@@ -104,7 +104,8 @@ contract Setup is AccessControl {
                 block.timestamp,
                 endTime,
                 takeProfitPrice,
-                stopLossPrice
+                stopLossPrice,
+                msg.sender
             )
         );
         (int192 startingPrice, uint32 startTime) = IDataStreamsVerifier(
@@ -112,13 +113,13 @@ contract Setup is AccessControl {
         ).verifyReportWithTimestamp(unverifiedReport, feedNumber);
         if (isLong) {
             require(
-                uint192(startingPrice) / 1e14 > stopLossPrice ||
+                uint192(startingPrice) / 1e14 > stopLossPrice &&
                     uint192(startingPrice) / 1e14 < takeProfitPrice,
                 "Wrong tp or sl price"
             );
         } else {
             require(
-                uint192(startingPrice) / 1e14 < stopLossPrice ||
+                uint192(startingPrice) / 1e14 < stopLossPrice &&
                     uint192(startingPrice) / 1e14 > takeProfitPrice,
                 "Wrong tp or sl price"
             );
@@ -209,11 +210,20 @@ contract Setup is AccessControl {
         require(data.gameStatus == Status.Created, "Wrong status!");
         require(
             data.startTime + (data.endTime - data.startTime) / 3 >
-                block.timestamp &&
-                (data.totalDepositsSL + depositAmount <= type(uint32).max ||
-                    data.totalDepositsTP + depositAmount <= type(uint32).max),
+                block.timestamp,
             "Game is closed for new players"
         );
+        if (isLong) {
+            require(
+                data.totalDepositsTP + depositAmount <= type(uint32).max,
+                "Game is closed for new TP players"
+            );
+        } else {
+            require(
+                data.totalDepositsSL + depositAmount <= type(uint32).max,
+                "Game is closed for new SL players"
+            );
+        }
         require(
             depositAmounts[gameId][msg.sender] == 0,
             "You are already in the game"
@@ -491,6 +501,7 @@ contract Setup is AccessControl {
     function setTreasury(
         address newTreasury
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newTreasury != address(0), "Zero address");
         treasury = newTreasury;
     }
 }

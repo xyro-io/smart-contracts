@@ -50,9 +50,9 @@ describe("Setup Game", () => {
   const slPrice = 620000000;
   const usdtAmount = 100;
   const finalPriceTP = parse18("66000");
-  const finalPriceSL = parse18("62500");
+  const finalPriceSL = parse18("61000");
   const feedNumber = 1;
-  const assetPrice = parse18("60000");
+  const assetPrice = parse18("62500");
   before(async () => {
     [owner, bob, alice] = await ethers.getSigners();
 
@@ -98,8 +98,8 @@ describe("Setup Game", () => {
       let tx = await Game.createSetup(
         isLong,
         endTime,
-        tpPrice,
         slPrice,
+        tpPrice,
         feedNumber,
         abiEncodeInt192WithTimestamp(
           assetPrice.toString(),
@@ -113,8 +113,8 @@ describe("Setup Game", () => {
 
       expect(game.isLong).to.be.equal(isLong);
       expect(game.feedNumber).to.be.equal(feedNumber);
-      expect(game.stopLossPrice).to.be.equal(slPrice);
-      expect(game.takeProfitPrice).to.be.equal(tpPrice);
+      expect(game.stopLossPrice).to.be.equal(tpPrice);
+      expect(game.takeProfitPrice).to.be.equal(slPrice);
       expect(game.startringPrice).to.be.equal(
         assetPrice / BigInt(Math.pow(10, 14))
       );
@@ -135,7 +135,7 @@ describe("Setup Game", () => {
         slPrice,
         feedNumber,
         abiEncodeInt192WithTimestamp(
-          finalPriceSL.toString(),
+          assetPrice.toString(),
           feedNumber,
           startTime
         )
@@ -148,7 +148,7 @@ describe("Setup Game", () => {
       expect(game.stopLossPrice).to.be.equal(slPrice);
       expect(game.takeProfitPrice).to.be.equal(tpPrice);
       expect(game.startringPrice).to.be.equal(
-        finalPriceSL / BigInt(Math.pow(10, 14))
+        assetPrice / BigInt(Math.pow(10, 14))
       );
       expect(game.endTime).to.be.equal(endTime);
       expect(game.startTime).to.be.equal(startTime);
@@ -173,22 +173,73 @@ describe("Setup Game", () => {
       ).to.be.revertedWith(wrongPrice);
     });
 
-    // it("should fail - wrong sl price (long)", async function () {
-    //   await expect(
-    //     Game.createSetup(
-    //       true,
-    //       (await time.latest()) + fortyFiveMinutes,
-    //       tpPrice,
-    //       slPrice,
-    //       feedNumber,
-    //       abiEncodeInt192WithTimestamp(
-    //         parse18("50000").toString(),
-    //         feedNumber,
-    //         await time.latest()
-    //       )
-    //     )
-    //   ).to.be.revertedWith(wrongPrice);
-    // });
+    it("should fail - wrong sl price (long)", async function () {
+      await expect(
+        Game.createSetup(
+          true,
+          (await time.latest()) + fortyFiveMinutes,
+          tpPrice,
+          slPrice,
+          feedNumber,
+          abiEncodeInt192WithTimestamp(
+            parse18("50000").toString(),
+            feedNumber,
+            await time.latest()
+          )
+        )
+      ).to.be.revertedWith(wrongPrice);
+    });
+
+    it("should fail - wrong tp price (long)", async function () {
+      await expect(
+        Game.createSetup(
+          true,
+          (await time.latest()) + fortyFiveMinutes,
+          tpPrice,
+          slPrice,
+          feedNumber,
+          abiEncodeInt192WithTimestamp(
+            parse18("66000").toString(),
+            feedNumber,
+            await time.latest()
+          )
+        )
+      ).to.be.revertedWith(wrongPrice);
+    });
+
+    it("should fail - wrong tp price (short)", async function () {
+      await expect(
+        Game.createSetup(
+          true,
+          (await time.latest()) + fortyFiveMinutes,
+          slPrice,
+          tpPrice,
+          feedNumber,
+          abiEncodeInt192WithTimestamp(
+            parse18("50000").toString(),
+            feedNumber,
+            await time.latest()
+          )
+        )
+      ).to.be.revertedWith(wrongPrice);
+    });
+
+    it("should fail - wrong sl price (short)", async function () {
+      await expect(
+        Game.createSetup(
+          true,
+          (await time.latest()) + fortyFiveMinutes,
+          slPrice,
+          tpPrice,
+          feedNumber,
+          abiEncodeInt192WithTimestamp(
+            parse18("63000").toString(),
+            feedNumber,
+            await time.latest()
+          )
+        )
+      ).to.be.revertedWith(wrongPrice);
+    });
 
     it("should fail - high game duration", async function () {
       await expect(
@@ -579,7 +630,7 @@ describe("Setup Game", () => {
       const finalizeTime = await time.latest();
       tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
-          assetPrice.toString(),
+          finalPriceSL.toString(),
           feedNumber,
           finalizeTime
         ),
@@ -589,7 +640,7 @@ describe("Setup Game", () => {
       let game = await Game.decodeData(currentGameId);
       expect(game.gameStatus).to.be.equal(Status.Finished);
       expect(game.finalPrice).to.be.equal(
-        assetPrice / BigInt(Math.pow(10, 14))
+        finalPriceSL / BigInt(Math.pow(10, 14))
       );
       expect(game.isLong).to.be.equal(isLong);
       expect(game.feedNumber).to.be.equal(feedNumber);
@@ -638,7 +689,7 @@ describe("Setup Game", () => {
       await expect(
         Game.finalizeGame(
           abiEncodeInt192WithTimestamp(
-            finalPriceSL.toString(),
+            assetPrice.toString(),
             feedNumber,
             finalizeTime
           ),
@@ -660,8 +711,8 @@ describe("Setup Game", () => {
       let tx = await Game.createSetup(
         isLong,
         endTime,
-        tpPrice,
         slPrice,
+        tpPrice,
         feedNumber,
         abiEncodeInt192WithTimestamp(
           assetPrice.toString(),
@@ -691,8 +742,8 @@ describe("Setup Game", () => {
       );
       expect(game.isLong).to.be.equal(isLong);
       expect(game.feedNumber).to.be.equal(feedNumber);
-      expect(game.stopLossPrice).to.be.equal(slPrice);
-      expect(game.takeProfitPrice).to.be.equal(tpPrice);
+      expect(game.stopLossPrice).to.be.equal(tpPrice);
+      expect(game.takeProfitPrice).to.be.equal(slPrice);
       expect(game.startringPrice).to.be.equal(
         assetPrice / BigInt(Math.pow(10, 14))
       );
@@ -724,8 +775,8 @@ describe("Setup Game", () => {
       let tx = await Game.createSetup(
         isLong,
         endTime,
-        tpPrice,
         slPrice,
+        tpPrice,
         feedNumber,
         abiEncodeInt192WithTimestamp(
           assetPrice.toString(),
@@ -741,7 +792,7 @@ describe("Setup Game", () => {
       const finalizeTime = await time.latest();
       tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
-          assetPrice.toString(),
+          finalPriceSL.toString(),
           feedNumber,
           finalizeTime
         ),
@@ -751,12 +802,12 @@ describe("Setup Game", () => {
       let game = await Game.decodeData(currentGameId);
       expect(game.gameStatus).to.be.equal(Status.Finished);
       expect(game.finalPrice).to.be.equal(
-        assetPrice / BigInt(Math.pow(10, 14))
+        finalPriceSL / BigInt(Math.pow(10, 14))
       );
       expect(game.isLong).to.be.equal(isLong);
       expect(game.feedNumber).to.be.equal(feedNumber);
-      expect(game.stopLossPrice).to.be.equal(slPrice);
-      expect(game.takeProfitPrice).to.be.equal(tpPrice);
+      expect(game.stopLossPrice).to.be.equal(tpPrice);
+      expect(game.takeProfitPrice).to.be.equal(slPrice);
       expect(game.startringPrice).to.be.equal(
         assetPrice / BigInt(Math.pow(10, 14))
       );
@@ -800,7 +851,7 @@ describe("Setup Game", () => {
       await expect(
         Game.finalizeGame(
           abiEncodeInt192WithTimestamp(
-            finalPriceSL.toString(),
+            assetPrice.toString(),
             feedNumber,
             finalizeTime
           ),

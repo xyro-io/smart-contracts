@@ -156,9 +156,9 @@ contract Bullseye is AccessControl {
             address player;
             if (players.length == 1) {
                 player = players[0];
-                ITreasury(treasury).refund(game.depositAmount, players[0]);
-                assetPrices[players[0]] = 0;
-                playerTimestamp[players[0]] = 0;
+                ITreasury(treasury).refund(game.depositAmount, player);
+                assetPrices[player] = 0;
+                playerTimestamp[player] = 0;
                 delete players;
             }
             emit BullseyeCancelled(currentGameId);

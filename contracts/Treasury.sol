@@ -197,7 +197,7 @@ contract Treasury is AccessControl {
         uint256 lostTeamTotal,
         uint256 wonTeamTotal,
         address initiator
-    ) external returns (uint256, uint256) {
+    ) external onlyRole(DISTRIBUTOR_ROLE) returns (uint256, uint256) {
         lostTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
         wonTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
         uint256 withdrawnFee = (lostTeamTotal * fee) / FEE_DENOMINATOR;
@@ -227,7 +227,7 @@ contract Treasury is AccessControl {
         uint256 lostTeamTotal,
         uint256 wonTeamTotal,
         uint256 updownFee
-    ) external returns (uint256 rate) {
+    ) external onlyRole(DISTRIBUTOR_ROLE) returns (uint256 rate) {
         lostTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
         wonTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
         uint256 lostTeamFee = (lostTeamTotal * updownFee) / FEE_DENOMINATOR;

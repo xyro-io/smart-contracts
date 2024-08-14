@@ -84,7 +84,7 @@ contract UpDown is AccessControl {
     ) public isParticipating(msg.sender) {
         GameInfo memory game = decodeData();
         require(
-            game.stopPredictAt >= block.timestamp,
+            game.stopPredictAt > block.timestamp,
             "Game is closed for new players"
         );
         if (isLong) {
@@ -116,7 +116,7 @@ contract UpDown is AccessControl {
     ) public isParticipating(msg.sender) {
         GameInfo memory game = decodeData();
         require(
-            game.stopPredictAt >= block.timestamp,
+            game.stopPredictAt > block.timestamp,
             "Game is closed for new players"
         );
         if (isLong) {

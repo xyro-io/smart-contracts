@@ -56,6 +56,7 @@ contract UpDown is AccessControl {
         uint8 feedNumber
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(packedData == 0, "Finish previous game first");
+        require(endTime > stopPredictAt, "Ending time must be higher");
         packedData = (block.timestamp |
             (uint256(stopPredictAt) << 32) |
             (uint256(endTime) << 64) |
@@ -83,7 +84,7 @@ contract UpDown is AccessControl {
     ) public isParticipating(msg.sender) {
         GameInfo memory game = decodeData();
         require(
-            game.stopPredictAt >= block.timestamp,
+            game.stopPredictAt > block.timestamp,
             "Game is closed for new players"
         );
         if (isLong) {
@@ -115,7 +116,7 @@ contract UpDown is AccessControl {
     ) public isParticipating(msg.sender) {
         GameInfo memory game = decodeData();
         require(
-            game.stopPredictAt >= block.timestamp,
+            game.stopPredictAt > block.timestamp,
             "Game is closed for new players"
         );
         if (isLong) {
@@ -181,6 +182,7 @@ contract UpDown is AccessControl {
                         depositAmounts[UpPlayers[i]],
                         UpPlayers[i]
                     );
+                    depositAmounts[UpPlayers[i]] = 0;
                 }
                 delete UpPlayers;
             } else if (DownPlayers.length > 0) {
@@ -189,6 +191,7 @@ contract UpDown is AccessControl {
                         depositAmounts[DownPlayers[i]],
                         DownPlayers[i]
                     );
+                    depositAmounts[DownPlayers[i]] = 0;
                 }
                 delete DownPlayers;
             }
@@ -223,7 +226,7 @@ contract UpDown is AccessControl {
                 );
             }
             emit UpDownFinalized(finalPrice, true, currentGameId);
-        } else {
+        } else if (uint192(finalPrice / 1e14) < _game.startingPrice) {
             uint256 finalRate = ITreasury(treasury).calculateUpDownRate(
                 _game.totalDepositsUp,
                 _game.totalDepositsDown,
@@ -237,6 +240,25 @@ contract UpDown is AccessControl {
                 );
             }
             emit UpDownFinalized(finalPrice, false, currentGameId);
+        } else if (uint192(finalPrice / 1e14) == _game.startingPrice) {
+            for (uint i; i < UpPlayers.length; i++) {
+                ITreasury(treasury).refund(
+                    depositAmounts[UpPlayers[i]],
+                    UpPlayers[i]
+                );
+            }
+            delete UpPlayers;
+            for (uint i; i < DownPlayers.length; i++) {
+                ITreasury(treasury).refund(
+                    depositAmounts[DownPlayers[i]],
+                    DownPlayers[i]
+                );
+            }
+            delete DownPlayers;
+            emit UpDownCancelled(currentGameId);
+            packedData = 0;
+            currentGameId = bytes32(0);
+            return;
         }
 
         for (uint i = 0; i < UpPlayers.length; i++) {
@@ -258,6 +280,7 @@ contract UpDown is AccessControl {
                 depositAmounts[UpPlayers[i]],
                 UpPlayers[i]
             );
+            depositAmounts[UpPlayers[i]] = 0;
         }
         delete UpPlayers;
         for (uint i; i < DownPlayers.length; i++) {
@@ -265,6 +288,7 @@ contract UpDown is AccessControl {
                 depositAmounts[DownPlayers[i]],
                 DownPlayers[i]
             );
+            depositAmounts[DownPlayers[i]] = 0;
         }
         delete DownPlayers;
         emit UpDownCancelled(currentGameId);
@@ -313,6 +337,7 @@ contract UpDown is AccessControl {
     function setTreasury(
         address newTreasury
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newTreasury != address(0), "Zero address");
         treasury = newTreasury;
     }
 }

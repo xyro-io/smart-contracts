@@ -30,10 +30,11 @@ const requireOnlyCertainAccount = "Only certain account can accept";
 const requireWrongSender = "Wrong sender";
 const requireEarlyFinish = "Too early to finish";
 const Status = {
-  Created: 0,
-  Cancelled: 1,
-  Started: 2,
-  Finished: 3,
+  Default: 0,
+  Created: 1,
+  Cancelled: 2,
+  Started: 3,
+  Finished: 4
 };
 
 describe("OneVsOneExactPrice", () => {
@@ -181,7 +182,9 @@ describe("OneVsOneExactPrice", () => {
       receipt = await tx.wait();
       currentGameId = receipt!.logs[1]!.args[0];
       await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
-      expect((await Game.decodeData(currentGameId)).gameStatus).to.equal(2);
+      expect((await Game.decodeData(currentGameId)).gameStatus).to.equal(
+        Status.Started
+      );
     });
 
     it("should fail - acceptGame wrong status", async function () {
@@ -260,7 +263,9 @@ describe("OneVsOneExactPrice", () => {
       receipt = await tx.wait();
       currentGameId = receipt!.logs[1]!.args[0];
       await Game.closeGame(currentGameId);
-      expect((await Game.decodeData(currentGameId)).gameStatus).to.equal(1);
+      expect((await Game.decodeData(currentGameId)).gameStatus).to.equal(
+        Status.Cancelled
+      );
     });
 
     it("should fail - closeGame wrong status", async function () {

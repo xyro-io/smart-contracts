@@ -31,6 +31,7 @@ contract OneVsOneExactPrice is AccessControl {
     );
 
     enum Status {
+        Default,
         Created,
         Cancelled,
         Started,

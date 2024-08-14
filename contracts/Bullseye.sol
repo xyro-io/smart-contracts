@@ -292,12 +292,25 @@ contract Bullseye is AccessControl {
             }
             for (uint256 i = 0; i < 3; i++) {
                 if (topPlayers[i] != address(0)) {
-                    ITreasury(treasury).distribute(
-                        (totalDeposited * wonAmount[i]) / DENOMINATOR,
-                        topPlayers[i],
-                        game.depositAmount,
-                        fee
-                    );
+                    if (i != 3) {
+                        ITreasury(treasury).distribute(
+                            (totalDeposited * wonAmount[i]) / DENOMINATOR,
+                            topPlayers[i],
+                            game.depositAmount,
+                            fee
+                        );
+                    } else {
+                        ITreasury(treasury).distribute(
+                            totalDeposited -
+                                ((totalDeposited * wonAmount[0]) /
+                                    DENOMINATOR +
+                                    (totalDeposited * wonAmount[1]) /
+                                    DENOMINATOR),
+                            topPlayers[i],
+                            game.depositAmount,
+                            fee
+                        );
+                    }
                 }
             }
             emit BullseyeFinalized(

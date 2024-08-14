@@ -29,6 +29,7 @@ const requireSameAssetPrice = "Same asset prices";
 const requireOnlyCertainAccount = "Only certain account can accept";
 const requireWrongSender = "Wrong sender";
 const requireEarlyFinish = "Too early to finish";
+const requireUniqueOpponent = "Wrong opponent";
 const Status = {
   Default: 0,
   Created: 1,
@@ -155,6 +156,18 @@ describe("OneVsOneExactPrice", () => {
           1
         )
       ).to.be.revertedWith(requireWrongusdtAmount);
+    });
+
+    it("should fail - Wrong opponent", async function () {
+      await expect(
+        Game.createGame(
+          feedNumber,
+          owner.address,
+          (await time.latest()) + fortyFiveMinutes,
+          initiatorPrice,
+          100
+        )
+      ).to.be.revertedWith(requireUniqueOpponent);
     });
   });
 

@@ -129,15 +129,12 @@ contract Treasury is AccessControl {
     }
 
     /**
-     * Withrad earned fees
-     * @param amount amount to withdraw
+     * Withdraws earned fees
+     * @param to account that will recieve fee
      */
-    function withdrawFees(
-        uint256 amount,
-        address to
-    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        IERC20(approvedToken).approve(to, amount);
-        SafeERC20.safeTransfer(IERC20(approvedToken), to, amount);
+    function withdrawFees(address to) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        SafeERC20.safeTransfer(IERC20(approvedToken), to, collectedFee);
+        collectedFee = 0;
     }
 
     /**

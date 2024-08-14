@@ -34,8 +34,7 @@ const Status = {
   Created: 1,
   Cancelled: 2,
   Started: 3,
-  Finished: 4,
-  Refused: 5,
+  Finished: 4
 };
 
 describe("OneVsOneExactPrice", () => {

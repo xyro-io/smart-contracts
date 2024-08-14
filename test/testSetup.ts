@@ -173,22 +173,73 @@ describe("Setup Game", () => {
       ).to.be.revertedWith(wrongPrice);
     });
 
-    // it("should fail - wrong sl price (long)", async function () {
-    //   await expect(
-    //     Game.createSetup(
-    //       true,
-    //       (await time.latest()) + fortyFiveMinutes,
-    //       tpPrice,
-    //       slPrice,
-    //       feedNumber,
-    //       abiEncodeInt192WithTimestamp(
-    //         parse18("50000").toString(),
-    //         feedNumber,
-    //         await time.latest()
-    //       )
-    //     )
-    //   ).to.be.revertedWith(wrongPrice);
-    // });
+    it("should fail - wrong sl price (long)", async function () {
+      await expect(
+        Game.createSetup(
+          true,
+          (await time.latest()) + fortyFiveMinutes,
+          tpPrice,
+          slPrice,
+          feedNumber,
+          abiEncodeInt192WithTimestamp(
+            parse18("50000").toString(),
+            feedNumber,
+            await time.latest()
+          )
+        )
+      ).to.be.revertedWith(wrongPrice);
+    });
+
+    it("should fail - wrong tp price (long)", async function () {
+      await expect(
+        Game.createSetup(
+          true,
+          (await time.latest()) + fortyFiveMinutes,
+          tpPrice,
+          slPrice,
+          feedNumber,
+          abiEncodeInt192WithTimestamp(
+            parse18("66000").toString(),
+            feedNumber,
+            await time.latest()
+          )
+        )
+      ).to.be.revertedWith(wrongPrice);
+    });
+
+    it("should fail - wrong tp price (short)", async function () {
+      await expect(
+        Game.createSetup(
+          true,
+          (await time.latest()) + fortyFiveMinutes,
+          slPrice,
+          tpPrice,
+          feedNumber,
+          abiEncodeInt192WithTimestamp(
+            parse18("50000").toString(),
+            feedNumber,
+            await time.latest()
+          )
+        )
+      ).to.be.revertedWith(wrongPrice);
+    });
+
+    it("should fail - wrong sl price (short)", async function () {
+      await expect(
+        Game.createSetup(
+          true,
+          (await time.latest()) + fortyFiveMinutes,
+          slPrice,
+          tpPrice,
+          feedNumber,
+          abiEncodeInt192WithTimestamp(
+            parse18("63000").toString(),
+            feedNumber,
+            await time.latest()
+          )
+        )
+      ).to.be.revertedWith(wrongPrice);
+    });
 
     it("should fail - high game duration", async function () {
       await expect(

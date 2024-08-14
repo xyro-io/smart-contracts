@@ -182,6 +182,7 @@ contract UpDown is AccessControl {
                         depositAmounts[UpPlayers[i]],
                         UpPlayers[i]
                     );
+                    depositAmounts[UpPlayers[i]] = 0;
                 }
                 delete UpPlayers;
             } else if (DownPlayers.length > 0) {
@@ -190,6 +191,7 @@ contract UpDown is AccessControl {
                         depositAmounts[DownPlayers[i]],
                         DownPlayers[i]
                     );
+                    depositAmounts[DownPlayers[i]] = 0;
                 }
                 delete DownPlayers;
             }
@@ -259,6 +261,7 @@ contract UpDown is AccessControl {
                 depositAmounts[UpPlayers[i]],
                 UpPlayers[i]
             );
+            depositAmounts[UpPlayers[i]] = 0;
         }
         delete UpPlayers;
         for (uint i; i < DownPlayers.length; i++) {
@@ -266,6 +269,7 @@ contract UpDown is AccessControl {
                 depositAmounts[DownPlayers[i]],
                 DownPlayers[i]
             );
+            depositAmounts[DownPlayers[i]] = 0;
         }
         delete DownPlayers;
         emit UpDownCancelled(currentGameId);

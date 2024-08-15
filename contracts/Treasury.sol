@@ -21,6 +21,8 @@ contract Treasury is AccessControl {
     bytes32 public constant DAO_ROLE = keccak256("DAO_ROLE");
     uint256 public collectedFee;
     mapping(address => uint256) public earnedRakeback;
+    mapping(address => uint256) public deposits;
+    mapping(address => uint256) public locked;
 
     /**
      * @param newApprovedToken stable token used in games
@@ -69,15 +71,80 @@ contract Treasury is AccessControl {
     /**
      * Deposit token in treasury
      * @param amount token amount
+     */
+    function deposit(uint256 amount) public {
+        SafeERC20.safeTransferFrom(
+            IERC20(approvedToken),
+            msg.sender,
+            address(this),
+            amount
+        );
+        deposits[msg.sender] += amount;
+    }
+
+    /**
+     * Deposit token in treasury and lock them
+     * @param amount token amount
      * @param from token sender
      */
-    function deposit(uint256 amount, address from) public {
+    function depositAndLock(
+        uint256 amount,
+        address from
+    ) public onlyRole(DISTRIBUTOR_ROLE) {
         SafeERC20.safeTransferFrom(
             IERC20(approvedToken),
             from,
             address(this),
             amount * 10 ** IERC20Mint(approvedToken).decimals()
         );
+        locked[from] += amount * 10 ** IERC20Mint(approvedToken).decimals();
+    }
+
+    function withdraw() public {
+        deposits[msg.sender] = 0;
+        SafeERC20.safeTransfer(
+            IERC20(approvedToken),
+            msg.sender,
+            deposits[msg.sender]
+        );
+    }
+
+    function lock(
+        uint256 amount,
+        address from
+    ) public onlyRole(DISTRIBUTOR_ROLE) {
+        require(deposits[from] >= amount, "Insufficent deposit amount");
+        deposits[from] -= amount;
+        locked[from] += amount;
+    }
+
+    /**
+     * Deposit token in treasury with permit
+     * @param amount token amount
+     */
+    function depositWithPermit(
+        uint256 amount,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) public {
+        IERC20Permit(approvedToken).permit(
+            msg.sender,
+            address(this),
+            amount * 10 ** IERC20Mint(approvedToken).decimals(),
+            deadline,
+            v,
+            r,
+            s
+        );
+        SafeERC20.safeTransferFrom(
+            IERC20(approvedToken),
+            msg.sender,
+            address(this),
+            amount * 10 ** IERC20Mint(approvedToken).decimals()
+        );
+        deposits[msg.sender] += amount;
     }
 
     /**
@@ -85,14 +152,14 @@ contract Treasury is AccessControl {
      * @param amount token amount
      * @param from token sender
      */
-    function depositWithPermit(
+    function depositAndLockWithPermit(
         uint256 amount,
         address from,
         uint256 deadline,
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) public {
+    ) public onlyRole(DISTRIBUTOR_ROLE) {
         IERC20Permit(approvedToken).permit(
             from,
             address(this),
@@ -108,6 +175,7 @@ contract Treasury is AccessControl {
             address(this),
             amount * 10 ** IERC20Mint(approvedToken).decimals()
         );
+        locked[from] += amount * 10 ** IERC20Mint(approvedToken).decimals();
     }
 
     /**
@@ -119,24 +187,17 @@ contract Treasury is AccessControl {
         uint256 amount,
         address to
     ) public onlyRole(DISTRIBUTOR_ROLE) {
-        IERC20(approvedToken).approve(to, amount);
-        SafeERC20.safeTransfer(
-            IERC20(approvedToken),
-            to,
-            amount * 10 ** IERC20Mint(approvedToken).decimals()
-        );
+        locked[to] -= amount;
+        deposits[to] += amount;
     }
 
     /**
      * Withrad earned fees
      * @param amount amount to withdraw
      */
-    function withdrawFees(
-        uint256 amount,
-        address to
-    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        IERC20(approvedToken).approve(to, amount);
-        SafeERC20.safeTransfer(IERC20(approvedToken), to, amount);
+    function withdrawFees(uint256 amount) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        collectedFee = 0;
+        SafeERC20.safeTransfer(IERC20(approvedToken), to, collectedFee);
     }
 
     /**
@@ -182,7 +243,6 @@ contract Treasury is AccessControl {
         uint256 wonAmount = (initialDeposit - withdrawnFees) +
             ((initialDeposit - withdrawnFees) * rate) /
             FEE_DENOMINATOR;
-        IERC20(approvedToken).approve(to, wonAmount);
         SafeERC20.safeTransfer(IERC20(approvedToken), to, wonAmount);
         if (getRakebackAmount(to, initialDeposit) != 0) {
             earnedRakeback[to] += getRakebackAmount(to, initialDeposit);

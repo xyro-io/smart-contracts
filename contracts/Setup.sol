@@ -111,6 +111,10 @@ contract Setup is AccessControl {
         (int192 startingPrice, uint32 startTime) = IDataStreamsVerifier(
             ITreasury(treasury).upkeep()
         ).verifyReportWithTimestamp(unverifiedReport, feedNumber);
+        require(
+            block.timestamp - startTime <= 1 minutes,
+            "Old chainlink report"
+        );
         if (isLong) {
             require(
                 uint192(startingPrice) / 1e14 > stopLossPrice &&

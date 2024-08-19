@@ -280,6 +280,7 @@ contract UpDown is AccessControl {
                     depositAmounts[UpPlayers[i]],
                     UpPlayers[i]
                 );
+                isParticipating[UpPlayers[i]] = false;
             }
             delete UpPlayers;
             for (uint i; i < DownPlayers.length; i++) {
@@ -287,6 +288,7 @@ contract UpDown is AccessControl {
                     depositAmounts[DownPlayers[i]],
                     DownPlayers[i]
                 );
+                isParticipating[DownPlayers[i]] = false;
             }
             delete DownPlayers;
             emit UpDownCancelled(currentGameId);

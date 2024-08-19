@@ -11,7 +11,6 @@ interface IERC20Mint {
 }
 
 contract Treasury is AccessControl {
-    event FeeCollected(uint256 feeEarned, uint256 totalFees);
     address public approvedToken;
     address public xyroToken;
     address public upkeep;
@@ -230,14 +229,15 @@ contract Treasury is AccessControl {
     ) public onlyRole(DISTRIBUTOR_ROLE) {
         amount *= 10 ** IERC20Mint(approvedToken).decimals();
         initialDeposit *= 10 ** IERC20Mint(approvedToken).decimals();
-        uint256 withdrawnFee = (amount * gameFee) / FEE_DENOMINATOR;
+        uint256 withdrawnFees = (amount * gameFee) / FEE_DENOMINATOR;
         uint256 wonAmount = amount -
-            (withdrawnFee -
-                (withdrawnFee * getCommissionCut(to)) /
+            (withdrawnFees -
+                (withdrawnFees * getCommissionCut(to)) /
                 FEE_DENOMINATOR);
         collectedFee += withdrawnFee;
         emit FeeCollected(withdrawnFee, collectedFee);
         deposits[to] += wonAmount;
+
         if (getRakebackAmount(to, initialDeposit) != 0) {
             earnedRakeback[to] += getRakebackAmount(to, initialDeposit);
         }
@@ -255,9 +255,9 @@ contract Treasury is AccessControl {
         uint256 initialDeposit
     ) public onlyRole(DISTRIBUTOR_ROLE) {
         initialDeposit *= 10 ** IERC20Mint(approvedToken).decimals();
-        uint256 withdrawnFee = (initialDeposit * fee) / FEE_DENOMINATOR;
-        uint256 wonAmount = (initialDeposit - withdrawnFee) +
-            ((initialDeposit - withdrawnFee) * rate) /
+        uint256 withdrawnFees = (initialDeposit * fee) / FEE_DENOMINATOR;
+        uint256 wonAmount = (initialDeposit - withdrawnFees) +
+            ((initialDeposit - withdrawnFees) * rate) /
             FEE_DENOMINATOR;
         deposits[to] += wonAmount;
         if (getRakebackAmount(to, initialDeposit) != 0) {
@@ -280,7 +280,6 @@ contract Treasury is AccessControl {
         wonTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
         uint256 withdrawnFee = (lostTeamTotal * fee) / FEE_DENOMINATOR;
         collectedFee += withdrawnFee;
-        emit FeeCollected(withdrawnFee, collectedFee);
         uint256 lostTeamFee = (lostTeamTotal * setupInitiatorFee) /
             FEE_DENOMINATOR;
         uint256 wonTeamFee = (wonTeamTotal * setupInitiatorFee) /
@@ -308,7 +307,6 @@ contract Treasury is AccessControl {
         uint256 lostTeamFee = (lostTeamTotal * updownFee) / FEE_DENOMINATOR;
         uint256 wonTeamFee = (wonTeamTotal * updownFee) / FEE_DENOMINATOR;
         collectedFee += lostTeamFee + wonTeamFee;
-        emit FeeCollected(lostTeamFee + wonTeamFee, collectedFee);
         //collect dust
         rate =
             ((lostTeamTotal - lostTeamFee) * FEE_DENOMINATOR) /

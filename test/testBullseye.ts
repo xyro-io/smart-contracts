@@ -25,6 +25,7 @@ const requireOpenedGame = "Game is closed for new players";
 const requireStartedGame = "Start the game first";
 const requirePastEndTime = "Too early to finish";
 const requireNewPlayer = "You are already in the game";
+const requireSufficentDepositAmount = "Insufficent deposit amount";
 
 describe("Bullseye", () => {
   let owner: HardhatEthersSigner;
@@ -109,6 +110,24 @@ describe("Bullseye", () => {
       );
     });
 
+    it("should play with deposited amount", async function () {
+      await Treasury.connect(alice).deposit(usdtAmount);
+      await Game.connect(alice).playWithDeposit(guessPriceAlice);
+      expect(await USDT.balanceOf(Treasury.getAddress())).to.equal(
+        parse18((usdtAmount * 2).toString())
+      );
+      expect(await Game.players(1)).to.be.equal(alice.address);
+      expect(await Game.assetPrices(alice.address)).to.be.equal(
+        guessPriceAlice
+      );
+    });
+
+    it("should fail - insufficent deposit amount", async function () {
+      await expect(Game.playWithDeposit(guessBobPrice)).to.be.revertedWith(
+        requireSufficentDepositAmount
+      );
+    });
+
     it("should fail - already participating", async function () {
       await expect(
         Game.connect(opponent).play(guessPriceAlice)
@@ -138,6 +157,7 @@ describe("Bullseye", () => {
       await expect(Game.closeGame()).to.emit(Game, "BullseyeCancelled");
       expect(await Game.assetPrices(alice.address)).to.be.equal(0);
       expect(await Game.playerTimestamp(alice.address)).to.be.equal(0);
+      await Treasury.connect(alice).withdraw();
       let newBalance = await USDT.balanceOf(alice.getAddress());
       expect(newBalance).to.be.above(oldBalance);
     });
@@ -187,6 +207,7 @@ describe("Bullseye", () => {
           )
         )
       ).to.emit(Game, "BullseyeCancelled");
+      await Treasury.connect(alice).withdraw();
       let newBalance = await USDT.balanceOf(alice.getAddress());
       expect(newBalance).to.be.equal(oldBalance);
     });
@@ -210,6 +231,8 @@ describe("Bullseye", () => {
           await time.latest()
         )
       );
+      await Treasury.connect(alice).withdraw();
+      await Treasury.connect(opponent).withdraw();
       let newAliceBalance = await USDT.balanceOf(alice.getAddress());
       let newOpponentBalance = await USDT.balanceOf(opponent.getAddress());
       expect(newAliceBalance - oldAliceBalance).to.be.above(parse18("48"));
@@ -237,6 +260,7 @@ describe("Bullseye", () => {
           await time.latest()
         )
       );
+      await Treasury.connect(alice).withdraw();
       let newBalance = await USDT.balanceOf(alice.getAddress());
       expect(newBalance).to.be.above(oldBalance);
     });
@@ -267,6 +291,7 @@ describe("Bullseye", () => {
         r: result.r,
         s: result.s,
       });
+      await Treasury.connect(alice).withdraw();
       let newBalance = await USDT.balanceOf(alice.getAddress());
       expect(oldBalance).to.be.above(newBalance);
     });

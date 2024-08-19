@@ -101,7 +101,34 @@ contract UpDown is AccessControl {
             DownPlayers.push(msg.sender);
         }
         depositAmounts[msg.sender] = depositAmount;
-        ITreasury(treasury).deposit(depositAmount, msg.sender);
+        ITreasury(treasury).depositAndLock(depositAmount, msg.sender);
+        emit UpDownNewPlayer(msg.sender, isLong, depositAmount, currentGameId);
+    }
+
+    function playWithDeposit(
+        bool isLong,
+        uint256 depositAmount
+    ) public isParticipating(msg.sender) {
+        GameInfo memory game = decodeData();
+        require(
+            game.stopPredictAt > block.timestamp,
+            "Game is closed for new players"
+        );
+        if (isLong) {
+            //rewrites totalDepositsUp
+            packedData =
+                (packedData & ~(uint256(0xFFFFFFFF) << 168)) |
+                ((depositAmount + game.totalDepositsUp) << 168);
+            UpPlayers.push(msg.sender);
+        } else {
+            //rewrites totalDepositsDown
+            packedData =
+                (packedData & ~(uint256(0xFFFFFFFF) << 136)) |
+                ((depositAmount + game.totalDepositsDown) << 136);
+            DownPlayers.push(msg.sender);
+        }
+        depositAmounts[msg.sender] = depositAmount;
+        ITreasury(treasury).lock(depositAmount, msg.sender);
         emit UpDownNewPlayer(msg.sender, isLong, depositAmount, currentGameId);
     }
 
@@ -133,7 +160,7 @@ contract UpDown is AccessControl {
             DownPlayers.push(msg.sender);
         }
         depositAmounts[msg.sender] = depositAmount;
-        ITreasury(treasury).depositWithPermit(
+        ITreasury(treasury).depositAndLockWithPermit(
             depositAmount,
             msg.sender,
             permitData.deadline,

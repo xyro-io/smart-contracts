@@ -91,7 +91,59 @@ contract OneVsOneExactPrice is AccessControl {
         );
         require(depositAmount >= 10, "Wrong deposit amount");
 
-        ITreasury(treasury).deposit(depositAmount, msg.sender);
+        ITreasury(treasury).depositAndLock(depositAmount, msg.sender);
+        bytes32 gameId = keccak256(
+            abi.encodePacked(endTime, block.timestamp, msg.sender, opponent)
+        );
+        require(games[gameId].packedData == 0, "Game exists");
+        uint256 packedData = uint(uint160(opponent));
+        uint256 packedData2 = uint(uint160(msg.sender));
+        packedData |= uint256(endTime) << 160;
+        packedData |= uint256(initiatorPrice) << 192;
+        packedData2 |= block.timestamp << 160;
+        packedData2 |= uint256(depositAmount) << 192;
+        packedData2 |= uint256(Status.Created) << 208;
+        packedData2 |= uint256(feedNumber) << 216;
+        games[gameId].packedData = packedData;
+        games[gameId].packedData2 = packedData2;
+        emit ExactPriceCreated(
+            gameId,
+            feedNumber,
+            opponent,
+            uint32(block.timestamp),
+            endTime,
+            msg.sender,
+            initiatorPrice,
+            depositAmount
+        );
+    }
+
+    /**
+     * Creates 1vs1 exact price mode game with deposited funds
+     * @param opponent address of the opponent
+     * @param endTime when the game will end
+     * @param initiatorPrice game initiator picked asset price
+     * @param depositAmount amount to enter the game
+     */
+    function createGameWithDeposit(
+        uint8 feedNumber,
+        address opponent,
+        uint32 endTime,
+        uint32 initiatorPrice,
+        uint16 depositAmount
+    ) public {
+        require(opponent != msg.sender, "Wrong opponent");
+        require(
+            endTime - block.timestamp >= minDuration,
+            "Min game duration must be higher"
+        );
+        require(
+            endTime - block.timestamp <= maxDuration,
+            "Max game duration must be lower"
+        );
+        require(depositAmount >= 10, "Wrong deposit amount");
+
+        ITreasury(treasury).lock(depositAmount, msg.sender);
         bytes32 gameId = keccak256(
             abi.encodePacked(endTime, block.timestamp, msg.sender, opponent)
         );
@@ -144,7 +196,7 @@ contract OneVsOneExactPrice is AccessControl {
         );
         require(depositAmount >= 10, "Wrong deposit amount");
 
-        ITreasury(treasury).depositWithPermit(
+        ITreasury(treasury).depositAndLockWithPermit(
             depositAmount,
             msg.sender,
             permitData.deadline,
@@ -202,7 +254,43 @@ contract OneVsOneExactPrice is AccessControl {
             games[gameId].packedData = uint256(uint160(msg.sender));
         }
         games[gameId].packedData |= uint256(opponentPrice) << 224;
-        ITreasury(treasury).deposit(game.depositAmount, msg.sender);
+        ITreasury(treasury).depositAndLock(game.depositAmount, msg.sender);
+        //rewrites status
+        games[gameId].packedData2 =
+            (games[gameId].packedData2 & ~(uint256(0xFF) << 208)) |
+            (uint256(uint8(Status.Started)) << 208);
+        emit ExactPriceAccepted(gameId, msg.sender, opponentPrice);
+    }
+
+    /**
+     * Accepts 1vs1 exact price mode game with deposited funds
+     * @param gameId game id
+     * @param opponentPrice picked asset price
+     */
+    function acceptGameWithDeposit(
+        bytes32 gameId,
+        uint32 opponentPrice
+    ) public {
+        GameInfo memory game = decodeData(gameId);
+        require(game.gameStatus == Status.Created, "Wrong status!");
+        require(
+            game.startTime + (game.endTime - game.startTime) / 3 >=
+                block.timestamp,
+            "Game is closed for new players"
+        );
+        require(game.initiatorPrice != opponentPrice, "Same asset prices");
+        // If game is not private address should be 0
+        if (game.opponent != address(0)) {
+            require(
+                msg.sender == game.opponent,
+                "Only certain account can accept"
+            );
+        } else {
+            require(msg.sender != game.initiator, "Wrong opponent");
+            games[gameId].packedData = uint256(uint160(msg.sender));
+        }
+        games[gameId].packedData |= uint256(opponentPrice) << 224;
+        ITreasury(treasury).lock(game.depositAmount, msg.sender);
         //rewrites status
         games[gameId].packedData2 =
             (games[gameId].packedData2 & ~(uint256(0xFF) << 208)) |
@@ -239,7 +327,7 @@ contract OneVsOneExactPrice is AccessControl {
             games[gameId].packedData = uint256(uint160(msg.sender));
         }
         games[gameId].packedData |= uint256(opponentPrice) << 224;
-        ITreasury(treasury).depositWithPermit(
+        ITreasury(treasury).depositAndLockWithPermit(
             game.depositAmount,
             msg.sender,
             permitData.deadline,

@@ -190,7 +190,7 @@ contract UpDown is AccessControl {
             upkeep
         ).verifyReportWithTimestamp(unverifiedReport, game.feedNumber);
         require(
-            block.timestamp - priceTimestamp <= 10 minutes,
+            block.timestamp - priceTimestamp <= 1 minutes,
             "Old chainlink report"
         );
         packedData |= uint192(startingPrice / 1e14) << 104;
@@ -241,8 +241,8 @@ contract UpDown is AccessControl {
         ).verifyReportWithTimestamp(unverifiedReport, game.feedNumber);
         //block.timestamp must be > priceTimestamp
         require(
-            priceTimestamp - game.endTime <= 10 minutes ||
-                block.timestamp - priceTimestamp <= 10 minutes,
+            priceTimestamp - game.endTime <= 1 minutes ||
+                block.timestamp - priceTimestamp <= 1 minutes,
             "Old chainlink report"
         );
         GameInfo memory _game = game;

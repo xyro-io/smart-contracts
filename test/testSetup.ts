@@ -29,6 +29,7 @@ const gameClosed = "Game is closed for new players";
 const isParticipating = "You are already in the game";
 const dontExist = "Game doesn't exist";
 const cantEnd = "Can't end";
+const requireSufficentDepositAmount = "Insufficent deposit amount";
 const Status = {
   Created: 0,
   Cancelled: 1,
@@ -39,6 +40,7 @@ describe("Setup Game", () => {
   let owner: HardhatEthersSigner;
   let bob: HardhatEthersSigner;
   let alice: HardhatEthersSigner;
+  let harry: HardhatEthersSigner;
   let USDT: MockToken;
   let XyroToken: XyroToken;
   let Treasury: Treasury;
@@ -50,11 +52,11 @@ describe("Setup Game", () => {
   const slPrice = 620000000;
   const usdtAmount = 100;
   const finalPriceTP = parse18("66000");
-  const finalPriceSL = parse18("62500");
+  const finalPriceSL = parse18("61000");
   const feedNumber = 1;
-  const assetPrice = parse18("60000");
+  const assetPrice = parse18("62500");
   before(async () => {
-    [owner, bob, alice] = await ethers.getSigners();
+    [owner, bob, alice, harry] = await ethers.getSigners();
 
     USDT = await new MockToken__factory(owner).deploy(
       parse18((1e13).toString())
@@ -70,6 +72,7 @@ describe("Setup Game", () => {
     await Treasury.setUpkeep(await Upkeep.getAddress());
     await USDT.mint(bob.address, parse18("1000"));
     await USDT.mint(alice.address, parse18("1000"));
+    await USDT.mint(harry.address, parse18("1000"));
 
     await Treasury.grantRole(
       await Treasury.DEFAULT_ADMIN_ROLE(),
@@ -88,6 +91,11 @@ describe("Setup Game", () => {
       await Treasury.getAddress(),
       ethers.MaxUint256
     );
+
+    await USDT.connect(harry).approve(
+      await Treasury.getAddress(),
+      ethers.MaxUint256
+    );
   });
 
   describe("Create game", async function () {
@@ -98,8 +106,8 @@ describe("Setup Game", () => {
       let tx = await Game.createSetup(
         isLong,
         endTime,
-        tpPrice,
         slPrice,
+        tpPrice,
         feedNumber,
         abiEncodeInt192WithTimestamp(
           assetPrice.toString(),
@@ -113,8 +121,8 @@ describe("Setup Game", () => {
 
       expect(game.isLong).to.be.equal(isLong);
       expect(game.feedNumber).to.be.equal(feedNumber);
-      expect(game.stopLossPrice).to.be.equal(slPrice);
-      expect(game.takeProfitPrice).to.be.equal(tpPrice);
+      expect(game.stopLossPrice).to.be.equal(tpPrice);
+      expect(game.takeProfitPrice).to.be.equal(slPrice);
       expect(game.startringPrice).to.be.equal(
         assetPrice / BigInt(Math.pow(10, 14))
       );
@@ -135,7 +143,7 @@ describe("Setup Game", () => {
         slPrice,
         feedNumber,
         abiEncodeInt192WithTimestamp(
-          finalPriceSL.toString(),
+          assetPrice.toString(),
           feedNumber,
           startTime
         )
@@ -148,7 +156,7 @@ describe("Setup Game", () => {
       expect(game.stopLossPrice).to.be.equal(slPrice);
       expect(game.takeProfitPrice).to.be.equal(tpPrice);
       expect(game.startringPrice).to.be.equal(
-        finalPriceSL / BigInt(Math.pow(10, 14))
+        assetPrice / BigInt(Math.pow(10, 14))
       );
       expect(game.endTime).to.be.equal(endTime);
       expect(game.startTime).to.be.equal(startTime);
@@ -173,22 +181,73 @@ describe("Setup Game", () => {
       ).to.be.revertedWith(wrongPrice);
     });
 
-    // it("should fail - wrong sl price (long)", async function () {
-    //   await expect(
-    //     Game.createSetup(
-    //       true,
-    //       (await time.latest()) + fortyFiveMinutes,
-    //       tpPrice,
-    //       slPrice,
-    //       feedNumber,
-    //       abiEncodeInt192WithTimestamp(
-    //         parse18("50000").toString(),
-    //         feedNumber,
-    //         await time.latest()
-    //       )
-    //     )
-    //   ).to.be.revertedWith(wrongPrice);
-    // });
+    it("should fail - wrong sl price (long)", async function () {
+      await expect(
+        Game.createSetup(
+          true,
+          (await time.latest()) + fortyFiveMinutes,
+          tpPrice,
+          slPrice,
+          feedNumber,
+          abiEncodeInt192WithTimestamp(
+            parse18("50000").toString(),
+            feedNumber,
+            await time.latest()
+          )
+        )
+      ).to.be.revertedWith(wrongPrice);
+    });
+
+    it("should fail - wrong tp price (long)", async function () {
+      await expect(
+        Game.createSetup(
+          true,
+          (await time.latest()) + fortyFiveMinutes,
+          tpPrice,
+          slPrice,
+          feedNumber,
+          abiEncodeInt192WithTimestamp(
+            parse18("66000").toString(),
+            feedNumber,
+            await time.latest()
+          )
+        )
+      ).to.be.revertedWith(wrongPrice);
+    });
+
+    it("should fail - wrong tp price (short)", async function () {
+      await expect(
+        Game.createSetup(
+          true,
+          (await time.latest()) + fortyFiveMinutes,
+          slPrice,
+          tpPrice,
+          feedNumber,
+          abiEncodeInt192WithTimestamp(
+            parse18("50000").toString(),
+            feedNumber,
+            await time.latest()
+          )
+        )
+      ).to.be.revertedWith(wrongPrice);
+    });
+
+    it("should fail - wrong sl price (short)", async function () {
+      await expect(
+        Game.createSetup(
+          true,
+          (await time.latest()) + fortyFiveMinutes,
+          slPrice,
+          tpPrice,
+          feedNumber,
+          abiEncodeInt192WithTimestamp(
+            parse18("63000").toString(),
+            feedNumber,
+            await time.latest()
+          )
+        )
+      ).to.be.revertedWith(wrongPrice);
+    });
 
     it("should fail - high game duration", async function () {
       await expect(
@@ -267,11 +326,42 @@ describe("Setup Game", () => {
       expect(game.totalDepositsTP).to.equal(usdtAmount);
     });
 
+    it("should play with deposited amount", async function () {
+      const oldUserBalance = await USDT.balanceOf(harry.address);
+      const oldTreasuryBalance = await USDT.balanceOf(
+        await Treasury.getAddress()
+      );
+      await Treasury.connect(harry).deposit(usdtAmount);
+      await Game.connect(harry).playWithDeposit(
+        true,
+        usdtAmount,
+        currentGameId
+      );
+      const newUserBalance = await USDT.balanceOf(harry.address);
+      const newTreasuryBalance = await USDT.balanceOf(
+        await Treasury.getAddress()
+      );
+      let game = await Game.decodeData(currentGameId);
+      expect(oldUserBalance - newUserBalance).to.be.equal(
+        parse18(usdtAmount.toString())
+      );
+      expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(
+        parse18(usdtAmount.toString())
+      );
+      expect(game.totalDepositsTP).to.equal(usdtAmount * 2);
+    });
+
     it("should fail - totalDepositTP > max uint32", async function () {
       const maxUint32 = 4294967295;
       await expect(
         Game.connect(owner).play(true, maxUint32, currentGameId)
       ).to.be.revertedWith(gameClosed);
+    });
+
+    it("should fail - insufficent deposit amount", async function () {
+      await expect(
+        Game.playWithDeposit(true, usdtAmount, currentGameId)
+      ).to.be.revertedWith(requireSufficentDepositAmount);
     });
 
     it("should play and rewrite totalDepositsTP", async function () {
@@ -291,7 +381,7 @@ describe("Setup Game", () => {
       expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(
         parse18(usdtAmount.toString())
       );
-      expect(game.totalDepositsTP).to.equal(usdtAmount * 2);
+      expect(game.totalDepositsTP).to.equal(usdtAmount * 3);
     });
 
     it("should fail - can't enter twice", async function () {
@@ -408,7 +498,8 @@ describe("Setup Game", () => {
 
       await time.increase(fortyFiveMinutes);
       await Game.closeGame(currentGameId);
-
+      await Treasury.connect(owner).withdraw();
+      await Treasury.connect(bob).withdraw();
       newOwnerBalance = await USDT.balanceOf(owner.address);
       newBobBalance = await USDT.balanceOf(bob.address);
       newTreasuryBalance = await USDT.balanceOf(await Treasury.getAddress());
@@ -462,7 +553,8 @@ describe("Setup Game", () => {
 
       await time.increase(fortyFiveMinutes);
       await Game.closeGame(currentGameId);
-
+      await Treasury.connect(owner).withdraw();
+      await Treasury.connect(bob).withdraw();
       newOwnerBalance = await USDT.balanceOf(owner.address);
       newBobBalance = await USDT.balanceOf(bob.address);
       newTreasuryBalance = await USDT.balanceOf(await Treasury.getAddress());
@@ -537,6 +629,9 @@ describe("Setup Game", () => {
       expect(game.endTime).to.be.equal(finalizeTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
+      await Treasury.connect(owner).withdraw();
+      await Treasury.connect(bob).withdraw();
+      await Treasury.connect(alice).withdraw();
       const finalAliceBalance = await USDT.balanceOf(alice);
       const finalOwnerBalance = await USDT.balanceOf(owner);
       const finalBobBalance = await USDT.balanceOf(bob);
@@ -579,7 +674,7 @@ describe("Setup Game", () => {
       const finalizeTime = await time.latest();
       tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
-          assetPrice.toString(),
+          finalPriceSL.toString(),
           feedNumber,
           finalizeTime
         ),
@@ -589,7 +684,7 @@ describe("Setup Game", () => {
       let game = await Game.decodeData(currentGameId);
       expect(game.gameStatus).to.be.equal(Status.Finished);
       expect(game.finalPrice).to.be.equal(
-        assetPrice / BigInt(Math.pow(10, 14))
+        finalPriceSL / BigInt(Math.pow(10, 14))
       );
       expect(game.isLong).to.be.equal(isLong);
       expect(game.feedNumber).to.be.equal(feedNumber);
@@ -601,6 +696,9 @@ describe("Setup Game", () => {
       expect(game.endTime).to.be.equal(finalizeTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
+      await Treasury.connect(owner).withdraw();
+      await Treasury.connect(bob).withdraw();
+      await Treasury.connect(alice).withdraw();
       const finalAliceBalance = await USDT.balanceOf(alice);
       const finalOwnerBalance = await USDT.balanceOf(owner);
       const finalBobBalance = await USDT.balanceOf(bob);
@@ -638,7 +736,7 @@ describe("Setup Game", () => {
       await expect(
         Game.finalizeGame(
           abiEncodeInt192WithTimestamp(
-            finalPriceSL.toString(),
+            assetPrice.toString(),
             feedNumber,
             finalizeTime
           ),
@@ -660,8 +758,8 @@ describe("Setup Game", () => {
       let tx = await Game.createSetup(
         isLong,
         endTime,
-        tpPrice,
         slPrice,
+        tpPrice,
         feedNumber,
         abiEncodeInt192WithTimestamp(
           assetPrice.toString(),
@@ -691,14 +789,17 @@ describe("Setup Game", () => {
       );
       expect(game.isLong).to.be.equal(isLong);
       expect(game.feedNumber).to.be.equal(feedNumber);
-      expect(game.stopLossPrice).to.be.equal(slPrice);
-      expect(game.takeProfitPrice).to.be.equal(tpPrice);
+      expect(game.stopLossPrice).to.be.equal(tpPrice);
+      expect(game.takeProfitPrice).to.be.equal(slPrice);
       expect(game.startringPrice).to.be.equal(
         assetPrice / BigInt(Math.pow(10, 14))
       );
       expect(game.endTime).to.be.equal(finalizeTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
+      await Treasury.connect(owner).withdraw();
+      await Treasury.connect(bob).withdraw();
+      await Treasury.connect(alice).withdraw();
       const finalAliceBalance = await USDT.balanceOf(alice);
       const finalOwnerBalance = await USDT.balanceOf(owner);
       const finalBobBalance = await USDT.balanceOf(bob);
@@ -724,8 +825,8 @@ describe("Setup Game", () => {
       let tx = await Game.createSetup(
         isLong,
         endTime,
-        tpPrice,
         slPrice,
+        tpPrice,
         feedNumber,
         abiEncodeInt192WithTimestamp(
           assetPrice.toString(),
@@ -741,7 +842,7 @@ describe("Setup Game", () => {
       const finalizeTime = await time.latest();
       tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
-          assetPrice.toString(),
+          finalPriceSL.toString(),
           feedNumber,
           finalizeTime
         ),
@@ -751,18 +852,21 @@ describe("Setup Game", () => {
       let game = await Game.decodeData(currentGameId);
       expect(game.gameStatus).to.be.equal(Status.Finished);
       expect(game.finalPrice).to.be.equal(
-        assetPrice / BigInt(Math.pow(10, 14))
+        finalPriceSL / BigInt(Math.pow(10, 14))
       );
       expect(game.isLong).to.be.equal(isLong);
       expect(game.feedNumber).to.be.equal(feedNumber);
-      expect(game.stopLossPrice).to.be.equal(slPrice);
-      expect(game.takeProfitPrice).to.be.equal(tpPrice);
+      expect(game.stopLossPrice).to.be.equal(tpPrice);
+      expect(game.takeProfitPrice).to.be.equal(slPrice);
       expect(game.startringPrice).to.be.equal(
         assetPrice / BigInt(Math.pow(10, 14))
       );
       expect(game.endTime).to.be.equal(finalizeTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
+      await Treasury.connect(owner).withdraw();
+      await Treasury.connect(bob).withdraw();
+      await Treasury.connect(alice).withdraw();
       const finalAliceBalance = await USDT.balanceOf(alice);
       const finalOwnerBalance = await USDT.balanceOf(owner);
       const finalBobBalance = await USDT.balanceOf(bob);
@@ -800,7 +904,7 @@ describe("Setup Game", () => {
       await expect(
         Game.finalizeGame(
           abiEncodeInt192WithTimestamp(
-            finalPriceSL.toString(),
+            assetPrice.toString(),
             feedNumber,
             finalizeTime
           ),
@@ -899,6 +1003,8 @@ describe("Setup Game", () => {
         ),
         currentGameId
       );
+      await Treasury.connect(owner).withdraw();
+      await Treasury.connect(alice).withdraw();
       expect(oldAliceBalance).to.be.equal(await USDT.balanceOf(alice));
       expect(oldOwnerBalance).to.be.equal(await USDT.balanceOf(owner));
     });
@@ -930,6 +1036,8 @@ describe("Setup Game", () => {
         ),
         currentGameId
       );
+      await Treasury.connect(owner).withdraw();
+      await Treasury.connect(alice).withdraw();
       expect(oldAliceBalance).to.be.equal(await USDT.balanceOf(alice));
       expect(oldOwnerBalance).to.be.equal(await USDT.balanceOf(owner));
     });

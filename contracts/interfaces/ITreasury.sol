@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 interface ITreasury {
-
     struct PermitData {
         uint256 deadline;
         uint8 v;
@@ -16,9 +15,9 @@ interface ITreasury {
 
     function increaseFee(uint256 amount) external;
 
-    function deposit(uint256 amount, address from) external;
+    function depositAndLock(uint256 amount, address from) external;
 
-    function depositWithPermit(
+    function depositAndLockWithPermit(
         uint256 amount,
         address from,
         uint256 deadline,
@@ -26,6 +25,8 @@ interface ITreasury {
         bytes32 r,
         bytes32 s
     ) external;
+
+    function lock(uint256 amount, address from) external;
 
     function upkeep() external view returns (address);
 

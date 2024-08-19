@@ -110,10 +110,8 @@ contract UpDown is AccessControl {
      * @param isLong up = true, down = false
      * @param depositAmount amount to deposit in game
      */
-    function playWithDeposit(
-        bool isLong,
-        uint256 depositAmount
-    ) public isParticipating(msg.sender) {
+    function playWithDeposit(bool isLong, uint256 depositAmount) public {
+        require(!isParticipating[msg.sender], "Already participating");
         GameInfo memory game = decodeData();
         require(
             game.stopPredictAt > block.timestamp,

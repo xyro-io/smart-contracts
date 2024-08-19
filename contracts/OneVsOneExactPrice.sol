@@ -67,7 +67,7 @@ contract OneVsOneExactPrice is AccessControl {
     }
 
     /**
-     * Creates 1vs1 exact price mode game
+     * Creates 1vs1 exact price mode game and deposit funds
      * @param opponent address of the opponent
      * @param endTime when the game will end
      * @param initiatorPrice game initiator picked asset price
@@ -171,7 +171,7 @@ contract OneVsOneExactPrice is AccessControl {
     }
 
     /**
-     * Creates 1vs1 exact price mode game
+     * Creates 1vs1 exact price mode game and deposit funds
      * @param opponent address of the opponent
      * @param endTime when the game will end
      * @param initiatorPrice game initiator picked asset price
@@ -230,7 +230,7 @@ contract OneVsOneExactPrice is AccessControl {
     }
 
     /**
-     * Accepts 1vs1 exact price mode game
+     * Accepts 1vs1 exact price mode game and deposit funds
      * @param gameId game id
      * @param opponentPrice picked asset price
      */
@@ -299,7 +299,7 @@ contract OneVsOneExactPrice is AccessControl {
     }
 
     /**
-     * Accepts 1vs1 exact price mode game
+     * Accepts 1vs1 exact price mode game and deposit funds
      * @param gameId game id
      * @param opponentPrice picked asset price
      */

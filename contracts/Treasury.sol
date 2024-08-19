@@ -164,6 +164,9 @@ contract Treasury is AccessControl {
         locked[from] += amount * 10 ** IERC20Mint(approvedToken).decimals();
     }
 
+    /**
+     * Withdraw all tokens from user deposit
+     */
     function withdraw() public {
         SafeERC20.safeTransfer(
             IERC20(approvedToken),
@@ -173,6 +176,9 @@ contract Treasury is AccessControl {
         deposits[msg.sender] = 0;
     }
 
+    /**
+     * Locks deposited tokens (only game contracts can call)
+     */
     function lock(
         uint256 amount,
         address from

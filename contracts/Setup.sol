@@ -156,7 +156,7 @@ contract Setup is AccessControl {
     }
 
     /**
-     * Participate in the game
+     * Participate in the game and deposit funds
      * @param isLong long or short?
      * @param gameId amount to deposit in the game
      * @param depositAmount game id
@@ -193,6 +193,12 @@ contract Setup is AccessControl {
         emit SetupNewPlayer(gameId, isLong, depositAmount, msg.sender);
     }
 
+    /**
+     * Participate in the game with deposited funds
+     * @param isLong long or short?
+     * @param gameId amount to deposit in the game
+     * @param depositAmount game id
+     */
     function playWithDeposit(
         bool isLong,
         uint256 depositAmount,
@@ -230,7 +236,7 @@ contract Setup is AccessControl {
     }
 
     /**
-     * Participate in the game with permit
+     * Participate in the game with permit and deposit funds
      * @param isLong long or short?
      * @param depositAmount amount to deposit in the game
      * @param gameId game id

@@ -88,7 +88,7 @@ contract Bullseye is AccessControl {
     }
 
     /**
-     * Participate in bullseye game
+     * Participate in bullseye game and deposit funds
      * @param assetPrice player's picked asset price
      */
     function play(uint32 assetPrice) public {
@@ -134,7 +134,7 @@ contract Bullseye is AccessControl {
     }
 
     /**
-     * Participate in bullseye game with permit
+     * Participate in bullseye game and deposit funds with permit
      * @param assetPrice player's picked asset price
      */
     function playWithPermit(

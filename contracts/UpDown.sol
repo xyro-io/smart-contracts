@@ -74,7 +74,7 @@ contract UpDown is AccessControl {
     }
 
     /**
-     * Take a participation in up/down game
+     * Take a participation in up/down game and deposit funds
      * @param isLong up = true, down = false
      * @param depositAmount amount to deposit in game
      */
@@ -105,6 +105,11 @@ contract UpDown is AccessControl {
         emit UpDownNewPlayer(msg.sender, isLong, depositAmount, currentGameId);
     }
 
+    /**
+     * Take a participation in up/down game using deposited funds
+     * @param isLong up = true, down = false
+     * @param depositAmount amount to deposit in game
+     */
     function playWithDeposit(
         bool isLong,
         uint256 depositAmount
@@ -133,7 +138,7 @@ contract UpDown is AccessControl {
     }
 
     /**
-     * Take a participation in up/down game
+     * Take a participation in up/down game and deposit funds
      * @param isLong up = true, down = false
      */
     function playWithPermit(

@@ -88,7 +88,7 @@ contract Bullseye is AccessControl {
     }
 
     /**
-     * Participate in bullseye game
+     * Participate in bullseye game and deposit funds
      * @param assetPrice player's picked asset price
      */
     function play(uint32 assetPrice) public {
@@ -101,7 +101,7 @@ contract Bullseye is AccessControl {
         playerTimestamp[msg.sender] = block.timestamp;
         players.push(msg.sender);
         assetPrices[msg.sender] = assetPrice;
-        ITreasury(treasury).deposit(game.depositAmount, msg.sender);
+        ITreasury(treasury).depositAndLock(game.depositAmount, msg.sender);
         emit BullseyeNewPlayer(
             msg.sender,
             assetPrice,
@@ -111,7 +111,30 @@ contract Bullseye is AccessControl {
     }
 
     /**
-     * Participate in bullseye game with permit
+     * Participate in bullseye game with deposited funds
+     * @param assetPrice player's picked asset price
+     */
+    function playWithDeposit(uint32 assetPrice) public {
+        GameInfo memory game = decodeData();
+        require(
+            game.stopPredictAt >= block.timestamp,
+            "Game is closed for new players"
+        );
+        require(assetPrices[msg.sender] == 0, "You are already in the game");
+        playerTimestamp[msg.sender] = block.timestamp;
+        players.push(msg.sender);
+        assetPrices[msg.sender] = assetPrice;
+        ITreasury(treasury).lock(game.depositAmount, msg.sender);
+        emit BullseyeNewPlayer(
+            msg.sender,
+            assetPrice,
+            game.depositAmount,
+            currentGameId
+        );
+    }
+
+    /**
+     * Participate in bullseye game and deposit funds with permit
      * @param assetPrice player's picked asset price
      */
     function playWithPermit(
@@ -127,7 +150,7 @@ contract Bullseye is AccessControl {
         playerTimestamp[msg.sender] = block.timestamp;
         players.push(msg.sender);
         assetPrices[msg.sender] = assetPrice;
-        ITreasury(treasury).depositWithPermit(
+        ITreasury(treasury).depositAndLockWithPermit(
             game.depositAmount,
             msg.sender,
             permitData.deadline,

@@ -156,7 +156,7 @@ contract Setup is AccessControl {
     }
 
     /**
-     * Participate in the game
+     * Participate in the game and deposit funds
      * @param isLong long or short?
      * @param gameId amount to deposit in the game
      * @param depositAmount game id
@@ -175,7 +175,7 @@ contract Setup is AccessControl {
             depositAmounts[gameId][msg.sender] == 0,
             "You are already in the game"
         );
-        ITreasury(treasury).deposit(depositAmount, msg.sender);
+        ITreasury(treasury).depositAndLock(depositAmount, msg.sender);
         depositAmounts[gameId][msg.sender] = depositAmount;
         if (isLong) {
             games[gameId].teamTP.push(msg.sender);
@@ -194,7 +194,49 @@ contract Setup is AccessControl {
     }
 
     /**
-     * Participate in the game with permit
+     * Participate in the game with deposited funds
+     * @param isLong long or short?
+     * @param gameId amount to deposit in the game
+     * @param depositAmount game id
+     */
+    function playWithDeposit(
+        bool isLong,
+        uint256 depositAmount,
+        bytes32 gameId
+    ) public {
+        GameInfo memory data = decodeData(gameId);
+        require(data.gameStatus == Status.Created, "Wrong status!");
+        require(
+            data.startTime + (data.endTime - data.startTime) / 3 >
+                block.timestamp &&
+                (data.totalDepositsSL + depositAmount <= type(uint32).max ||
+                    data.totalDepositsTP + depositAmount <= type(uint32).max),
+            "Game is closed for new players"
+        );
+        require(
+            depositAmounts[gameId][msg.sender] == 0,
+            "You are already in the game"
+        );
+        ITreasury(treasury).lock(depositAmount, msg.sender);
+        depositAmounts[gameId][msg.sender] = depositAmount;
+        if (isLong) {
+            games[gameId].teamTP.push(msg.sender);
+            //rewrites totalDepositsTP
+            games[gameId].packedData2 =
+                (games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 113)) |
+                ((depositAmount + data.totalDepositsTP) << 113);
+        } else {
+            games[gameId].teamSL.push(msg.sender);
+            //rewrites totalDepositsSL
+            games[gameId].packedData2 =
+                (games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 81)) |
+                ((depositAmount + data.totalDepositsSL) << 81);
+        }
+        emit SetupNewPlayer(gameId, isLong, depositAmount, msg.sender);
+    }
+
+    /**
+     * Participate in the game with permit and deposit funds
      * @param isLong long or short?
      * @param depositAmount amount to deposit in the game
      * @param gameId game id
@@ -228,7 +270,7 @@ contract Setup is AccessControl {
             depositAmounts[gameId][msg.sender] == 0,
             "You are already in the game"
         );
-        ITreasury(treasury).depositWithPermit(
+        ITreasury(treasury).depositAndLockWithPermit(
             depositAmount,
             msg.sender,
             permitData.deadline,

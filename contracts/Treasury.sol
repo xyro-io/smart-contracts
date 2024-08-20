@@ -11,6 +11,7 @@ interface IERC20Mint {
 }
 
 contract Treasury is AccessControl {
+    event FeeCollected(uint256 feeEarned, uint256 totalFees);
     address public approvedToken;
     address public xyroToken;
     address public upkeep;
@@ -234,8 +235,8 @@ contract Treasury is AccessControl {
             (withdrawnFees -
                 (withdrawnFees * getCommissionCut(to)) /
                 FEE_DENOMINATOR);
-        collectedFee += withdrawnFee;
-        emit FeeCollected(withdrawnFee, collectedFee);
+        collectedFee += withdrawnFees;
+        emit FeeCollected(withdrawnFees, collectedFee);
         deposits[to] += wonAmount;
 
         if (getRakebackAmount(to, initialDeposit) != 0) {
@@ -278,15 +279,15 @@ contract Treasury is AccessControl {
     ) external onlyRole(DISTRIBUTOR_ROLE) returns (uint256, uint256) {
         lostTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
         wonTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
-        uint256 withdrawnFee = (lostTeamTotal * fee) / FEE_DENOMINATOR;
-        collectedFee += withdrawnFee;
+        uint256 withdrawnFees = (lostTeamTotal * fee) / FEE_DENOMINATOR;
+        collectedFee += withdrawnFees;
         uint256 lostTeamFee = (lostTeamTotal * setupInitiatorFee) /
             FEE_DENOMINATOR;
         uint256 wonTeamFee = (wonTeamTotal * setupInitiatorFee) /
             FEE_DENOMINATOR;
         deposits[initiator] += lostTeamFee + wonTeamFee;
         //collect dust
-        uint256 rate = ((lostTeamTotal - withdrawnFee - lostTeamFee) *
+        uint256 rate = ((lostTeamTotal - withdrawnFees - lostTeamFee) *
             FEE_DENOMINATOR) / (wonTeamTotal - wonTeamFee);
         return (rate, lostTeamFee + wonTeamFee);
     }

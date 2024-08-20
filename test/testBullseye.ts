@@ -104,10 +104,9 @@ describe("Bullseye", () => {
       expect(await USDT.balanceOf(Treasury.getAddress())).to.equal(
         parse18(usdtAmount.toString())
       );
-      expect(await Game.players(0)).to.be.equal(opponent.address);
-      expect(await Game.assetPrices(opponent.address)).to.be.equal(
-        guessPriceOpponent
-      );
+      const playerGuessData = await Game.decodeGuess(0);
+      expect(playerGuessData.player).to.be.equal(opponent.address);
+      expect(playerGuessData.assetPrice).to.be.equal(guessPriceOpponent);
     });
 
     it("should play with deposited amount", async function () {
@@ -116,22 +115,15 @@ describe("Bullseye", () => {
       expect(await USDT.balanceOf(Treasury.getAddress())).to.equal(
         parse18((usdtAmount * 2).toString())
       );
-      expect(await Game.players(1)).to.be.equal(alice.address);
-      expect(await Game.assetPrices(alice.address)).to.be.equal(
-        guessPriceAlice
-      );
+      const playerGuessData = await Game.decodeGuess(1);
+      expect(playerGuessData.player).to.be.equal(alice.address);
+      expect(playerGuessData.assetPrice).to.be.equal(guessPriceAlice);
     });
 
     it("should fail - insufficent deposit amount", async function () {
       await expect(Game.playWithDeposit(guessBobPrice)).to.be.revertedWith(
         requireSufficentDepositAmount
       );
-    });
-
-    it("should fail - already participating", async function () {
-      await expect(
-        Game.connect(opponent).play(guessPriceAlice)
-      ).to.be.revertedWith(requireNewPlayer);
     });
 
     it("should fail - play after time is up", async function () {
@@ -155,8 +147,7 @@ describe("Bullseye", () => {
       let oldBalance = await USDT.balanceOf(alice.getAddress());
       await time.increase(fortyFiveMinutes);
       await expect(Game.closeGame()).to.emit(Game, "BullseyeCancelled");
-      expect(await Game.assetPrices(alice.address)).to.be.equal(0);
-      expect(await Game.playerTimestamp(alice.address)).to.be.equal(0);
+      expect(await Game.getTotalPlayers()).to.be.equal(0);
       await Treasury.connect(alice).withdraw();
       let newBalance = await USDT.balanceOf(alice.getAddress());
       expect(newBalance).to.be.above(oldBalance);

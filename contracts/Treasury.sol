@@ -337,9 +337,12 @@ contract Treasury is AccessControl {
         uint256 initialDeposit
     ) internal view returns (uint256) {
         uint256 targetBalance = IERC20(xyroToken).balanceOf(target);
-        uint256 tier = targetBalance / (2500 * 10 ** 18) >= 4
+        uint256 tier = targetBalance /
+            (2500 * 10 ** IERC20Mint(approvedToken).decimals()) >=
+            4
             ? 4
-            : targetBalance / (2500 * 10 ** 18);
+            : targetBalance /
+                (2500 * 10 ** IERC20Mint(approvedToken).decimals());
         return (initialDeposit * 500 * tier) / FEE_DENOMINATOR;
     }
 
@@ -351,16 +354,18 @@ contract Treasury is AccessControl {
         address target
     ) public view returns (uint256 comissionCut) {
         uint256 targetBalance = IERC20(xyroToken).balanceOf(target);
-        uint256 tier = targetBalance / (2500 * 10 ** 18) >= 4
+        uint256 tier = targetBalance /
+            (2500 * 10 ** IERC20Mint(approvedToken).decimals()) >=
+            4
             ? 4
-            : targetBalance / (2500 * 10 ** 18);
-
+            : targetBalance /
+                (2500 * 10 ** IERC20Mint(approvedToken).decimals());
         if (tier == 4) {
             //30%
             comissionCut = 3000;
         } else if (tier > 0) {
             //10-20%
-            comissionCut = 1000 + 500 * tier - 1;
+            comissionCut = 1000 + 500 * (tier - 1);
         }
     }
 

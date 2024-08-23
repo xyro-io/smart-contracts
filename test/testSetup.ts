@@ -498,8 +498,12 @@ describe("Setup Game", () => {
 
       await time.increase(fortyFiveMinutes);
       await Game.closeGame(currentGameId);
-      await Treasury.connect(owner).withdraw();
-      await Treasury.connect(bob).withdraw();
+      await Treasury.connect(owner).withdraw(
+        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
+      );
+      await Treasury.connect(bob).withdraw(
+        (await Treasury.deposits(bob.address)) / BigInt(Math.pow(10, 18))
+      );
       newOwnerBalance = await USDT.balanceOf(owner.address);
       newBobBalance = await USDT.balanceOf(bob.address);
       newTreasuryBalance = await USDT.balanceOf(await Treasury.getAddress());
@@ -553,8 +557,12 @@ describe("Setup Game", () => {
 
       await time.increase(fortyFiveMinutes);
       await Game.closeGame(currentGameId);
-      await Treasury.connect(owner).withdraw();
-      await Treasury.connect(bob).withdraw();
+      await Treasury.connect(owner).withdraw(
+        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
+      );
+      await Treasury.connect(bob).withdraw(
+        (await Treasury.deposits(bob.address)) / BigInt(Math.pow(10, 18))
+      );
       newOwnerBalance = await USDT.balanceOf(owner.address);
       newBobBalance = await USDT.balanceOf(bob.address);
       newTreasuryBalance = await USDT.balanceOf(await Treasury.getAddress());
@@ -629,9 +637,15 @@ describe("Setup Game", () => {
       expect(game.endTime).to.be.equal(finalizeTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
-      await Treasury.connect(owner).withdraw();
-      await Treasury.connect(bob).withdraw();
-      await Treasury.connect(alice).withdraw();
+      await Treasury.connect(owner).withdraw(
+        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
+      );
+      await Treasury.connect(bob).withdraw(
+        (await Treasury.deposits(bob.address)) / BigInt(Math.pow(10, 18))
+      );
+      await Treasury.connect(alice).withdraw(
+        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+      );
       const finalAliceBalance = await USDT.balanceOf(alice);
       const finalOwnerBalance = await USDT.balanceOf(owner);
       const finalBobBalance = await USDT.balanceOf(bob);
@@ -696,9 +710,15 @@ describe("Setup Game", () => {
       expect(game.endTime).to.be.equal(finalizeTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
-      await Treasury.connect(owner).withdraw();
-      await Treasury.connect(bob).withdraw();
-      await Treasury.connect(alice).withdraw();
+      await Treasury.connect(owner).withdraw(
+        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
+      );
+      await Treasury.connect(bob).withdraw(
+        (await Treasury.deposits(bob.address)) / BigInt(Math.pow(10, 18))
+      );
+      await Treasury.connect(alice).withdraw(
+        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+      );
       const finalAliceBalance = await USDT.balanceOf(alice);
       const finalOwnerBalance = await USDT.balanceOf(owner);
       const finalBobBalance = await USDT.balanceOf(bob);
@@ -797,9 +817,15 @@ describe("Setup Game", () => {
       expect(game.endTime).to.be.equal(finalizeTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
-      await Treasury.connect(owner).withdraw();
-      await Treasury.connect(bob).withdraw();
-      await Treasury.connect(alice).withdraw();
+      await Treasury.connect(owner).withdraw(
+        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
+      );
+      await Treasury.connect(bob).withdraw(
+        (await Treasury.deposits(bob.address)) / BigInt(Math.pow(10, 18))
+      );
+      await Treasury.connect(alice).withdraw(
+        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+      );
       const finalAliceBalance = await USDT.balanceOf(alice);
       const finalOwnerBalance = await USDT.balanceOf(owner);
       const finalBobBalance = await USDT.balanceOf(bob);
@@ -864,9 +890,15 @@ describe("Setup Game", () => {
       expect(game.endTime).to.be.equal(finalizeTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
-      await Treasury.connect(owner).withdraw();
-      await Treasury.connect(bob).withdraw();
-      await Treasury.connect(alice).withdraw();
+      await Treasury.connect(owner).withdraw(
+        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
+      );
+      await Treasury.connect(bob).withdraw(
+        (await Treasury.deposits(bob.address)) / BigInt(Math.pow(10, 18))
+      );
+      await Treasury.connect(alice).withdraw(
+        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+      );
       const finalAliceBalance = await USDT.balanceOf(alice);
       const finalOwnerBalance = await USDT.balanceOf(owner);
       const finalBobBalance = await USDT.balanceOf(bob);
@@ -1003,8 +1035,12 @@ describe("Setup Game", () => {
         ),
         currentGameId
       );
-      await Treasury.connect(owner).withdraw();
-      await Treasury.connect(alice).withdraw();
+      await Treasury.connect(owner).withdraw(
+        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
+      );
+      await Treasury.connect(alice).withdraw(
+        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+      );
       expect(oldAliceBalance).to.be.equal(await USDT.balanceOf(alice));
       expect(oldOwnerBalance).to.be.equal(await USDT.balanceOf(owner));
     });
@@ -1036,8 +1072,12 @@ describe("Setup Game", () => {
         ),
         currentGameId
       );
-      await Treasury.connect(owner).withdraw();
-      await Treasury.connect(alice).withdraw();
+      await Treasury.connect(owner).withdraw(
+        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
+      );
+      await Treasury.connect(alice).withdraw(
+        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+      );
       expect(oldAliceBalance).to.be.equal(await USDT.balanceOf(alice));
       expect(oldOwnerBalance).to.be.equal(await USDT.balanceOf(owner));
     });

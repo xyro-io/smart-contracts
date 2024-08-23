@@ -148,7 +148,9 @@ describe("Bullseye", () => {
       await time.increase(fortyFiveMinutes);
       await expect(Game.closeGame()).to.emit(Game, "BullseyeCancelled");
       expect(await Game.getTotalPlayers()).to.be.equal(0);
-      await Treasury.connect(alice).withdraw();
+      await Treasury.connect(alice).withdraw(
+        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+      );
       let newBalance = await USDT.balanceOf(alice.getAddress());
       expect(newBalance).to.be.above(oldBalance);
     });
@@ -198,7 +200,9 @@ describe("Bullseye", () => {
           )
         )
       ).to.emit(Game, "BullseyeCancelled");
-      await Treasury.connect(alice).withdraw();
+      await Treasury.connect(alice).withdraw(
+        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+      );
       let newBalance = await USDT.balanceOf(alice.getAddress());
       expect(newBalance).to.be.equal(oldBalance);
     });
@@ -222,8 +226,12 @@ describe("Bullseye", () => {
           await time.latest()
         )
       );
-      await Treasury.connect(alice).withdraw();
-      await Treasury.connect(opponent).withdraw();
+      await Treasury.connect(alice).withdraw(
+        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+      );
+      await Treasury.connect(opponent).withdraw(
+        (await Treasury.deposits(opponent.address)) / BigInt(Math.pow(10, 18))
+      );
       let newAliceBalance = await USDT.balanceOf(alice.getAddress());
       let newOpponentBalance = await USDT.balanceOf(opponent.getAddress());
       expect(newAliceBalance - oldAliceBalance).to.be.above(parse18("48"));
@@ -251,7 +259,9 @@ describe("Bullseye", () => {
           await time.latest()
         )
       );
-      await Treasury.connect(alice).withdraw();
+      await Treasury.connect(alice).withdraw(
+        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+      );
       let newBalance = await USDT.balanceOf(alice.getAddress());
       expect(newBalance).to.be.above(oldBalance);
     });
@@ -282,7 +292,9 @@ describe("Bullseye", () => {
         r: result.r,
         s: result.s,
       });
-      await Treasury.connect(alice).withdraw();
+      await Treasury.connect(alice).withdraw(
+        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+      );
       let newBalance = await USDT.balanceOf(alice.getAddress());
       expect(oldBalance).to.be.above(newBalance);
     });

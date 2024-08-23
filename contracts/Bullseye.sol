@@ -319,6 +319,7 @@ contract Bullseye is AccessControl {
     }
 
     function closeGame() public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(game.gameId != bytes32(0), "Game not started");
         uint256 deposit = game.depositAmount;
         for (uint i; i < players.length; i++) {
             ITreasury(treasury).refund(deposit, players[i]);

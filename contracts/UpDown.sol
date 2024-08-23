@@ -313,6 +313,7 @@ contract UpDown is AccessControl {
     }
 
     function closeGame() public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(currentGameId != bytes32(0), "Game not started");
         for (uint i; i < UpPlayers.length; i++) {
             ITreasury(treasury).refund(
                 depositAmounts[UpPlayers[i]],

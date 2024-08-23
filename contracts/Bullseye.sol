@@ -370,6 +370,7 @@ contract Bullseye is AccessControl {
      * Closes game and makes refund
      */
     function closeGame() public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(packedData != 0, "Game not started");
         GameInfo memory game = decodeData();
         uint256 deposit = game.depositAmount;
         for (uint i; i < packedGuessData.length; i++) {

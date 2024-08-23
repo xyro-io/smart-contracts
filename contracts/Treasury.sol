@@ -76,12 +76,15 @@ contract Treasury is AccessControl {
      * @param amount token amount
      */
     function deposit(uint256 amount) public {
+        uint256 oldBalance = IERC20(approvedToken).balanceOf(address(this));
         SafeERC20.safeTransferFrom(
             IERC20(approvedToken),
             msg.sender,
             address(this),
             amount * 10 ** IERC20Mint(approvedToken).decimals()
         );
+        uint256 newBalance = IERC20(approvedToken).balanceOf(address(this));
+        require(newBalance > oldBalance, "Token with fee");
         deposits[msg.sender] +=
             amount *
             10 ** IERC20Mint(approvedToken).decimals();
@@ -96,12 +99,15 @@ contract Treasury is AccessControl {
         uint256 amount,
         address from
     ) public onlyRole(DISTRIBUTOR_ROLE) {
+        uint256 oldBalance = IERC20(approvedToken).balanceOf(address(this));
         SafeERC20.safeTransferFrom(
             IERC20(approvedToken),
             from,
             address(this),
             amount * 10 ** IERC20Mint(approvedToken).decimals()
         );
+        uint256 newBalance = IERC20(approvedToken).balanceOf(address(this));
+        require(newBalance > oldBalance, "Token with fee");
         locked[from] += amount * 10 ** IERC20Mint(approvedToken).decimals();
     }
 
@@ -116,6 +122,7 @@ contract Treasury is AccessControl {
         bytes32 r,
         bytes32 s
     ) public {
+        uint256 oldBalance = IERC20(approvedToken).balanceOf(address(this));
         IERC20Permit(approvedToken).permit(
             msg.sender,
             address(this),
@@ -131,6 +138,8 @@ contract Treasury is AccessControl {
             address(this),
             amount * 10 ** IERC20Mint(approvedToken).decimals()
         );
+        uint256 newBalance = IERC20(approvedToken).balanceOf(address(this));
+        require(newBalance > oldBalance, "Token with fee");
         deposits[msg.sender] += amount;
     }
 
@@ -147,6 +156,7 @@ contract Treasury is AccessControl {
         bytes32 r,
         bytes32 s
     ) public onlyRole(DISTRIBUTOR_ROLE) {
+        uint256 oldBalance = IERC20(approvedToken).balanceOf(address(this));
         IERC20Permit(approvedToken).permit(
             from,
             address(this),
@@ -162,19 +172,28 @@ contract Treasury is AccessControl {
             address(this),
             amount * 10 ** IERC20Mint(approvedToken).decimals()
         );
+        uint256 newBalance = IERC20(approvedToken).balanceOf(address(this));
+        require(newBalance > oldBalance, "Token with fee");
         locked[from] += amount * 10 ** IERC20Mint(approvedToken).decimals();
     }
 
     /**
      * Withdraw all tokens from user deposit
      */
-    function withdraw() public {
+    function withdraw(uint256 amount) public {
+        require(
+            deposits[msg.sender] >=
+                amount * 10 ** IERC20Mint(approvedToken).decimals(),
+            "Wrong amount"
+        );
+        deposits[msg.sender] -=
+            amount *
+            10 ** IERC20Mint(approvedToken).decimals();
         SafeERC20.safeTransfer(
             IERC20(approvedToken),
             msg.sender,
-            deposits[msg.sender]
+            amount * 10 ** IERC20Mint(approvedToken).decimals()
         );
-        deposits[msg.sender] = 0;
     }
 
     /**
@@ -202,6 +221,10 @@ contract Treasury is AccessControl {
         uint256 amount,
         address to
     ) public onlyRole(DISTRIBUTOR_ROLE) {
+        require(
+            locked[to] >= amount * 10 ** IERC20Mint(approvedToken).decimals(),
+            "Wrong amount"
+        );
         locked[to] -= amount * 10 ** IERC20Mint(approvedToken).decimals();
         deposits[to] += amount * 10 ** IERC20Mint(approvedToken).decimals();
     }
@@ -211,9 +234,20 @@ contract Treasury is AccessControl {
      * @param to account that will recieve fee
      */
 
-    function withdrawFees(address to) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        SafeERC20.safeTransfer(IERC20(approvedToken), to, collectedFee);
-        collectedFee = 0;
+    function withdrawFees(
+        address to,
+        uint256 amount
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(
+            collectedFee >= amount * 10 ** IERC20Mint(approvedToken).decimals(),
+            "Wrong amount"
+        );
+        collectedFee -= amount * 10 ** IERC20Mint(approvedToken).decimals();
+        SafeERC20.safeTransfer(
+            IERC20(approvedToken),
+            to,
+            amount * 10 ** IERC20Mint(approvedToken).decimals()
+        );
     }
 
     /**
@@ -236,7 +270,9 @@ contract Treasury is AccessControl {
             (withdrawnFees -
                 (withdrawnFees * getCommissionCut(to)) /
                 FEE_DENOMINATOR);
-        collectedFee += withdrawnFees;
+        collectedFee +=
+            withdrawnFees /
+            10 ** IERC20Mint(approvedToken).decimals();
         emit FeeCollected(withdrawnFees, collectedFee);
         deposits[to] += wonAmount;
 
@@ -323,11 +359,17 @@ contract Treasury is AccessControl {
      */
     function withdrawRakeback(uint256 amount) public {
         require(
-            earnedRakeback[msg.sender] >= amount,
+            earnedRakeback[msg.sender] >=
+                amount * 10 ** IERC20Mint(xyroToken).decimals(),
             "Amount is greated than earned rakeback"
         );
-        earnedRakeback[msg.sender] -= amount;
-        IERC20Mint(xyroToken).mint(msg.sender, amount);
+        earnedRakeback[msg.sender] -=
+            amount *
+            10 ** IERC20Mint(xyroToken).decimals();
+        IERC20Mint(xyroToken).mint(
+            msg.sender,
+            amount * 10 ** IERC20Mint(xyroToken).decimals()
+        );
     }
 
     /**

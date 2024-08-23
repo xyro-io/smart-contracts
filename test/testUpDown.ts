@@ -211,8 +211,12 @@ describe("UpDown", () => {
 
     it("should fail - too early", async function () {
       await Game.closeGame();
-      await Treasury.connect(alice).withdraw();
-      await Treasury.connect(opponent).withdraw();
+      await Treasury.connect(alice).withdraw(
+        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+      );
+      await Treasury.connect(opponent).withdraw(
+        (await Treasury.deposits(opponent.address)) / BigInt(Math.pow(10, 18))
+      );
       await Game.startGame(
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
@@ -260,8 +264,12 @@ describe("UpDown", () => {
       await Game.connect(opponent).play(false, usdtAmount);
 
       await Game.closeGame();
-      await Treasury.connect(opponent).withdraw();
-      await Treasury.connect(alice).withdraw();
+      await Treasury.connect(opponent).withdraw(
+        (await Treasury.deposits(opponent.address)) / BigInt(Math.pow(10, 18))
+      );
+      await Treasury.connect(alice).withdraw(
+        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+      );
       const newOpponentBalance = await USDT.balanceOf(opponent.address);
       const newAliceBalance = await USDT.balanceOf(alice.address);
       const newTreasuryBalance = await USDT.balanceOf(
@@ -335,7 +343,9 @@ describe("UpDown", () => {
           await time.latest()
         )
       );
-      await Treasury.connect(alice).withdraw();
+      await Treasury.connect(alice).withdraw(
+        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+      );
       let newBalance = await USDT.balanceOf(alice.getAddress());
       expect(newBalance).to.be.above(oldBalance);
     });
@@ -365,8 +375,12 @@ describe("UpDown", () => {
           await time.latest()
         )
       );
-      await Treasury.connect(alice).withdraw();
-      await Treasury.connect(opponent).withdraw();
+      await Treasury.connect(alice).withdraw(
+        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+      );
+      await Treasury.connect(opponent).withdraw(
+        (await Treasury.deposits(opponent.address)) / BigInt(Math.pow(10, 18))
+      );
       let newBalance = await USDT.balanceOf(alice.getAddress());
       expect(newBalance).to.be.equal(oldBalance);
     });
@@ -405,7 +419,9 @@ describe("UpDown", () => {
           await time.latest()
         )
       );
-      await Treasury.connect(opponent).withdraw();
+      await Treasury.connect(opponent).withdraw(
+        (await Treasury.deposits(opponent.address)) / BigInt(Math.pow(10, 18))
+      );
       currntBalance = await USDT.balanceOf(opponent.getAddress());
       expect(oldBalance).to.be.equal(currntBalance);
     });
@@ -444,8 +460,12 @@ describe("UpDown", () => {
           await time.latest()
         )
       );
-      await Treasury.connect(alice).withdraw();
-      await Treasury.connect(opponent).withdraw();
+      await Treasury.connect(alice).withdraw(
+        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+      );
+      await Treasury.connect(opponent).withdraw(
+        (await Treasury.deposits(opponent.address)) / BigInt(Math.pow(10, 18))
+      );
       currntBalance = await USDT.balanceOf(opponent.getAddress());
       expect(oldBalance).to.be.equal(currntBalance);
     });

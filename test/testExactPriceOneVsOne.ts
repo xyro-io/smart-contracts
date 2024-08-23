@@ -279,7 +279,9 @@ describe("OneVsOneExactPrice", () => {
       expect((await Game.decodeData(currentGameId)).gameStatus).to.equal(
         Status.Cancelled
       );
-      await Treasury.connect(owner).withdraw();
+      await Treasury.connect(owner).withdraw(
+        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
+      );
     });
 
     it("should fail - closeGame wrong status", async function () {
@@ -341,7 +343,9 @@ describe("OneVsOneExactPrice", () => {
       );
       const game = await Game.decodeData(currentGameId);
       expect(game.gameStatus).to.be.equal(Status.Finished);
-      await Treasury.connect(opponent).withdraw();
+      await Treasury.connect(opponent).withdraw(
+        (await Treasury.deposits(opponent.address)) / BigInt(Math.pow(10, 18))
+      );
       let newBalance = await USDT.balanceOf(opponent.address);
       expect(newBalance - oldBalance).to.be.equal(
         parse18((usdtAmount * 2 - (usdtAmount * 2) / 100).toString())
@@ -371,7 +375,9 @@ describe("OneVsOneExactPrice", () => {
       );
       const game = await Game.decodeData(currentGameId);
       expect(game.gameStatus).to.be.equal(Status.Finished);
-      await Treasury.connect(owner).withdraw();
+      await Treasury.connect(owner).withdraw(
+        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
+      );
       let newBalance = await USDT.balanceOf(owner.address);
       expect(newBalance - oldBalance).to.be.equal(
         parse18((usdtAmount * 2 - (usdtAmount * 2) / 100).toString())
@@ -402,7 +408,9 @@ describe("OneVsOneExactPrice", () => {
           await time.latest()
         )
       );
-      await Treasury.connect(opponent).withdraw();
+      await Treasury.connect(opponent).withdraw(
+        (await Treasury.deposits(opponent.address)) / BigInt(Math.pow(10, 18))
+      );
       const game = await Game.decodeData(currentGameId);
       expect(game.gameStatus).to.be.equal(Status.Finished);
       let newBalance = await USDT.balanceOf(opponent.address);

@@ -324,7 +324,7 @@ contract Treasury is AccessControl {
             FEE_DENOMINATOR;
         deposits[initiator] += lostTeamFee + wonTeamFee;
         //collect dust
-        uint256 rate = ((lostTeamTotal - withdrawnFee - lostTeamFee) *
+        uint256 rate = ((lostTeamTotal - withdrawnFees - lostTeamFee) *
             (FEE_DENOMINATOR * PRECISION_AMPLIFIER)) /
             (wonTeamTotal - wonTeamFee);
         return (rate, lostTeamFee + wonTeamFee);

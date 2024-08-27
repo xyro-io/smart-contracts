@@ -84,7 +84,13 @@ contract Treasury is AccessControl {
             amount * 10 ** IERC20Mint(approvedToken).decimals()
         );
         uint256 newBalance = IERC20(approvedToken).balanceOf(address(this));
-        require(newBalance > oldBalance, "Token with fee");
+        require(
+            newBalance ==
+                oldBalance +
+                    amount *
+                    10 ** IERC20Mint(approvedToken).decimals(),
+            "Token with fee"
+        );
         deposits[msg.sender] +=
             amount *
             10 ** IERC20Mint(approvedToken).decimals();
@@ -107,7 +113,13 @@ contract Treasury is AccessControl {
             amount * 10 ** IERC20Mint(approvedToken).decimals()
         );
         uint256 newBalance = IERC20(approvedToken).balanceOf(address(this));
-        require(newBalance > oldBalance, "Token with fee");
+        require(
+            newBalance ==
+                oldBalance +
+                    amount *
+                    10 ** IERC20Mint(approvedToken).decimals(),
+            "Token with fee"
+        );
         locked[from] += amount * 10 ** IERC20Mint(approvedToken).decimals();
     }
 
@@ -139,7 +151,13 @@ contract Treasury is AccessControl {
             amount * 10 ** IERC20Mint(approvedToken).decimals()
         );
         uint256 newBalance = IERC20(approvedToken).balanceOf(address(this));
-        require(newBalance > oldBalance, "Token with fee");
+        require(
+            newBalance ==
+                oldBalance +
+                    amount *
+                    10 ** IERC20Mint(approvedToken).decimals(),
+            "Token with fee"
+        );
         deposits[msg.sender] += amount;
     }
 
@@ -173,7 +191,13 @@ contract Treasury is AccessControl {
             amount * 10 ** IERC20Mint(approvedToken).decimals()
         );
         uint256 newBalance = IERC20(approvedToken).balanceOf(address(this));
-        require(newBalance > oldBalance, "Token with fee");
+        require(
+            newBalance ==
+                oldBalance +
+                    amount *
+                    10 ** IERC20Mint(approvedToken).decimals(),
+            "Token with fee"
+        );
         locked[from] += amount * 10 ** IERC20Mint(approvedToken).decimals();
     }
 

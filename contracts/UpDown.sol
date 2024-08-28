@@ -6,6 +6,7 @@ import {ITreasury} from "./interfaces/ITreasury.sol";
 import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 
 contract UpDown is AccessControl {
+    event NewTreasury(address newTreasury);
     event UpDownCreated(
         uint256 startTime,
         uint32 stopPredictAt,
@@ -41,6 +42,7 @@ contract UpDown is AccessControl {
     mapping(address => uint256) public depositAmounts;
     bytes32 public currentGameId;
     address public treasury;
+    uint256 public maxPlayers = 100;
     uint256 public fee = 100;
 
     constructor() {
@@ -81,6 +83,10 @@ contract UpDown is AccessControl {
      */
     function play(bool isLong, uint256 depositAmount) public {
         require(!isParticipating[msg.sender], "Already participating");
+        require(
+            DownPlayers.length + UpPlayers.length + 1 <= maxPlayers,
+            "Max player amount reached"
+        );
         GameInfo memory game = decodeData();
         require(
             game.stopPredictAt > block.timestamp,
@@ -112,6 +118,10 @@ contract UpDown is AccessControl {
      */
     function playWithDeposit(bool isLong, uint256 depositAmount) public {
         require(!isParticipating[msg.sender], "Already participating");
+        require(
+            DownPlayers.length + UpPlayers.length + 1 <= maxPlayers,
+            "Max player amount reached"
+        );
         GameInfo memory game = decodeData();
         require(
             game.stopPredictAt > block.timestamp,
@@ -145,6 +155,10 @@ contract UpDown is AccessControl {
         ITreasury.PermitData calldata permitData
     ) public {
         require(!isParticipating[msg.sender], "Already participating");
+        require(
+            DownPlayers.length + UpPlayers.length + 1 <= maxPlayers,
+            "Max player amount reached"
+        );
         GameInfo memory game = decodeData();
         require(
             game.stopPredictAt > block.timestamp,
@@ -358,6 +372,14 @@ contract UpDown is AccessControl {
     }
 
     /**
+     * Change maximum players number
+     * @param newMax new maximum number
+     */
+    function setMaxPlayers(uint256 newMax) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        maxPlayers = newMax;
+    }
+
+    /**
      * Change treasury address
      * @param newTreasury new treasury address
      */
@@ -366,5 +388,6 @@ contract UpDown is AccessControl {
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newTreasury != address(0), "Zero address");
         treasury = newTreasury;
+        emit NewTreasury(newTreasury);
     }
 }

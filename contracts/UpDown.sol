@@ -41,6 +41,7 @@ contract UpDown is AccessControl {
     mapping(address => uint256) public depositAmounts;
     bytes32 public currentGameId;
     address public treasury;
+    uint256 public maxPlayers = 100;
     uint256 public fee = 100;
 
     constructor() {
@@ -81,6 +82,10 @@ contract UpDown is AccessControl {
      */
     function play(bool isLong, uint256 depositAmount) public {
         require(!isParticipating[msg.sender], "Already participating");
+        require(
+            DownPlayers.length + UpPlayers.length + 1 <= maxPlayers,
+            "Max player amount reached"
+        );
         GameInfo memory game = decodeData();
         require(
             game.stopPredictAt > block.timestamp,
@@ -112,6 +117,10 @@ contract UpDown is AccessControl {
      */
     function playWithDeposit(bool isLong, uint256 depositAmount) public {
         require(!isParticipating[msg.sender], "Already participating");
+        require(
+            DownPlayers.length + UpPlayers.length + 1 <= maxPlayers,
+            "Max player amount reached"
+        );
         GameInfo memory game = decodeData();
         require(
             game.stopPredictAt > block.timestamp,
@@ -145,6 +154,10 @@ contract UpDown is AccessControl {
         ITreasury.PermitData calldata permitData
     ) public {
         require(!isParticipating[msg.sender], "Already participating");
+        require(
+            DownPlayers.length + UpPlayers.length + 1 <= maxPlayers,
+            "Max player amount reached"
+        );
         GameInfo memory game = decodeData();
         require(
             game.stopPredictAt > block.timestamp,
@@ -355,6 +368,14 @@ contract UpDown is AccessControl {
      */
     function getTotalPlayers() public view returns (uint256, uint256) {
         return (UpPlayers.length, DownPlayers.length);
+    }
+
+    /**
+     * Change maximum players number
+     * @param newMax new maximum number
+     */
+    function setMaxPlayers(uint256 newMax) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        maxPlayers = newMax;
     }
 
     /**

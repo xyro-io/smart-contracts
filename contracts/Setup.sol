@@ -29,6 +29,13 @@ contract Setup is AccessControl {
         Finished
     }
 
+    enum UserStatus {
+        Default,
+        TP,
+        SL,
+        Claimed
+    }
+
     struct CreateSetup {
         bytes32 gameId;
         uint8 feedNumber;
@@ -50,6 +57,8 @@ contract Setup is AccessControl {
         uint256 endTime;
         uint256 totalDepositsSL;
         uint256 totalDepositsTP;
+        uint256 SLplayers;
+        uint256 TPplayers;
         uint256 takeProfitPrice;
         uint256 stopLossPrice;
         uint256 startringPrice;
@@ -59,11 +68,11 @@ contract Setup is AccessControl {
     struct GameInfoPacked {
         uint256 packedData;
         uint256 packedData2;
-        address[] teamSL;
-        address[] teamTP;
+        uint256 finalRate;
     }
 
     mapping(bytes32 => GameInfoPacked) public games;
+    mapping(bytes32 => mapping(address => UserStatus)) public withdrawStatus;
     mapping(bytes32 => mapping(address => uint256)) public depositAmounts;
     uint256 public minDuration = 30 minutes;
     uint256 public maxDuration = 24 weeks;
@@ -182,17 +191,21 @@ contract Setup is AccessControl {
         ITreasury(treasury).depositAndLock(depositAmount, msg.sender);
         depositAmounts[gameId][msg.sender] = depositAmount;
         if (isLong) {
-            games[gameId].teamTP.push(msg.sender);
+            withdrawStatus[gameId][msg.sender] = UserStatus.TP;
             //rewrites totalDepositsTP
             games[gameId].packedData2 =
-                (games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 113)) |
-                ((depositAmount + data.totalDepositsTP) << 113);
+                ((games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 113)) &
+                    ~(uint256(0xFFFFFFFF) << 177)) |
+                ((depositAmount + data.totalDepositsTP) << 113) |
+                ((data.TPplayers + 1) << 177);
         } else {
-            games[gameId].teamSL.push(msg.sender);
+            withdrawStatus[gameId][msg.sender] = UserStatus.SL;
             //rewrites totalDepositsSL
             games[gameId].packedData2 =
-                (games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 81)) |
-                ((depositAmount + data.totalDepositsSL) << 81);
+                ((games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 81)) &
+                    ~(uint256(0xFFFFFFFF) << 209)) |
+                ((depositAmount + data.totalDepositsSL) << 81) |
+                ((data.SLplayers + 1) << 209);
         }
         emit SetupNewPlayer(gameId, isLong, depositAmount, msg.sender);
     }
@@ -224,17 +237,21 @@ contract Setup is AccessControl {
         ITreasury(treasury).lock(depositAmount, msg.sender);
         depositAmounts[gameId][msg.sender] = depositAmount;
         if (isLong) {
-            games[gameId].teamTP.push(msg.sender);
+            withdrawStatus[gameId][msg.sender] = UserStatus.TP;
             //rewrites totalDepositsTP
             games[gameId].packedData2 =
-                (games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 113)) |
-                ((depositAmount + data.totalDepositsTP) << 113);
+                ((games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 113)) &
+                    ~(uint256(0xFFFFFFFF) << 177)) |
+                ((depositAmount + data.totalDepositsTP) << 113) |
+                ((data.TPplayers + 1) << 177);
         } else {
-            games[gameId].teamSL.push(msg.sender);
+            withdrawStatus[gameId][msg.sender] = UserStatus.SL;
             //rewrites totalDepositsSL
             games[gameId].packedData2 =
-                (games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 81)) |
-                ((depositAmount + data.totalDepositsSL) << 81);
+                ((games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 81)) &
+                    ~(uint256(0xFFFFFFFF) << 209)) |
+                ((depositAmount + data.totalDepositsSL) << 81) |
+                ((data.SLplayers + 1) << 209);
         }
         emit SetupNewPlayer(gameId, isLong, depositAmount, msg.sender);
     }
@@ -284,17 +301,21 @@ contract Setup is AccessControl {
         );
         depositAmounts[gameId][msg.sender] = depositAmount;
         if (isLong) {
-            games[gameId].teamTP.push(msg.sender);
+            withdrawStatus[gameId][msg.sender] = UserStatus.TP;
             //rewrites totalDepositsTP
             games[gameId].packedData2 =
-                (games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 113)) |
-                ((depositAmount + data.totalDepositsTP) << 113);
+                ((games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 113)) &
+                    ~(uint256(0xFFFFFFFF) << 177)) |
+                ((depositAmount + data.totalDepositsTP) << 113) |
+                ((data.TPplayers + 1) << 177);
         } else {
-            games[gameId].teamSL.push(msg.sender);
+            withdrawStatus[gameId][msg.sender] = UserStatus.SL;
             //rewrites totalDepositsSL
             games[gameId].packedData2 =
-                (games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 81)) |
-                ((depositAmount + data.totalDepositsSL) << 81);
+                ((games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 81)) &
+                    ~(uint256(0xFFFFFFFF) << 209)) |
+                ((depositAmount + data.totalDepositsSL) << 81) |
+                ((data.SLplayers + 1) << 209);
         }
         emit SetupNewPlayer(gameId, isLong, depositAmount, msg.sender);
     }
@@ -309,28 +330,30 @@ contract Setup is AccessControl {
         require(
             ((data.startTime + (data.endTime - data.startTime) / 3 <
                 block.timestamp &&
-                (games[gameId].teamSL.length == 0 ||
-                    games[gameId].teamTP.length == 0)) ||
+                (data.SLplayers == 0 || data.TPplayers == 0)) ||
                 block.timestamp > data.endTime),
             "Wrong status!"
         );
-        for (uint i; i < games[gameId].teamSL.length; i++) {
-            ITreasury(treasury).refund(
-                depositAmounts[gameId][games[gameId].teamSL[i]],
-                games[gameId].teamSL[i]
-            );
-        }
-        for (uint i; i < games[gameId].teamTP.length; i++) {
-            ITreasury(treasury).refund(
-                depositAmounts[gameId][games[gameId].teamTP[i]],
-                games[gameId].teamTP[i]
-            );
-        }
         //rewrites status
         games[gameId].packedData2 =
             (games[gameId].packedData2 & ~(uint256(0xFF) << 72)) |
             (uint256(uint8(Status.Cancelled)) << 72);
         emit SetupCancelled(gameId, data.initiator);
+    }
+
+    function getRefund(bytes32 gameId) public {
+        GameInfo memory data = decodeData(gameId);
+        require(data.gameStatus == Status.Cancelled, "Wrong status!");
+        require(
+            withdrawStatus[gameId][msg.sender] == UserStatus.TP ||
+                withdrawStatus[gameId][msg.sender] == UserStatus.SL,
+            "Already claimed"
+        );
+        withdrawStatus[gameId][msg.sender] = UserStatus.Claimed;
+        ITreasury(treasury).refund(
+            depositAmounts[gameId][msg.sender],
+            msg.sender
+        );
     }
 
     /**
@@ -348,21 +371,7 @@ contract Setup is AccessControl {
             ITreasury(treasury).upkeep()
         ).verifyReportWithTimestamp(unverifiedReport, data.feedNumber);
 
-        if (
-            games[gameId].teamSL.length == 0 || games[gameId].teamTP.length == 0
-        ) {
-            for (uint i; i < games[gameId].teamSL.length; i++) {
-                ITreasury(treasury).refund(
-                    depositAmounts[gameId][games[gameId].teamSL[i]],
-                    games[gameId].teamSL[i]
-                );
-            }
-            for (uint i; i < games[gameId].teamTP.length; i++) {
-                ITreasury(treasury).refund(
-                    depositAmounts[gameId][games[gameId].teamTP[i]],
-                    games[gameId].teamTP[i]
-                );
-            }
+        if (data.SLplayers == 0 || data.TPplayers == 0) {
             //rewrites status
             games[gameId].packedData2 =
                 (games[gameId].packedData2 & ~(uint256(0xFF) << 72)) |
@@ -390,13 +399,6 @@ contract Setup is AccessControl {
                         data.totalDepositsTP,
                         data.initiator
                     );
-                for (uint i; i < games[gameId].teamTP.length; i++) {
-                    ITreasury(treasury).distributeWithoutFee(
-                        finalRate,
-                        games[gameId].teamTP[i],
-                        depositAmounts[gameId][games[gameId].teamTP[i]]
-                    );
-                }
                 emit SetupFinalized(
                     gameId,
                     true,
@@ -412,13 +414,6 @@ contract Setup is AccessControl {
                         data.totalDepositsSL,
                         data.initiator
                     );
-                for (uint i; i < games[gameId].teamSL.length; i++) {
-                    ITreasury(treasury).distributeWithoutFee(
-                        finalRate,
-                        games[gameId].teamSL[i],
-                        depositAmounts[gameId][games[gameId].teamSL[i]]
-                    );
-                }
                 emit SetupFinalized(
                     gameId,
                     false,
@@ -441,14 +436,6 @@ contract Setup is AccessControl {
                         data.totalDepositsSL,
                         data.initiator
                     );
-
-                for (uint i; i < games[gameId].teamSL.length; i++) {
-                    ITreasury(treasury).distributeWithoutFee(
-                        finalRate,
-                        games[gameId].teamSL[i],
-                        depositAmounts[gameId][games[gameId].teamSL[i]]
-                    );
-                }
                 emit SetupFinalized(
                     gameId,
                     false,
@@ -463,13 +450,6 @@ contract Setup is AccessControl {
                         data.totalDepositsTP,
                         data.initiator
                     );
-                for (uint i; i < games[gameId].teamTP.length; i++) {
-                    ITreasury(treasury).distributeWithoutFee(
-                        finalRate,
-                        games[gameId].teamTP[i],
-                        depositAmounts[gameId][games[gameId].teamTP[i]]
-                    );
-                }
                 emit SetupFinalized(
                     gameId,
                     true,
@@ -481,6 +461,7 @@ contract Setup is AccessControl {
         }
 
         uint256 packedData2 = games[gameId].packedData2;
+        games[gameId].finalRate = finalRate;
         //rewrites endTime
         games[gameId].packedData =
             (games[gameId].packedData & ~(uint256(0xFFFFFFFF) << 192)) |
@@ -491,6 +472,67 @@ contract Setup is AccessControl {
             (uint256(uint8(Status.Finished)) << 72);
         packedData2 |= uint256(uint192(finalPrice) / 1e14) << 145;
         games[gameId].packedData2 = packedData2;
+    }
+
+    function retrieveRewards(bytes32 gameId) public {
+        GameInfo memory data = decodeData(gameId);
+        require(data.gameStatus == Status.Finished, "Wrong status!");
+        require(
+            withdrawStatus[gameId][msg.sender] == UserStatus.TP ||
+                withdrawStatus[gameId][msg.sender] == UserStatus.SL,
+            "Already claimed"
+        );
+        if (data.isLong) {
+            if (data.finalPrice >= data.takeProfitPrice) {
+                require(
+                    withdrawStatus[gameId][msg.sender] == UserStatus.TP,
+                    "You lost"
+                );
+                withdrawStatus[gameId][msg.sender] = UserStatus.Claimed;
+                ITreasury(treasury).distributeWithoutFee(
+                    games[gameId].finalRate,
+                    msg.sender,
+                    depositAmounts[gameId][msg.sender]
+                );
+            } else if (data.finalPrice <= data.stopLossPrice) {
+                // sl team wins
+                require(
+                    withdrawStatus[gameId][msg.sender] == UserStatus.SL,
+                    "You lost"
+                );
+                withdrawStatus[gameId][msg.sender] = UserStatus.Claimed;
+                ITreasury(treasury).distributeWithoutFee(
+                    games[gameId].finalRate,
+                    msg.sender,
+                    depositAmounts[gameId][msg.sender]
+                );
+            }
+        } else {
+            if (data.finalPrice >= data.stopLossPrice) {
+                // sl team wins
+                require(
+                    withdrawStatus[gameId][msg.sender] == UserStatus.SL,
+                    "You lost"
+                );
+                withdrawStatus[gameId][msg.sender] = UserStatus.Claimed;
+                ITreasury(treasury).distributeWithoutFee(
+                    games[gameId].finalRate,
+                    msg.sender,
+                    depositAmounts[gameId][msg.sender]
+                );
+            } else if (data.finalPrice <= data.takeProfitPrice) {
+                require(
+                    withdrawStatus[gameId][msg.sender] == UserStatus.TP,
+                    "You lost"
+                );
+                withdrawStatus[gameId][msg.sender] = UserStatus.Claimed;
+                ITreasury(treasury).distributeWithoutFee(
+                    games[gameId].finalRate,
+                    msg.sender,
+                    depositAmounts[gameId][msg.sender]
+                );
+            }
+        }
     }
 
     /**
@@ -515,16 +557,8 @@ contract Setup is AccessControl {
         gameData.totalDepositsSL = uint256(uint32(packedData2 >> 81));
         gameData.totalDepositsTP = uint256(uint32(packedData2 >> 113));
         gameData.finalPrice = uint256(uint32(packedData2 >> 145));
-    }
-
-    /**
-     * Returns amount of game participants
-     * @param gameId game id
-     */
-    function getPlayersAmount(
-        bytes32 gameId
-    ) public view returns (uint256, uint256) {
-        return (games[gameId].teamSL.length, games[gameId].teamTP.length);
+        gameData.TPplayers = uint256(uint32(packedData2 >> 177));
+        gameData.SLplayers = uint256(uint32(packedData2 >> 209));
     }
 
     /**

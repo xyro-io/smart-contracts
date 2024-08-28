@@ -9,6 +9,7 @@ contract Bullseye is AccessControl {
     uint256 constant DENOMINATOR = 100;
     uint256 public exactRange = 100;
     uint256 public fee = 100;
+    uint256 public maxPlayers = 100;
     uint256[3] public rate = [50, 35, 15];
     uint256[3] public exactRate = [75, 15, 10];
     uint256[2] public twoPlayersRate = [75, 25];
@@ -98,6 +99,10 @@ contract Bullseye is AccessControl {
     function play(uint32 assetPrice) public {
         GameInfo memory game = decodeData();
         require(
+            packedGuessData.length + 1 <= maxPlayers,
+            "Max player amount reached"
+        );
+        require(
             game.stopPredictAt >= block.timestamp,
             "Game is closed for new players"
         );
@@ -120,6 +125,10 @@ contract Bullseye is AccessControl {
      */
     function playWithDeposit(uint32 assetPrice) public {
         GameInfo memory game = decodeData();
+        require(
+            packedGuessData.length + 1 <= maxPlayers,
+            "Max player amount reached"
+        );
         require(
             game.stopPredictAt >= block.timestamp,
             "Game is closed for new players"
@@ -146,6 +155,10 @@ contract Bullseye is AccessControl {
         ITreasury.PermitData calldata permitData
     ) public {
         GameInfo memory game = decodeData();
+        require(
+            packedGuessData.length + 1 <= maxPlayers,
+            "Max player amount reached"
+        );
         require(
             game.stopPredictAt >= block.timestamp,
             "Game is closed for new players"
@@ -183,15 +196,15 @@ contract Bullseye is AccessControl {
         if (packedGuessData.length < 2) {
             if (packedGuessData.length == 1) {
                 GuessStruct memory playerGuessData = decodeGuess(0);
+                emit BullseyeCancelled(currentGameId);
+                packedData = 0;
+                currentGameId = bytes32(0);
                 ITreasury(treasury).refund(
                     game.depositAmount,
                     playerGuessData.player
                 );
                 delete packedGuessData;
             }
-            emit BullseyeCancelled(currentGameId);
-            packedData = 0;
-            currentGameId = bytes32(0);
             return;
         }
 
@@ -408,6 +421,14 @@ contract Bullseye is AccessControl {
 
     function getTotalPlayers() public view returns (uint256) {
         return packedGuessData.length;
+    }
+
+    /**
+     * Change maximum players number
+     * @param newMax new maximum number
+     */
+    function setMaxPlayers(uint256 newMax) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        maxPlayers = newMax;
     }
 
     /**

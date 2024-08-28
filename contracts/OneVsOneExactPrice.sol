@@ -89,7 +89,6 @@ contract OneVsOneExactPrice is AccessControl {
             endTime - block.timestamp <= maxDuration,
             "Max game duration must be lower"
         );
-        require(depositAmount >= 10, "Wrong deposit amount");
 
         ITreasury(treasury).depositAndLock(depositAmount, msg.sender);
         bytes32 gameId = keccak256(

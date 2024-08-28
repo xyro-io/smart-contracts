@@ -22,6 +22,7 @@ contract Treasury is AccessControl {
     bytes32 public constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
     bytes32 public constant DAO_ROLE = keccak256("DAO_ROLE");
     uint256 public collectedFee;
+    uint256 public minDepositAmount = 1;
     mapping(address => uint256) public earnedRakeback;
     mapping(address => uint256) public deposits;
     mapping(address => uint256) public locked;
@@ -76,6 +77,7 @@ contract Treasury is AccessControl {
      * @param amount token amount
      */
     function deposit(uint256 amount) public {
+        require(amount >= minDepositAmount, "Wrong deposit amount");
         uint256 oldBalance = IERC20(approvedToken).balanceOf(address(this));
         SafeERC20.safeTransferFrom(
             IERC20(approvedToken),
@@ -105,6 +107,7 @@ contract Treasury is AccessControl {
         uint256 amount,
         address from
     ) public onlyRole(DISTRIBUTOR_ROLE) {
+        require(amount >= minDepositAmount, "Wrong deposit amount");
         uint256 oldBalance = IERC20(approvedToken).balanceOf(address(this));
         SafeERC20.safeTransferFrom(
             IERC20(approvedToken),
@@ -134,6 +137,7 @@ contract Treasury is AccessControl {
         bytes32 r,
         bytes32 s
     ) public {
+        require(amount >= minDepositAmount, "Wrong deposit amount");
         uint256 oldBalance = IERC20(approvedToken).balanceOf(address(this));
         IERC20Permit(approvedToken).permit(
             msg.sender,
@@ -440,5 +444,11 @@ contract Treasury is AccessControl {
     function setUpkeep(address newUpkeep) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newUpkeep != address(0), "Zero address");
         upkeep = newUpkeep;
+    }
+
+    function changeMinDepositAmount(
+        uint256 newMinAmount
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        minDepositAmount = newMinAmount;
     }
 }

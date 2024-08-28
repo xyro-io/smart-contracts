@@ -6,6 +6,7 @@ import {ITreasury} from "./interfaces/ITreasury.sol";
 import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 
 contract UpDown is AccessControl {
+    event NewTreasury(address newTreasury);
     event UpDownCreated(
         uint256 startTime,
         uint32 stopPredictAt,
@@ -387,5 +388,6 @@ contract UpDown is AccessControl {
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newTreasury != address(0), "Zero address");
         treasury = newTreasury;
+        emit NewTreasury(newTreasury);
     }
 }

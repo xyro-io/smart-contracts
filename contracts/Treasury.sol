@@ -12,6 +12,7 @@ interface IERC20Mint {
 
 contract Treasury is AccessControl {
     event FeeCollected(uint256 feeEarned, uint256 totalFees);
+    event UpkeepChanged(address newUpkeep);
     address public approvedToken;
     address public xyroToken;
     address public upkeep;
@@ -444,6 +445,7 @@ contract Treasury is AccessControl {
     function setUpkeep(address newUpkeep) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newUpkeep != address(0), "Zero address");
         upkeep = newUpkeep;
+        emit UpkeepChanged(newUpkeep);
     }
 
     function changeMinDepositAmount(

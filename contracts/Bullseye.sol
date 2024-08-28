@@ -14,6 +14,8 @@ contract Bullseye is AccessControl {
     uint256[3] public exactRate = [75, 15, 10];
     uint256[2] public twoPlayersRate = [75, 25];
     uint256[2] public twoPlayersExactRate = [80, 20];
+    event NewTreasury(address newTreasury);
+    event NewExactRange(uint256 newExactRange);
     event BullseyeStart(
         uint256 startTime,
         uint32 stopPredictAt,
@@ -440,6 +442,7 @@ contract Bullseye is AccessControl {
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newTreasury != address(0), "Zero address");
         treasury = newTreasury;
+        emit NewTreasury(newTreasury);
     }
 
     /**
@@ -450,5 +453,6 @@ contract Bullseye is AccessControl {
         uint256 newRange
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         exactRange = newRange;
+        emit NewExactRange(newRange);
     }
 }

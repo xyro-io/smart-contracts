@@ -12,6 +12,7 @@ interface IERC20Mint {
 
 contract Treasury is AccessControl {
     event FeeCollected(uint256 feeEarned, uint256 totalFees);
+    event UpkeepChanged(address newUpkeep);
     address public approvedToken;
     address public xyroToken;
     address public upkeep;
@@ -22,6 +23,7 @@ contract Treasury is AccessControl {
     bytes32 public constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
     bytes32 public constant DAO_ROLE = keccak256("DAO_ROLE");
     uint256 public collectedFee;
+    uint256 public minDepositAmount = 1;
     mapping(address => uint256) public earnedRakeback;
     mapping(address => uint256) public deposits;
     mapping(address => uint256) public locked;
@@ -76,6 +78,7 @@ contract Treasury is AccessControl {
      * @param amount token amount
      */
     function deposit(uint256 amount) public {
+        require(amount >= minDepositAmount, "Wrong deposit amount");
         uint256 oldBalance = IERC20(approvedToken).balanceOf(address(this));
         SafeERC20.safeTransferFrom(
             IERC20(approvedToken),
@@ -84,7 +87,13 @@ contract Treasury is AccessControl {
             amount * 10 ** IERC20Mint(approvedToken).decimals()
         );
         uint256 newBalance = IERC20(approvedToken).balanceOf(address(this));
-        require(newBalance > oldBalance, "Token with fee");
+        require(
+            newBalance ==
+                oldBalance +
+                    amount *
+                    10 ** IERC20Mint(approvedToken).decimals(),
+            "Token with fee"
+        );
         deposits[msg.sender] +=
             amount *
             10 ** IERC20Mint(approvedToken).decimals();
@@ -99,6 +108,7 @@ contract Treasury is AccessControl {
         uint256 amount,
         address from
     ) public onlyRole(DISTRIBUTOR_ROLE) {
+        require(amount >= minDepositAmount, "Wrong deposit amount");
         uint256 oldBalance = IERC20(approvedToken).balanceOf(address(this));
         SafeERC20.safeTransferFrom(
             IERC20(approvedToken),
@@ -107,7 +117,13 @@ contract Treasury is AccessControl {
             amount * 10 ** IERC20Mint(approvedToken).decimals()
         );
         uint256 newBalance = IERC20(approvedToken).balanceOf(address(this));
-        require(newBalance > oldBalance, "Token with fee");
+        require(
+            newBalance ==
+                oldBalance +
+                    amount *
+                    10 ** IERC20Mint(approvedToken).decimals(),
+            "Token with fee"
+        );
         locked[from] += amount * 10 ** IERC20Mint(approvedToken).decimals();
     }
 
@@ -122,6 +138,7 @@ contract Treasury is AccessControl {
         bytes32 r,
         bytes32 s
     ) public {
+        require(amount >= minDepositAmount, "Wrong deposit amount");
         uint256 oldBalance = IERC20(approvedToken).balanceOf(address(this));
         IERC20Permit(approvedToken).permit(
             msg.sender,
@@ -139,7 +156,13 @@ contract Treasury is AccessControl {
             amount * 10 ** IERC20Mint(approvedToken).decimals()
         );
         uint256 newBalance = IERC20(approvedToken).balanceOf(address(this));
-        require(newBalance > oldBalance, "Token with fee");
+        require(
+            newBalance ==
+                oldBalance +
+                    amount *
+                    10 ** IERC20Mint(approvedToken).decimals(),
+            "Token with fee"
+        );
         deposits[msg.sender] += amount;
     }
 
@@ -173,7 +196,13 @@ contract Treasury is AccessControl {
             amount * 10 ** IERC20Mint(approvedToken).decimals()
         );
         uint256 newBalance = IERC20(approvedToken).balanceOf(address(this));
-        require(newBalance > oldBalance, "Token with fee");
+        require(
+            newBalance ==
+                oldBalance +
+                    amount *
+                    10 ** IERC20Mint(approvedToken).decimals(),
+            "Token with fee"
+        );
         locked[from] += amount * 10 ** IERC20Mint(approvedToken).decimals();
     }
 
@@ -416,5 +445,12 @@ contract Treasury is AccessControl {
     function setUpkeep(address newUpkeep) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newUpkeep != address(0), "Zero address");
         upkeep = newUpkeep;
+        emit UpkeepChanged(newUpkeep);
+    }
+
+    function changeMinDepositAmount(
+        uint256 newMinAmount
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        minDepositAmount = newMinAmount;
     }
 }

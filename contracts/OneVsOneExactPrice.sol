@@ -6,6 +6,7 @@ import {ITreasury} from "./interfaces/ITreasury.sol";
 import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 
 contract OneVsOneExactPrice is AccessControl {
+    event NewTreasury(address newTreasury);
     event ExactPriceCreated(
         bytes32 gameId,
         uint8 feedNumber,
@@ -89,7 +90,6 @@ contract OneVsOneExactPrice is AccessControl {
             endTime - block.timestamp <= maxDuration,
             "Max game duration must be lower"
         );
-        require(depositAmount >= 10, "Wrong deposit amount");
 
         ITreasury(treasury).depositAndLock(depositAmount, msg.sender);
         bytes32 gameId = keccak256(
@@ -469,5 +469,6 @@ contract OneVsOneExactPrice is AccessControl {
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newTreasury != address(0), "Zero address");
         treasury = newTreasury;
+        emit NewTreasury(newTreasury);
     }
 }

@@ -30,6 +30,7 @@ const requirePastEndTime = "Too early to finish";
 const requireStartingPrice = "Starting price must be set";
 const requireNewPlayer = "Already participating";
 const requireSufficentDepositAmount = "Insufficent deposit amount";
+const requireWithdrawRakeback = "Can't withdraw from unfinished game";
 
 describe("UpDown", () => {
   let owner: HardhatEthersSigner;
@@ -52,6 +53,8 @@ describe("UpDown", () => {
       parse18((1e13).toString())
     );
     XyroToken = await new XyroToken__factory(owner).deploy(parse18("5000"));
+    await XyroToken.mint(bob.address, parse18("1260000"));
+    await XyroToken.mint(opponent.address, parse18("1260000"));
     Treasury = await new Treasury__factory(owner).deploy(
       await USDT.getAddress(),
       await XyroToken.getAddress()
@@ -468,6 +471,204 @@ describe("UpDown", () => {
       );
       currntBalance = await USDT.balanceOf(opponent.getAddress());
       expect(oldBalance).to.be.equal(currntBalance);
+    });
+  });
+
+  describe("Rakeback", () => {
+    let currentGameId: any;
+    it("should fail - withdraw rakeback when game has not finished yet", async function () {
+      await Game.startGame(
+        (await time.latest()) + fortyFiveMinutes,
+        (await time.latest()) + fifteenMinutes,
+        feedNumber
+      );
+      await Game.connect(opponent).play(true, usdtAmount);
+      await Game.connect(alice).play(false, usdtAmount);
+      currentGameId = await Game.currentGameId();
+      expect(
+        await Game.lockedRakeback(currentGameId, opponent.address)
+      ).to.be.equal(usdtAmount * 0.1);
+      await expect(
+        Game.connect(opponent).withdrawRakeback([currentGameId])
+      ).to.be.revertedWith(requireWithdrawRakeback);
+    });
+
+    it("should withdraw rakeback", async function () {
+      await time.increase(fifteenMinutes);
+      await Game.setStartingPrice(
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          await time.latest()
+        )
+      );
+      await time.increase(fortyFiveMinutes);
+      await Game.finalizeGame(
+        abiEncodeInt192WithTimestamp(
+          finalPriceDown.toString(),
+          feedNumber,
+          await time.latest()
+        )
+      );
+      const oldOpponentDepositBalance = await Treasury.deposits(
+        opponent.address
+      );
+      await Game.connect(opponent).withdrawRakeback([currentGameId]);
+
+      const newOpponentDepositBalance = await Treasury.deposits(
+        opponent.address
+      );
+      expect(newOpponentDepositBalance - oldOpponentDepositBalance).to.be.equal(
+        10
+      );
+    });
+
+    it("should set rakeback to 0 if player won", async function () {
+      await Game.startGame(
+        (await time.latest()) + fortyFiveMinutes,
+        (await time.latest()) + fifteenMinutes,
+        feedNumber
+      );
+      await Game.connect(opponent).play(true, usdtAmount);
+      await Game.connect(alice).play(false, usdtAmount);
+      currentGameId = await Game.currentGameId();
+      expect(
+        await Game.lockedRakeback(currentGameId, opponent.address)
+      ).to.be.equal(usdtAmount * 0.1);
+
+      await time.increase(fifteenMinutes);
+      await Game.setStartingPrice(
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          await time.latest()
+        )
+      );
+      await time.increase(fortyFiveMinutes);
+      await Game.finalizeGame(
+        abiEncodeInt192WithTimestamp(
+          finalPriceUp.toString(),
+          feedNumber,
+          await time.latest()
+        )
+      );
+      expect(
+        await Game.lockedRakeback(currentGameId, opponent.address)
+      ).to.be.equal(0);
+    });
+
+    it("should use rakeback to make play", async function () {
+      await Game.startGame(
+        (await time.latest()) + fortyFiveMinutes,
+        (await time.latest()) + fifteenMinutes,
+        feedNumber
+      );
+      await Game.connect(opponent).play(true, usdtAmount);
+      await Game.connect(alice).play(false, usdtAmount);
+      currentGameId = await Game.currentGameId();
+      await time.increase(fifteenMinutes);
+      await Game.setStartingPrice(
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          await time.latest()
+        )
+      );
+      await time.increase(fortyFiveMinutes);
+      await Game.finalizeGame(
+        abiEncodeInt192WithTimestamp(
+          finalPriceDown.toString(),
+          feedNumber,
+          await time.latest()
+        )
+      );
+
+      await Game.startGame(
+        (await time.latest()) + fortyFiveMinutes,
+        (await time.latest()) + fifteenMinutes,
+        feedNumber
+      );
+      await Game.connect(opponent).playWithRakeback(true, 90, [currentGameId]);
+      const data = await Game.decodeData();
+      expect(await data.totalDepositsUp).to.be.equal(90);
+      currentGameId = await Game.currentGameId();
+      await Game.closeGame();
+    });
+
+    let multipleIds: any[] = [];
+    it("should withdraw rakeback from multiple games", async function () {
+      for (let i = 0; i < 3; i++) {
+        await Game.startGame(
+          (await time.latest()) + fortyFiveMinutes,
+          (await time.latest()) + fifteenMinutes,
+          feedNumber
+        );
+        await Game.connect(opponent).play(true, usdtAmount);
+        await Game.connect(alice).play(false, usdtAmount);
+        multipleIds.push(await Game.currentGameId());
+        await time.increase(fifteenMinutes);
+        await Game.setStartingPrice(
+          abiEncodeInt192WithTimestamp(
+            assetPrice.toString(),
+            feedNumber,
+            await time.latest()
+          )
+        );
+        await time.increase(fortyFiveMinutes);
+        await Game.finalizeGame(
+          abiEncodeInt192WithTimestamp(
+            finalPriceDown.toString(),
+            feedNumber,
+            await time.latest()
+          )
+        );
+      }
+      const oldDepositBalance = await Treasury.deposits(opponent.address);
+      await Game.connect(opponent).withdrawRakeback(multipleIds);
+      const newDepositBalance = await Treasury.deposits(opponent.address);
+      expect(newDepositBalance - oldDepositBalance).to.be.equal(30);
+      for (let i = 0; i < 3; i++) {
+        multipleIds.pop();
+      }
+    });
+
+    it("should play with rakeback from multiple games", async function () {
+      for (let i = 0; i < 3; i++) {
+        await Game.startGame(
+          (await time.latest()) + fortyFiveMinutes,
+          (await time.latest()) + fifteenMinutes,
+          feedNumber
+        );
+        await Game.connect(opponent).play(true, usdtAmount);
+        await Game.connect(alice).play(false, usdtAmount);
+        multipleIds.push(await Game.currentGameId());
+        await time.increase(fifteenMinutes);
+        await Game.setStartingPrice(
+          abiEncodeInt192WithTimestamp(
+            assetPrice.toString(),
+            feedNumber,
+            await time.latest()
+          )
+        );
+        await time.increase(fortyFiveMinutes);
+        await Game.finalizeGame(
+          abiEncodeInt192WithTimestamp(
+            finalPriceDown.toString(),
+            feedNumber,
+            await time.latest()
+          )
+        );
+      }
+      await Game.startGame(
+        (await time.latest()) + fortyFiveMinutes,
+        (await time.latest()) + fifteenMinutes,
+        feedNumber
+      );
+      await Game.connect(opponent).playWithRakeback(true, 70, multipleIds);
+      const data = await Game.decodeData();
+      expect(await data.totalDepositsUp).to.be.equal(90);
+      currentGameId = await Game.currentGameId();
+      await Game.closeGame();
     });
   });
 

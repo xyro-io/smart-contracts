@@ -22,9 +22,20 @@ contract Treasury is AccessControl {
     uint256 public constant PRECISION_AMPLIFIER = 100000;
     bytes32 public constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
     bytes32 public constant DAO_ROLE = keccak256("DAO_ROLE");
+    uint256[10] rakebackRate = [
+        500,
+        2500,
+        5000,
+        12500,
+        25000,
+        50000,
+        125000,
+        250000,
+        500000,
+        1250000
+    ];
     uint256 public collectedFee;
     uint256 public minDepositAmount = 1;
-    mapping(address => uint256) public earnedRakeback;
     mapping(address => uint256) public deposits;
     mapping(address => uint256) public locked;
 
@@ -295,19 +306,12 @@ contract Treasury is AccessControl {
         amount *= 10 ** IERC20Mint(approvedToken).decimals();
         initialDeposit *= 10 ** IERC20Mint(approvedToken).decimals();
         uint256 withdrawnFees = (amount * gameFee) / FEE_DENOMINATOR;
-        uint256 wonAmount = amount -
-            (withdrawnFees -
-                (withdrawnFees * getCommissionCut(to)) /
-                FEE_DENOMINATOR);
+        uint256 wonAmount = amount - (withdrawnFees / FEE_DENOMINATOR);
         collectedFee +=
             withdrawnFees /
             10 ** IERC20Mint(approvedToken).decimals();
         emit FeeCollected(withdrawnFees, collectedFee);
         deposits[to] += wonAmount;
-
-        if (getRakebackAmount(to, initialDeposit) != 0) {
-            earnedRakeback[to] += getRakebackAmount(to, initialDeposit);
-        }
     }
 
     /**
@@ -327,9 +331,6 @@ contract Treasury is AccessControl {
             ((initialDeposit - withdrawnFees) * rate) /
             (FEE_DENOMINATOR * PRECISION_AMPLIFIER);
         deposits[to] += wonAmount;
-        if (getRakebackAmount(to, initialDeposit) != 0) {
-            earnedRakeback[to] += getRakebackAmount(to, initialDeposit);
-        }
     }
 
     /**
@@ -383,25 +384,6 @@ contract Treasury is AccessControl {
     }
 
     /**
-     *  Mints earned amount of Xyro tokens
-     * @param amount amount to withdraw
-     */
-    function withdrawRakeback(uint256 amount) public {
-        require(
-            earnedRakeback[msg.sender] >=
-                amount * 10 ** IERC20Mint(xyroToken).decimals(),
-            "Amount is greated than earned rakeback"
-        );
-        earnedRakeback[msg.sender] -=
-            amount *
-            10 ** IERC20Mint(xyroToken).decimals();
-        IERC20Mint(xyroToken).mint(
-            msg.sender,
-            amount * 10 ** IERC20Mint(xyroToken).decimals()
-        );
-    }
-
-    /**
      * Counts earned rakeback amount
      * @param target player address
      * @param initialDeposit initial deposit amount
@@ -409,33 +391,33 @@ contract Treasury is AccessControl {
     function getRakebackAmount(
         address target,
         uint256 initialDeposit
-    ) internal view returns (uint256) {
+    ) public view returns (uint256) {
         uint256 targetBalance = IERC20(xyroToken).balanceOf(target);
-        uint256 tier = targetBalance / (2500 * 10 ** 18) >= 4
-            ? 4
-            : targetBalance / (2500 * 10 ** 18);
-        return (initialDeposit * 500 * tier) / FEE_DENOMINATOR;
+        if (
+            targetBalance <
+            rakebackRate[0] * 10 ** IERC20Mint(xyroToken).decimals()
+        ) {
+            return 0;
+        }
+        uint256 rate;
+        for (uint256 i = 10; i > 0; i--) {
+            if (
+                targetBalance >=
+                rakebackRate[i - 1] * 10 ** IERC20Mint(xyroToken).decimals()
+            ) {
+                rate = i;
+                break;
+            }
+            rate = 0;
+        }
+        return (initialDeposit * rate * 100) / FEE_DENOMINATOR;
     }
 
-    /**
-     * Counts commission cut for player address
-     * @param target player address
-     */
-    function getCommissionCut(
-        address target
-    ) public view returns (uint256 comissionCut) {
-        uint256 targetBalance = IERC20(xyroToken).balanceOf(target);
-        uint256 tier = targetBalance / (2500 * 10 ** 18) >= 4
-            ? 4
-            : targetBalance / (2500 * 10 ** 18);
-
-        if (tier == 4) {
-            //30%
-            comissionCut = 3000;
-        } else if (tier > 0) {
-            //10-20%
-            comissionCut = 1000 + 500 * tier - 1;
-        }
+    function addRakeback(
+        address target,
+        uint256 amount
+    ) external onlyRole(DISTRIBUTOR_ROLE) {
+        deposits[target] += amount;
     }
 
     /**

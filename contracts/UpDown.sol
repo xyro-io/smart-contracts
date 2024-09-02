@@ -40,6 +40,7 @@ contract UpDown is AccessControl {
     address[] public DownPlayers;
     mapping(address => bool) public isParticipating;
     mapping(address => uint256) public depositAmounts;
+    mapping(bytes32 => mapping(address => uint256)) public lockedRakeback;
     bytes32 public currentGameId;
     address public treasury;
     uint256 public maxPlayers = 100;
@@ -92,22 +93,83 @@ contract UpDown is AccessControl {
             game.stopPredictAt > block.timestamp,
             "Game is closed for new players"
         );
+        uint256 rakeback = ITreasury(treasury).getRakebackAmount(
+            msg.sender,
+            depositAmount
+        );
         if (isLong) {
             //rewrites totalDepositsUp
             packedData =
                 (packedData & ~(uint256(0xFFFFFFFF) << 168)) |
-                ((depositAmount + game.totalDepositsUp) << 168);
+                ((depositAmount - rakeback + game.totalDepositsUp) << 168);
             UpPlayers.push(msg.sender);
         } else {
             //rewrites totalDepositsDown
             packedData =
                 (packedData & ~(uint256(0xFFFFFFFF) << 136)) |
-                ((depositAmount + game.totalDepositsDown) << 136);
+                ((depositAmount - rakeback + game.totalDepositsDown) << 136);
             DownPlayers.push(msg.sender);
         }
         depositAmounts[msg.sender] = depositAmount;
         isParticipating[msg.sender] = true;
         ITreasury(treasury).depositAndLock(depositAmount, msg.sender);
+        if (rakeback != 0) {
+            lockedRakeback[currentGameId][msg.sender] += rakeback;
+        }
+        emit UpDownNewPlayer(msg.sender, isLong, depositAmount, currentGameId);
+    }
+
+    /**
+     * Take a participation in up/down game and deposit funds and use rakeback
+     * @param isLong up = true, down = false
+     * @param depositAmount amount to deposit in game
+     */
+    function playWithRakeback(
+        bool isLong,
+        uint256 depositAmount,
+        bytes32[] calldata gameIds
+    ) public {
+        require(!isParticipating[msg.sender], "Already participating");
+        require(
+            DownPlayers.length + UpPlayers.length + 1 <= maxPlayers,
+            "Max player amount reached"
+        );
+        GameInfo memory game = decodeData();
+        require(
+            game.stopPredictAt > block.timestamp,
+            "Game is closed for new players"
+        );
+        for (uint i = 0; i < gameIds.length; i++) {
+            require(
+                gameIds[i] != currentGameId,
+                "Can't withdraw from unfinished game"
+            );
+            depositAmount += lockedRakeback[gameIds[i]][msg.sender];
+            lockedRakeback[gameIds[i]][msg.sender] = 0;
+        }
+        uint256 rakeback = ITreasury(treasury).getRakebackAmount(
+            msg.sender,
+            depositAmount
+        );
+        if (isLong) {
+            //rewrites totalDepositsUp
+            packedData =
+                (packedData & ~(uint256(0xFFFFFFFF) << 168)) |
+                ((depositAmount - rakeback + game.totalDepositsUp) << 168);
+            UpPlayers.push(msg.sender);
+        } else {
+            //rewrites totalDepositsDown
+            packedData =
+                (packedData & ~(uint256(0xFFFFFFFF) << 136)) |
+                ((depositAmount - rakeback + game.totalDepositsDown) << 136);
+            DownPlayers.push(msg.sender);
+        }
+        depositAmounts[msg.sender] = depositAmount;
+        isParticipating[msg.sender] = true;
+        ITreasury(treasury).depositAndLock(depositAmount, msg.sender);
+        if (rakeback != 0) {
+            lockedRakeback[currentGameId][msg.sender] += rakeback;
+        }
         emit UpDownNewPlayer(msg.sender, isLong, depositAmount, currentGameId);
     }
 
@@ -127,21 +189,28 @@ contract UpDown is AccessControl {
             game.stopPredictAt > block.timestamp,
             "Game is closed for new players"
         );
+        uint256 rakeback = ITreasury(treasury).getRakebackAmount(
+            msg.sender,
+            depositAmount
+        );
         if (isLong) {
             //rewrites totalDepositsUp
             packedData =
                 (packedData & ~(uint256(0xFFFFFFFF) << 168)) |
-                ((depositAmount + game.totalDepositsUp) << 168);
+                ((depositAmount - rakeback + game.totalDepositsUp) << 168);
             UpPlayers.push(msg.sender);
         } else {
             //rewrites totalDepositsDown
             packedData =
                 (packedData & ~(uint256(0xFFFFFFFF) << 136)) |
-                ((depositAmount + game.totalDepositsDown) << 136);
+                ((depositAmount - rakeback + game.totalDepositsDown) << 136);
             DownPlayers.push(msg.sender);
         }
         depositAmounts[msg.sender] = depositAmount;
         ITreasury(treasury).lock(depositAmount, msg.sender);
+        if (rakeback != 0) {
+            lockedRakeback[currentGameId][msg.sender] += rakeback;
+        }
         emit UpDownNewPlayer(msg.sender, isLong, depositAmount, currentGameId);
     }
 
@@ -164,17 +233,21 @@ contract UpDown is AccessControl {
             game.stopPredictAt > block.timestamp,
             "Game is closed for new players"
         );
+        uint256 rakeback = ITreasury(treasury).getRakebackAmount(
+            msg.sender,
+            depositAmount
+        );
         if (isLong) {
             //rewrites totalDepositsUp
             packedData =
                 (packedData & ~(uint256(0xFFFFFFFF) << 168)) |
-                ((depositAmount + game.totalDepositsUp) << 168);
+                ((depositAmount - rakeback + game.totalDepositsUp) << 168);
             UpPlayers.push(msg.sender);
         } else {
             //rewrites totalDepositsDown
             packedData =
                 (packedData & ~(uint256(0xFFFFFFFF) << 136)) |
-                ((depositAmount + game.totalDepositsDown) << 136);
+                ((depositAmount - rakeback + game.totalDepositsDown) << 136);
             DownPlayers.push(msg.sender);
         }
         depositAmounts[msg.sender] = depositAmount;
@@ -186,6 +259,9 @@ contract UpDown is AccessControl {
             permitData.r,
             permitData.s
         );
+        if (rakeback != 0) {
+            lockedRakeback[currentGameId][msg.sender] += rakeback;
+        }
         isParticipating[msg.sender] = true;
         emit UpDownNewPlayer(msg.sender, isLong, depositAmount, currentGameId);
     }
@@ -228,6 +304,7 @@ contract UpDown is AccessControl {
                         depositAmounts[UpPlayers[i]],
                         UpPlayers[i]
                     );
+                    delete lockedRakeback[currentGameId][UpPlayers[i]];
                     isParticipating[UpPlayers[i]] = false;
                     depositAmounts[UpPlayers[i]] = 0;
                 }
@@ -238,6 +315,7 @@ contract UpDown is AccessControl {
                         depositAmounts[DownPlayers[i]],
                         DownPlayers[i]
                     );
+                    delete lockedRakeback[currentGameId][DownPlayers[i]];
                     isParticipating[DownPlayers[i]] = false;
                     depositAmounts[DownPlayers[i]] = 0;
                 }
@@ -272,6 +350,7 @@ contract UpDown is AccessControl {
                     UpPlayers[i],
                     depositAmounts[UpPlayers[i]]
                 );
+                delete lockedRakeback[currentGameId][UpPlayers[i]];
             }
             emit UpDownFinalized(finalPrice, true, currentGameId);
         } else if (uint192(finalPrice / 1e14) < _game.startingPrice) {
@@ -286,6 +365,7 @@ contract UpDown is AccessControl {
                     DownPlayers[i],
                     depositAmounts[DownPlayers[i]]
                 );
+                delete lockedRakeback[currentGameId][DownPlayers[i]];
             }
             emit UpDownFinalized(finalPrice, false, currentGameId);
         } else if (uint192(finalPrice / 1e14) == _game.startingPrice) {
@@ -294,6 +374,7 @@ contract UpDown is AccessControl {
                     depositAmounts[UpPlayers[i]],
                     UpPlayers[i]
                 );
+                delete lockedRakeback[currentGameId][UpPlayers[i]];
                 isParticipating[UpPlayers[i]] = false;
             }
             delete UpPlayers;
@@ -302,6 +383,7 @@ contract UpDown is AccessControl {
                     depositAmounts[DownPlayers[i]],
                     DownPlayers[i]
                 );
+                delete lockedRakeback[currentGameId][DownPlayers[i]];
                 isParticipating[DownPlayers[i]] = false;
             }
             delete DownPlayers;
@@ -333,6 +415,7 @@ contract UpDown is AccessControl {
                 depositAmounts[UpPlayers[i]],
                 UpPlayers[i]
             );
+            delete lockedRakeback[currentGameId][UpPlayers[i]];
             isParticipating[UpPlayers[i]] = false;
             depositAmounts[UpPlayers[i]] = 0;
         }
@@ -342,6 +425,7 @@ contract UpDown is AccessControl {
                 depositAmounts[DownPlayers[i]],
                 DownPlayers[i]
             );
+            delete lockedRakeback[currentGameId][DownPlayers[i]];
             isParticipating[DownPlayers[i]] = false;
             depositAmounts[DownPlayers[i]] = 0;
         }
@@ -349,6 +433,19 @@ contract UpDown is AccessControl {
         emit UpDownCancelled(currentGameId);
         currentGameId = bytes32(0);
         packedData = 0;
+    }
+
+    function withdrawRakeback(bytes32[] calldata gameIds) public {
+        uint256 rakeback;
+        for (uint i = 0; i < gameIds.length; i++) {
+            require(
+                gameIds[i] != currentGameId,
+                "Can't withdraw from unfinished game"
+            );
+            rakeback += lockedRakeback[gameIds[i]][msg.sender];
+            lockedRakeback[gameIds[i]][msg.sender] = 0;
+        }
+        ITreasury(treasury).addRakeback(msg.sender, rakeback);
     }
 
     /**

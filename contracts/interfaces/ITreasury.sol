@@ -26,6 +26,13 @@ interface ITreasury {
         bytes32 s
     ) external;
 
+    function getRakebackAmount(
+        address target,
+        uint256 initialDeposit
+    ) external view returns (uint256);
+
+    function addRakeback(address target, uint256 amount) external;
+
     function lock(uint256 amount, address from) external;
 
     function upkeep() external view returns (address);

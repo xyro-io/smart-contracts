@@ -39,6 +39,12 @@ interface ITreasury {
 
     function refund(uint256 amount, address to) external;
 
+    function refundWithFee(
+        uint256 amount,
+        address to,
+        uint256 workerFee
+    ) external;
+
     function distributeWithoutFee(
         uint256 rate,
         address to,

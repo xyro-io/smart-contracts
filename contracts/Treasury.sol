@@ -250,12 +250,28 @@ contract Treasury is AccessControl {
         uint256 amount,
         address to
     ) public onlyRole(DISTRIBUTOR_ROLE) {
-        require(
-            locked[to] >= amount * 10 ** IERC20Mint(approvedToken).decimals(),
-            "Wrong amount"
-        );
-        locked[to] -= amount * 10 ** IERC20Mint(approvedToken).decimals();
-        deposits[to] += amount * 10 ** IERC20Mint(approvedToken).decimals();
+        amount *= 10 ** IERC20Mint(approvedToken).decimals();
+        require(locked[to] >= amount, "Wrong amount");
+        locked[to] -= amount;
+        deposits[to] += amount;
+    }
+
+    /**
+     * Refunds tokens and withdraws fees
+     * @param amount token amount
+     * @param to reciever address
+     */
+    function refundWithFee(
+        uint256 amount,
+        address to,
+        uint256 workerFee
+    ) public onlyRole(DISTRIBUTOR_ROLE) {
+        amount *= 10 ** IERC20Mint(approvedToken).decimals();
+        require(locked[to] >= amount, "Wrong amount");
+        uint256 withdrawnFees = (amount * workerFee) / FEE_DENOMINATOR;
+        locked[to] -= amount;
+        collectedFee += withdrawnFees;
+        deposits[to] += amount - withdrawnFees;
     }
 
     /**
@@ -267,16 +283,10 @@ contract Treasury is AccessControl {
         address to,
         uint256 amount
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(
-            collectedFee >= amount * 10 ** IERC20Mint(approvedToken).decimals(),
-            "Wrong amount"
-        );
-        collectedFee -= amount * 10 ** IERC20Mint(approvedToken).decimals();
-        SafeERC20.safeTransfer(
-            IERC20(approvedToken),
-            to,
-            amount * 10 ** IERC20Mint(approvedToken).decimals()
-        );
+        amount *= 10 ** IERC20Mint(approvedToken).decimals();
+        require(collectedFee >= amount, "Wrong amount");
+        collectedFee -= amount;
+        SafeERC20.safeTransfer(IERC20(approvedToken), to, amount);
     }
 
     /**

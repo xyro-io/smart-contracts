@@ -45,6 +45,7 @@ contract UpDown is AccessControl {
     address public treasury;
     uint256 public maxPlayers = 100;
     uint256 public fee = 100;
+    uint256 public minDepositAmount = 5000;
 
     constructor() {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -86,6 +87,7 @@ contract UpDown is AccessControl {
      * @param depositAmount amount to deposit in game
      */
     function play(bool isLong, uint256 depositAmount) public {
+        require(depositAmount >= minDepositAmount, "Wrong deposit amount");
         require(depositAmounts[msg.sender] == 0, "Already participating");
         require(
             DownPlayers.length + UpPlayers.length + 1 <= maxPlayers,
@@ -138,6 +140,7 @@ contract UpDown is AccessControl {
      * @param depositAmount amount to deposit in game
      */
     function playWithDeposit(bool isLong, uint256 depositAmount) public {
+        require(depositAmount >= minDepositAmount, "Wrong deposit amount");
         require(depositAmounts[msg.sender] == 0, "Already participating");
         require(
             DownPlayers.length + UpPlayers.length + 1 <= maxPlayers,
@@ -193,6 +196,7 @@ contract UpDown is AccessControl {
         uint256 depositAmount,
         ITreasury.PermitData calldata permitData
     ) public {
+        require(depositAmount >= minDepositAmount, "Wrong deposit amount");
         require(depositAmounts[msg.sender] == 0, "Already participating");
         require(
             DownPlayers.length + UpPlayers.length + 1 <= maxPlayers,
@@ -451,5 +455,15 @@ contract UpDown is AccessControl {
         require(newTreasury != address(0), "Zero address");
         treasury = newTreasury;
         emit NewTreasury(newTreasury);
+    }
+
+    /**
+     * Change allowed minimal deposit amount
+     * @param newMinAmount new minimal deposit amount
+     */
+    function changeMinDepositAmount(
+        uint256 newMinAmount
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        minDepositAmount = newMinAmount;
     }
 }

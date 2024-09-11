@@ -32,6 +32,7 @@ const cantEnd = "Can't end";
 const requireSufficentDepositAmount = "Insufficent deposit amount";
 const requireUnclaimed = "Already claimed";
 const youLost = "You lost";
+const requireDepositAmountAboveMin = "Wrong deposit amount";
 const Status = {
   Created: 0,
   Cancelled: 1,
@@ -370,6 +371,13 @@ describe("Setup Game", () => {
       expect(
         await Game.withdrawStatus(currentGameId, harry.address)
       ).to.be.equal(UserStatus.TP);
+    });
+
+    it("should fail - Wrong deposit amount", async function () {
+      const wrongDepositAmount = 5000;
+      await expect(
+        Game.play(true, wrongDepositAmount, currentGameId)
+      ).to.be.revertedWith(requireDepositAmountAboveMin);
     });
 
     it("should fail - totalDepositTP > max uint32", async function () {

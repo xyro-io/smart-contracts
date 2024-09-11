@@ -141,48 +141,6 @@ contract Treasury is AccessControl {
         locked[gameId] += amount * precisionRate;
     }
 
-    function depositLockAndUseRakeback(
-        uint256 amount,
-        address from,
-        bytes32 gameId,
-        bool isRakeback,
-        bytes32[] calldata gameIds
-    )
-        public
-        onlyRole(DISTRIBUTOR_ROLE)
-        returns (uint256 rakeback, uint256 addedRakeback)
-    {
-        require(amount >= minDepositAmount, "Wrong deposit amount");
-        uint256 oldBalance = IERC20(approvedToken).balanceOf(address(this));
-        SafeERC20.safeTransferFrom(
-            IERC20(approvedToken),
-            from,
-            address(this),
-            amount * precisionRate
-        );
-        uint256 newBalance = IERC20(approvedToken).balanceOf(address(this));
-        require(
-            newBalance == oldBalance + amount * precisionRate,
-            "Token with fee"
-        );
-        for (uint i = 0; i < gameIds.length; i++) {
-            require(
-                gameStatus[gameIds[i]] == true,
-                "Can't withdraw from unfinished game"
-            );
-            addedRakeback += lockedRakeback[gameIds[i]][from];
-            lockedRakeback[gameIds[i]][from] = 0;
-        }
-        emit UsedRakeback(gameIds, addedRakeback * precisionRate);
-        amount += addedRakeback;
-
-        if (isRakeback) {
-            rakeback = calculateRakebackAmount(from, amount);
-            lockedRakeback[gameId][from] += rakeback;
-        }
-        locked[gameId] += amount * precisionRate;
-    }
-
     /**
      * Deposit token in treasury with permit
      * @param amount token amount
@@ -488,7 +446,9 @@ contract Treasury is AccessControl {
         emit UsedRakeback(gameIds, rakeback * precisionRate);
     }
 
-    function setGameStatus(bytes32 gameId) external onlyRole(DISTRIBUTOR_ROLE) {
+    function setGameFinished(
+        bytes32 gameId
+    ) external onlyRole(DISTRIBUTOR_ROLE) {
         gameStatus[gameId] = true;
     }
 

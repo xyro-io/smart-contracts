@@ -182,15 +182,24 @@ contract Setup is AccessControl {
         require(data.gameStatus == Status.Created, "Wrong status!");
         require(
             data.startTime + (data.endTime - data.startTime) / 3 >
-                block.timestamp &&
-                (data.totalDepositsSL + depositAmount <= type(uint32).max ||
-                    data.totalDepositsTP + depositAmount <= type(uint32).max),
+                block.timestamp,
             "Game is closed for new players"
         );
         require(
             depositAmounts[gameId][msg.sender] == 0,
             "You are already in the game"
         );
+        if (isLong) {
+            require(
+                data.totalDepositsTP + depositAmount <= type(uint32).max,
+                "Game is closed for new TP players"
+            );
+        } else {
+            require(
+                data.totalDepositsSL + depositAmount <= type(uint32).max,
+                "Game is closed for new SL players"
+            );
+        }
         uint256 rakeback = ITreasury(treasury).depositAndLock(
             depositAmount,
             msg.sender,
@@ -236,15 +245,24 @@ contract Setup is AccessControl {
         require(data.gameStatus == Status.Created, "Wrong status!");
         require(
             data.startTime + (data.endTime - data.startTime) / 3 >
-                block.timestamp &&
-                (data.totalDepositsSL + depositAmount <= type(uint32).max ||
-                    data.totalDepositsTP + depositAmount <= type(uint32).max),
+                block.timestamp,
             "Game is closed for new players"
         );
         require(
             depositAmounts[gameId][msg.sender] == 0,
             "You are already in the game"
         );
+        if (isLong) {
+            require(
+                data.totalDepositsTP + depositAmount <= type(uint32).max,
+                "Game is closed for new TP players"
+            );
+        } else {
+            require(
+                data.totalDepositsSL + depositAmount <= type(uint32).max,
+                "Game is closed for new SL players"
+            );
+        }
         uint256 rakeback = ITreasury(treasury).lock(
             depositAmount,
             msg.sender,
@@ -488,7 +506,7 @@ contract Setup is AccessControl {
                 );
             }
         }
-
+        ITreasury(treasury).setGameFinished(gameId);
         uint256 packedData2 = games[gameId].packedData2;
         games[gameId].finalRate = finalRate;
         //rewrites endTime

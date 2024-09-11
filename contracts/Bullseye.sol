@@ -416,7 +416,7 @@ contract Bullseye is AccessControl {
                 currentGameId
             );
         }
-        ITreasury(treasury).setGameStatus(currentGameId);
+        ITreasury(treasury).setGameFinished(currentGameId);
         packedData = 0;
         currentGameId = bytes32(0);
         delete packedGuessData;

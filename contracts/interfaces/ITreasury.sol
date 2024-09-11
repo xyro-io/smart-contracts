@@ -73,5 +73,5 @@ interface ITreasury {
         bytes32 gameId
     ) external returns (uint256 rate);
 
-    function setGameStatus(bytes32 gameId) external;
+    function setGameFinished(bytes32 gameId) external;
 }

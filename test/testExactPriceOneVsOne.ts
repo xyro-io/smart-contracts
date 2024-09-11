@@ -304,6 +304,42 @@ describe("OneVsOneExactPrice", () => {
       );
     });
 
+    it("should close old game and get fees", async function () {
+      const tx = await Game.createGame(
+        feedNumber,
+        opponent.address,
+        (await time.latest()) + fortyFiveMinutes,
+        initiatorPrice,
+        usdtAmount
+      );
+      const DENOMINATOR = 10000;
+      receipt = await tx.wait();
+      currentGameId = receipt!.logs[1]!.args[0];
+      let game = await Game.decodeData(currentGameId);
+      expect(game.gameStatus).to.be.equal(Status.Created);
+      await time.increase(monthUnix);
+      const oldCreatorBalance = await Treasury.deposits(owner.address);
+      const oldCollectedFees = await Treasury.collectedFee();
+      await Game.liquidateGame(currentGameId);
+      const newCollectedFees = await Treasury.collectedFee();
+      const newCreatorBalance = await Treasury.deposits(owner.address);
+      expect(newCollectedFees - oldCollectedFees).to.be.equal(
+        BigInt(game.depositAmount) * (await Game.refundFee())
+      );
+      expect(newCreatorBalance - oldCreatorBalance).to.be.equal(
+        parse18(
+          (
+            (BigInt(game.depositAmount) *
+              (BigInt(DENOMINATOR) - (await Game.refundFee()))) /
+            BigInt(DENOMINATOR)
+          ).toString()
+        )
+      );
+      await Treasury.connect(owner).withdraw(
+        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 14))
+      );
+    });
+
     it("should fail - closeGame wrong sender", async function () {
       const tx = await Game.createGame(
         feedNumber,

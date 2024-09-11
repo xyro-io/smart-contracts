@@ -52,6 +52,13 @@ interface ITreasury {
 
     function refund(uint256 amount, address to, bytes32 gameId) external;
 
+    function refundWithFees(
+        uint256 amount,
+        address to,
+        uint256 adminFee,
+        bytes32 gameId
+    ) external;
+
     function distributeWithoutFee(
         uint256 rate,
         address to,

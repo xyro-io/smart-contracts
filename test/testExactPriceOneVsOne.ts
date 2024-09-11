@@ -280,7 +280,7 @@ describe("OneVsOneExactPrice", () => {
         Status.Cancelled
       );
       await Treasury.connect(owner).withdraw(
-        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
+        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 14))
       );
     });
 
@@ -344,7 +344,7 @@ describe("OneVsOneExactPrice", () => {
       const game = await Game.decodeData(currentGameId);
       expect(game.gameStatus).to.be.equal(Status.Finished);
       await Treasury.connect(opponent).withdraw(
-        (await Treasury.deposits(opponent.address)) / BigInt(Math.pow(10, 18))
+        (await Treasury.deposits(opponent.address)) / BigInt(Math.pow(10, 14))
       );
       let newBalance = await USDT.balanceOf(opponent.address);
       expect(newBalance - oldBalance).to.be.equal(
@@ -376,7 +376,7 @@ describe("OneVsOneExactPrice", () => {
       const game = await Game.decodeData(currentGameId);
       expect(game.gameStatus).to.be.equal(Status.Finished);
       await Treasury.connect(owner).withdraw(
-        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
+        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 14))
       );
       let newBalance = await USDT.balanceOf(owner.address);
       expect(newBalance - oldBalance).to.be.equal(
@@ -409,7 +409,7 @@ describe("OneVsOneExactPrice", () => {
         )
       );
       await Treasury.connect(opponent).withdraw(
-        (await Treasury.deposits(opponent.address)) / BigInt(Math.pow(10, 18))
+        (await Treasury.deposits(opponent.address)) / BigInt(Math.pow(10, 14))
       );
       const game = await Game.decodeData(currentGameId);
       expect(game.gameStatus).to.be.equal(Status.Finished);

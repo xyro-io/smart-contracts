@@ -13,9 +13,11 @@ interface IERC20Mint {
 contract Treasury is AccessControl {
     event FeeCollected(uint256 feeEarned, uint256 totalFees);
     event UpkeepChanged(address newUpkeep);
+    event UsedRakeback(bytes32[] gameIds, uint256 totalRakeback);
     address public approvedToken;
     address public xyroToken;
     address public upkeep;
+    uint256 public precisionRate;
     uint256 public fee = 100; //100 for 1%
     uint256 public setupInitiatorFee = 100;
     uint256 public constant FEE_DENOMINATOR = 10000;
@@ -37,7 +39,9 @@ contract Treasury is AccessControl {
     uint256 public collectedFee;
     uint256 public minDepositAmount = 1;
     mapping(address => uint256) public deposits;
-    mapping(address => uint256) public locked;
+    mapping(bytes32 => uint256) public locked;
+    mapping(bytes32 => bool) public gameStatus;
+    mapping(bytes32 => mapping(address => uint256)) public lockedRakeback;
 
     /**
      * @param newApprovedToken stable token used in games
@@ -47,6 +51,7 @@ contract Treasury is AccessControl {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         approvedToken = newApprovedToken;
         xyroToken = xyroTokenAdr;
+        precisionRate = 10 ** (IERC20Mint(approvedToken).decimals() - 4);
     }
 
     /**
@@ -95,19 +100,14 @@ contract Treasury is AccessControl {
             IERC20(approvedToken),
             msg.sender,
             address(this),
-            amount * 10 ** IERC20Mint(approvedToken).decimals()
+            amount * precisionRate
         );
         uint256 newBalance = IERC20(approvedToken).balanceOf(address(this));
         require(
-            newBalance ==
-                oldBalance +
-                    amount *
-                    10 ** IERC20Mint(approvedToken).decimals(),
+            newBalance == oldBalance + amount * precisionRate,
             "Token with fee"
         );
-        deposits[msg.sender] +=
-            amount *
-            10 ** IERC20Mint(approvedToken).decimals();
+        deposits[msg.sender] += amount * precisionRate;
     }
 
     /**
@@ -117,25 +117,70 @@ contract Treasury is AccessControl {
      */
     function depositAndLock(
         uint256 amount,
-        address from
-    ) public onlyRole(DISTRIBUTOR_ROLE) {
+        address from,
+        bytes32 gameId,
+        bool isRakeback
+    ) public onlyRole(DISTRIBUTOR_ROLE) returns (uint256 rakeback) {
         require(amount >= minDepositAmount, "Wrong deposit amount");
         uint256 oldBalance = IERC20(approvedToken).balanceOf(address(this));
         SafeERC20.safeTransferFrom(
             IERC20(approvedToken),
             from,
             address(this),
-            amount * 10 ** IERC20Mint(approvedToken).decimals()
+            amount * precisionRate
         );
         uint256 newBalance = IERC20(approvedToken).balanceOf(address(this));
         require(
-            newBalance ==
-                oldBalance +
-                    amount *
-                    10 ** IERC20Mint(approvedToken).decimals(),
+            newBalance == oldBalance + amount * precisionRate,
             "Token with fee"
         );
-        locked[from] += amount * 10 ** IERC20Mint(approvedToken).decimals();
+        if (isRakeback) {
+            rakeback = calculateRakebackAmount(from, amount);
+            lockedRakeback[gameId][from] += rakeback;
+        }
+        locked[gameId] += amount * precisionRate;
+    }
+
+    function depositLockAndUseRakeback(
+        uint256 amount,
+        address from,
+        bytes32 gameId,
+        bool isRakeback,
+        bytes32[] calldata gameIds
+    )
+        public
+        onlyRole(DISTRIBUTOR_ROLE)
+        returns (uint256 rakeback, uint256 addedRakeback)
+    {
+        require(amount >= minDepositAmount, "Wrong deposit amount");
+        uint256 oldBalance = IERC20(approvedToken).balanceOf(address(this));
+        SafeERC20.safeTransferFrom(
+            IERC20(approvedToken),
+            from,
+            address(this),
+            amount * precisionRate
+        );
+        uint256 newBalance = IERC20(approvedToken).balanceOf(address(this));
+        require(
+            newBalance == oldBalance + amount * precisionRate,
+            "Token with fee"
+        );
+        for (uint i = 0; i < gameIds.length; i++) {
+            require(
+                gameStatus[gameIds[i]] == true,
+                "Can't withdraw from unfinished game"
+            );
+            addedRakeback += lockedRakeback[gameIds[i]][from];
+            lockedRakeback[gameIds[i]][from] = 0;
+        }
+        emit UsedRakeback(gameIds, addedRakeback * precisionRate);
+        amount += addedRakeback;
+
+        if (isRakeback) {
+            rakeback = calculateRakebackAmount(from, amount);
+            lockedRakeback[gameId][from] += rakeback;
+        }
+        locked[gameId] += amount * precisionRate;
     }
 
     /**
@@ -154,7 +199,7 @@ contract Treasury is AccessControl {
         IERC20Permit(approvedToken).permit(
             msg.sender,
             address(this),
-            amount * 10 ** IERC20Mint(approvedToken).decimals(),
+            amount * precisionRate,
             deadline,
             v,
             r,
@@ -164,14 +209,11 @@ contract Treasury is AccessControl {
             IERC20(approvedToken),
             msg.sender,
             address(this),
-            amount * 10 ** IERC20Mint(approvedToken).decimals()
+            amount * precisionRate
         );
         uint256 newBalance = IERC20(approvedToken).balanceOf(address(this));
         require(
-            newBalance ==
-                oldBalance +
-                    amount *
-                    10 ** IERC20Mint(approvedToken).decimals(),
+            newBalance == oldBalance + amount * precisionRate,
             "Token with fee"
         );
         deposits[msg.sender] += amount;
@@ -185,16 +227,18 @@ contract Treasury is AccessControl {
     function depositAndLockWithPermit(
         uint256 amount,
         address from,
+        bytes32 gameId,
+        bool isRakeback,
         uint256 deadline,
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) public onlyRole(DISTRIBUTOR_ROLE) {
+    ) public onlyRole(DISTRIBUTOR_ROLE) returns (uint256 rakeback) {
         uint256 oldBalance = IERC20(approvedToken).balanceOf(address(this));
         IERC20Permit(approvedToken).permit(
             from,
             address(this),
-            amount * 10 ** IERC20Mint(approvedToken).decimals(),
+            amount * precisionRate,
             deadline,
             v,
             r,
@@ -204,35 +248,30 @@ contract Treasury is AccessControl {
             IERC20(approvedToken),
             from,
             address(this),
-            amount * 10 ** IERC20Mint(approvedToken).decimals()
+            amount * precisionRate
         );
         uint256 newBalance = IERC20(approvedToken).balanceOf(address(this));
         require(
-            newBalance ==
-                oldBalance +
-                    amount *
-                    10 ** IERC20Mint(approvedToken).decimals(),
+            newBalance == oldBalance + amount * precisionRate,
             "Token with fee"
         );
-        locked[from] += amount * 10 ** IERC20Mint(approvedToken).decimals();
+        if (isRakeback) {
+            rakeback = calculateRakebackAmount(from, amount);
+            lockedRakeback[gameId][from] += rakeback;
+        }
+        locked[gameId] += amount * precisionRate;
     }
 
     /**
      * Withdraw all tokens from user deposit
      */
     function withdraw(uint256 amount) public {
-        require(
-            deposits[msg.sender] >=
-                amount * 10 ** IERC20Mint(approvedToken).decimals(),
-            "Wrong amount"
-        );
-        deposits[msg.sender] -=
-            amount *
-            10 ** IERC20Mint(approvedToken).decimals();
+        require(deposits[msg.sender] >= amount * precisionRate, "Wrong amount");
+        deposits[msg.sender] -= amount * precisionRate;
         SafeERC20.safeTransfer(
             IERC20(approvedToken),
             msg.sender,
-            amount * 10 ** IERC20Mint(approvedToken).decimals()
+            amount * precisionRate
         );
     }
 
@@ -241,15 +280,21 @@ contract Treasury is AccessControl {
      */
     function lock(
         uint256 amount,
-        address from
-    ) public onlyRole(DISTRIBUTOR_ROLE) {
+        address from,
+        bytes32 gameId,
+        bool isRakeback
+    ) public onlyRole(DISTRIBUTOR_ROLE) returns (uint256 rakeback) {
         require(
-            deposits[from] >=
-                amount * 10 ** IERC20Mint(approvedToken).decimals(),
+            deposits[from] >= amount * precisionRate,
             "Insufficent deposit amount"
         );
-        deposits[from] -= amount * 10 ** IERC20Mint(approvedToken).decimals();
-        locked[from] += amount * 10 ** IERC20Mint(approvedToken).decimals();
+
+        if (isRakeback) {
+            rakeback = calculateRakebackAmount(from, amount);
+            lockedRakeback[gameId][from] += rakeback;
+        }
+        deposits[from] -= amount * precisionRate;
+        locked[gameId] += amount * precisionRate;
     }
 
     /**
@@ -259,14 +304,19 @@ contract Treasury is AccessControl {
      */
     function refund(
         uint256 amount,
-        address to
+        address to,
+        bytes32 gameId
     ) public onlyRole(DISTRIBUTOR_ROLE) {
-        require(
-            locked[to] >= amount * 10 ** IERC20Mint(approvedToken).decimals(),
-            "Wrong amount"
-        );
-        locked[to] -= amount * 10 ** IERC20Mint(approvedToken).decimals();
-        deposits[to] += amount * 10 ** IERC20Mint(approvedToken).decimals();
+        require(locked[gameId] >= amount * precisionRate, "Wrong amount");
+        uint256 rakeback = lockedRakeback[gameId][to];
+        if (rakeback != 0) {
+            lockedRakeback[gameId][to] = 0;
+            locked[gameId] -= (amount + rakeback) * precisionRate;
+            deposits[to] += (amount + rakeback) * precisionRate;
+        } else {
+            locked[gameId] -= amount * precisionRate;
+            deposits[to] += amount * precisionRate;
+        }
     }
 
     /**
@@ -278,15 +328,12 @@ contract Treasury is AccessControl {
         address to,
         uint256 amount
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(
-            collectedFee >= amount * 10 ** IERC20Mint(approvedToken).decimals(),
-            "Wrong amount"
-        );
-        collectedFee -= amount * 10 ** IERC20Mint(approvedToken).decimals();
+        require(collectedFee >= amount * precisionRate, "Wrong amount");
+        collectedFee -= amount * precisionRate;
         SafeERC20.safeTransfer(
             IERC20(approvedToken),
             to,
-            amount * 10 ** IERC20Mint(approvedToken).decimals()
+            amount * precisionRate
         );
     }
 
@@ -301,16 +348,20 @@ contract Treasury is AccessControl {
         uint256 amount,
         address to,
         uint256 initialDeposit,
-        uint256 gameFee
+        uint256 gameFee,
+        bytes32 gameId
     ) public onlyRole(DISTRIBUTOR_ROLE) {
-        amount *= 10 ** IERC20Mint(approvedToken).decimals();
-        initialDeposit *= 10 ** IERC20Mint(approvedToken).decimals();
+        amount *= precisionRate;
+        initialDeposit *= precisionRate;
+        if (lockedRakeback[gameId][to] != 0) {
+            initialDeposit += lockedRakeback[gameId][to] * precisionRate;
+            lockedRakeback[gameId][to] = 0;
+        }
         uint256 withdrawnFees = (amount * gameFee) / FEE_DENOMINATOR;
-        uint256 wonAmount = amount - (withdrawnFees / FEE_DENOMINATOR);
-        collectedFee +=
-            withdrawnFees /
-            10 ** IERC20Mint(approvedToken).decimals();
+        uint256 wonAmount = amount - withdrawnFees;
+        collectedFee += withdrawnFees / precisionRate;
         emit FeeCollected(withdrawnFees, collectedFee);
+        locked[gameId] -= amount;
         deposits[to] += wonAmount;
     }
 
@@ -323,14 +374,20 @@ contract Treasury is AccessControl {
     function distributeWithoutFee(
         uint256 rate,
         address to,
-        uint256 initialDeposit
+        uint256 initialDeposit,
+        bytes32 gameId
     ) public onlyRole(DISTRIBUTOR_ROLE) {
-        initialDeposit *= 10 ** IERC20Mint(approvedToken).decimals();
+        initialDeposit *= precisionRate;
+        if (lockedRakeback[gameId][to] != 0) {
+            initialDeposit += lockedRakeback[gameId][to] * precisionRate;
+            lockedRakeback[gameId][to] = 0;
+        }
         uint256 withdrawnFees = (initialDeposit * fee) / FEE_DENOMINATOR;
         uint256 wonAmount = (initialDeposit - withdrawnFees) +
             ((initialDeposit - withdrawnFees) * rate) /
             (FEE_DENOMINATOR * PRECISION_AMPLIFIER);
         deposits[to] += wonAmount;
+        locked[gameId] -= wonAmount;
     }
 
     /**
@@ -342,10 +399,11 @@ contract Treasury is AccessControl {
     function calculateSetupRate(
         uint256 lostTeamTotal,
         uint256 wonTeamTotal,
-        address initiator
+        address initiator,
+        bytes32 gameId
     ) external onlyRole(DISTRIBUTOR_ROLE) returns (uint256, uint256) {
-        lostTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
-        wonTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
+        lostTeamTotal *= precisionRate;
+        wonTeamTotal *= precisionRate;
         uint256 withdrawnFees = (lostTeamTotal * fee) / FEE_DENOMINATOR;
         collectedFee += withdrawnFees;
         uint256 lostTeamFee = (lostTeamTotal * setupInitiatorFee) /
@@ -357,6 +415,7 @@ contract Treasury is AccessControl {
         uint256 rate = ((lostTeamTotal - withdrawnFees - lostTeamFee) *
             (FEE_DENOMINATOR * PRECISION_AMPLIFIER)) /
             (wonTeamTotal - wonTeamFee);
+        locked[gameId] -= withdrawnFees + lostTeamFee + wonTeamFee;
         return (rate, lostTeamFee + wonTeamFee);
     }
 
@@ -369,13 +428,15 @@ contract Treasury is AccessControl {
     function calculateUpDownRate(
         uint256 lostTeamTotal,
         uint256 wonTeamTotal,
-        uint256 updownFee
+        uint256 updownFee,
+        bytes32 gameId
     ) external onlyRole(DISTRIBUTOR_ROLE) returns (uint256 rate) {
-        lostTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
-        wonTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
+        lostTeamTotal *= precisionRate;
+        wonTeamTotal *= precisionRate;
         uint256 lostTeamFee = (lostTeamTotal * updownFee) / FEE_DENOMINATOR;
         uint256 wonTeamFee = (wonTeamTotal * updownFee) / FEE_DENOMINATOR;
         collectedFee += lostTeamFee + wonTeamFee;
+        locked[gameId] -= lostTeamFee + wonTeamFee;
         //collect dust
         rate =
             ((lostTeamTotal - lostTeamFee) *
@@ -388,10 +449,10 @@ contract Treasury is AccessControl {
      * @param target player address
      * @param initialDeposit initial deposit amount
      */
-    function getRakebackAmount(
+    function calculateRakebackAmount(
         address target,
         uint256 initialDeposit
-    ) public view returns (uint256) {
+    ) internal view returns (uint256) {
         uint256 targetBalance = IERC20(xyroToken).balanceOf(target);
         if (
             targetBalance <
@@ -413,11 +474,22 @@ contract Treasury is AccessControl {
         return (initialDeposit * rate * 100) / FEE_DENOMINATOR;
     }
 
-    function addRakeback(
-        address target,
-        uint256 amount
-    ) external onlyRole(DISTRIBUTOR_ROLE) {
-        deposits[target] += amount;
+    function withdrawRakeback(bytes32[] calldata gameIds) public {
+        uint256 rakeback;
+        for (uint i = 0; i < gameIds.length; i++) {
+            require(
+                gameStatus[gameIds[i]] == true,
+                "Can't withdraw from unfinished game"
+            );
+            rakeback += lockedRakeback[gameIds[i]][msg.sender];
+            lockedRakeback[gameIds[i]][msg.sender] = 0;
+        }
+        deposits[msg.sender] += rakeback * precisionRate;
+        emit UsedRakeback(gameIds, rakeback * precisionRate);
+    }
+
+    function setGameStatus(bytes32 gameId) external onlyRole(DISTRIBUTOR_ROLE) {
+        gameStatus[gameId] = true;
     }
 
     /**

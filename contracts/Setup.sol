@@ -79,6 +79,7 @@ contract Setup is AccessControl {
     mapping(bytes32 => mapping(address => uint256)) public depositAmounts;
     uint256 public minDuration = 30 minutes;
     uint256 public maxDuration = 24 weeks;
+    uint256 public minDepositAmount = 10000;
     address public treasury;
 
     constructor(address newTreasury) {
@@ -178,6 +179,7 @@ contract Setup is AccessControl {
      * @param depositAmount game id
      */
     function play(bool isLong, uint256 depositAmount, bytes32 gameId) public {
+        require(depositAmount >= minDepositAmount, "Wrong deposit amount");
         GameInfo memory data = decodeData(gameId);
         require(data.gameStatus == Status.Created, "Wrong status!");
         require(
@@ -241,6 +243,7 @@ contract Setup is AccessControl {
         uint256 depositAmount,
         bytes32 gameId
     ) public {
+        require(depositAmount >= minDepositAmount, "Wrong deposit amount");
         GameInfo memory data = decodeData(gameId);
         require(data.gameStatus == Status.Created, "Wrong status!");
         require(
@@ -306,6 +309,7 @@ contract Setup is AccessControl {
         bytes32 gameId,
         ITreasury.PermitData calldata permitData
     ) public {
+        require(depositAmount >= minDepositAmount, "Wrong deposit amount");
         GameInfo memory data = decodeData(gameId);
         require(data.gameStatus == Status.Created, "Wrong status!");
         require(
@@ -635,5 +639,15 @@ contract Setup is AccessControl {
         require(newTreasury != address(0), "Zero address");
         treasury = newTreasury;
         emit NewTreasury(newTreasury);
+    }
+
+    /**
+     * Change allowed minimal deposit amount
+     * @param newMinAmount new minimal deposit amount
+     */
+    function changeMinDepositAmount(
+        uint256 newMinAmount
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        minDepositAmount = newMinAmount;
     }
 }

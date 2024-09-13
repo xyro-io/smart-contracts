@@ -25,6 +25,7 @@ const requireOpenedGame = "Game is closed for new players";
 const requireStartedGame = "Start the game first";
 const requirePastEndTime = "Too early to finish";
 const requireNewPlayer = "You are already in the game";
+const requireDepositAmountAboveMin = "Wrong deposit amount";
 const requireWithdrawRakeback = "Can't withdraw from unfinished game";
 const requireSufficentDepositAmount = "Insufficent deposit amount";
 
@@ -77,6 +78,15 @@ describe("Bullseye", () => {
   });
 
   describe("Create game", async function () {
+    it("should fail - Wrong deposit amount", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = (await time.latest()) + fifteenMinutes;
+      const wrongDepositAmount = 5000;
+      await expect(
+        Game.startGame(endTime, stopPredictAt, wrongDepositAmount, feedNumber)
+      ).to.be.revertedWith(requireDepositAmountAboveMin);
+    });
+
     it("should create bullseye game", async function () {
       const endTime = (await time.latest()) + fortyFiveMinutes;
       const stopPredictAt = (await time.latest()) + fifteenMinutes;

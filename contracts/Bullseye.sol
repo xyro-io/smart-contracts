@@ -9,6 +9,7 @@ contract Bullseye is AccessControl {
     uint256 constant DENOMINATOR = 100;
     uint256 public exactRange = 100;
     uint256 public fee = 100;
+    uint256 public minDepositAmount = 10000;
     uint256 public maxPlayers = 100;
     uint256[3] public rate = [50, 35, 15];
     uint256[3] public exactRate = [75, 15, 10];
@@ -74,8 +75,8 @@ contract Bullseye is AccessControl {
         uint152 depositAmount,
         uint8 feedNumber
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(depositAmount >= minDepositAmount, "Wrong deposit amount");
         require(packedData == 0, "Finish previous game first");
-        require(depositAmount >= 10, "Wrong deposit amount");
         require(endTime > block.timestamp, "Wrong ending time");
         packedData = (block.timestamp |
             (uint256(stopPredictAt) << 32) |
@@ -500,5 +501,15 @@ contract Bullseye is AccessControl {
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         exactRange = newRange;
         emit NewExactRange(newRange);
+    }
+
+    /**
+     * Change allowed minimal deposit amount
+     * @param newMinAmount new minimal deposit amount
+     */
+    function changeMinDepositAmount(
+        uint256 newMinAmount
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        minDepositAmount = newMinAmount;
     }
 }

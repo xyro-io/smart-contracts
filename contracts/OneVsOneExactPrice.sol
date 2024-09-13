@@ -60,6 +60,7 @@ contract OneVsOneExactPrice is AccessControl {
     mapping(bytes32 => GameInfoPacked) public games;
     address public treasury;
     uint256 public fee = 100;
+    uint256 public refundFee = 1000;
     uint256 public minDepositAmount = 1;
     uint256 public minDuration = 30 minutes;
     uint256 public maxDuration = 4 weeks;
@@ -389,6 +390,27 @@ contract OneVsOneExactPrice is AccessControl {
     }
 
     /**
+     * Allows admin to close old\outdated games
+     * @param gameId game id
+     */
+    function liquidateGame(bytes32 gameId) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        GameInfo memory game = decodeData(gameId);
+        require(block.timestamp - game.endTime >= 1 weeks, "Too early");
+        require(game.gameStatus == Status.Created, "Wrong status!");
+        ITreasury(treasury).refundWithFees(
+            game.depositAmount * 10000,
+            game.initiator,
+            refundFee,
+            gameId
+        );
+        //rewrites status
+        games[gameId].packedData2 =
+            (games[gameId].packedData2 & ~(uint256(0xFF) << 208)) |
+            (uint256(uint8(Status.Cancelled)) << 208);
+        emit ExactPriceCancelled(gameId);
+    }
+
+    /**
      * Finalizes 1vs1 exact price mode game and distributes rewards to players
      * @param gameId game id
      * @param unverifiedReport Chainlink DataStreams report
@@ -513,6 +535,23 @@ contract OneVsOneExactPrice is AccessControl {
     }
 
     /**
+     * Change fee
+     * @param newFee new fee in bp
+     */
+    function setFee(uint256 newFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        fee = newFee;
+    }
+
+    /**
+     * Change refund fee
+     * @param newRefundFee new fee in bp
+     */
+    function setRefundFee(
+        uint256 newRefundFee
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        refundFee = newRefundFee;
+    }
+
      * Change allowed minimal deposit amount
      * @param newMinAmount new minimal deposit amount
      */

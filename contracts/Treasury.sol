@@ -274,6 +274,32 @@ contract Treasury is AccessControl {
     }
 
     /**
+     * Refunds tokens and withdraws fees
+     * @param amount token amount
+     * @param to reciever address
+     */
+    function refundWithFees(
+        uint256 amount,
+        address to,
+        uint256 refundFee,
+        bytes32 gameId
+    ) public onlyRole(DISTRIBUTOR_ROLE) {
+        require(locked[gameId] >= amount * precisionRate, "Wrong amount");
+        uint256 withdrawnFees = (amount * refundFee) / FEE_DENOMINATOR;
+        uint256 rakeback = lockedRakeback[gameId][to];
+        collectedFee += withdrawnFees;
+        emit FeeCollected(withdrawnFees, collectedFee);
+        if (rakeback != 0) {
+            lockedRakeback[gameId][to] = 0;
+            locked[gameId] -= (amount + rakeback) * precisionRate;
+            deposits[to] += (amount + rakeback - withdrawnFees) * precisionRate;
+        } else {
+            locked[gameId] -= amount * precisionRate;
+            deposits[to] += (amount - withdrawnFees) * precisionRate;
+        }
+    }
+
+    /**
      * Withdraws earned fees
      * @param to account that will recieve fee
      */

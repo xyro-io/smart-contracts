@@ -73,7 +73,6 @@ describe("OneVsOneExactPrice", () => {
     await Game.setTreasury(await Treasury.getAddress());
     await USDT.mint(opponent.address, parse18("1000"));
     await Treasury.setUpkeep(await Upkeep.getAddress());
-    await Treasury.setFee(100);
     await Treasury.grantRole(
       await Treasury.DISTRIBUTOR_ROLE(),
       await Game.getAddress()
@@ -384,7 +383,12 @@ describe("OneVsOneExactPrice", () => {
       );
       let newBalance = await USDT.balanceOf(opponent.address);
       expect(newBalance - oldBalance).to.be.equal(
-        parse18((usdtAmount * 2 - (usdtAmount * 2) / 100).toString())
+        parse18(
+          (
+            usdtAmount * 2 -
+            (usdtAmount * 2 * Number(await Game.fee())) / 10000
+          ).toString()
+        )
       );
     });
 
@@ -416,7 +420,12 @@ describe("OneVsOneExactPrice", () => {
       );
       let newBalance = await USDT.balanceOf(owner.address);
       expect(newBalance - oldBalance).to.be.equal(
-        parse18((usdtAmount * 2 - (usdtAmount * 2) / 100).toString())
+        parse18(
+          (
+            usdtAmount * 2 -
+            (usdtAmount * 2 * Number(await Game.fee())) / 10000
+          ).toString()
+        )
       );
     });
 

@@ -8,7 +8,7 @@ import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 contract Bullseye is AccessControl {
     uint256 constant DENOMINATOR = 100;
     uint256 public exactRange = 100;
-    uint256 public fee = 100;
+    uint256 public fee = 1500;
     uint256 public minDepositAmount = 10000;
     uint256 public maxPlayers = 100;
     uint256[3] public rate = [50, 35, 15];
@@ -511,5 +511,13 @@ contract Bullseye is AccessControl {
         uint256 newMinAmount
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         minDepositAmount = newMinAmount;
+    }
+
+    /**
+     * Change fee
+     * @param newFee new fee in bp
+     */
+    function setFee(uint256 newFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        fee = newFee;
     }
 }

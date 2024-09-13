@@ -18,8 +18,7 @@ contract Treasury is AccessControl {
     address public xyroToken;
     address public upkeep;
     uint256 public precisionRate;
-    uint256 public fee = 100; //100 for 1%
-    uint256 public setupInitiatorFee = 100;
+    uint256 public setupInitiatorFee = 1000;
     uint256 public constant FEE_DENOMINATOR = 10000;
     uint256 public constant PRECISION_AMPLIFIER = 100000;
     bytes32 public constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
@@ -63,20 +62,7 @@ contract Treasury is AccessControl {
     }
 
     /**
-     * Set new fee
-     * @param newFee fee in bp
-     */
-    function setFee(uint256 newFee) public {
-        require(
-            hasRole(DAO_ROLE, msg.sender) ||
-                hasRole(DEFAULT_ADMIN_ROLE, msg.sender),
-            "Invalid role"
-        );
-        fee = newFee;
-    }
-
-    /**
-     * Set new fee for setup games
+     * Set new fee for setup initiators games
      * @param newFee fee in bp
      */
     function setSetupFee(uint256 newFee) public {
@@ -349,11 +335,13 @@ contract Treasury is AccessControl {
      * Distribute reward without fees
      * @param rate reward rate in bp
      * @param to token reciever
+     * @param usedFee fee in bp that was withheld earlier
      * @param initialDeposit initial deposit amount
      */
     function distributeWithoutFee(
         uint256 rate,
         address to,
+        uint256 usedFee,
         uint256 initialDeposit,
         bytes32 gameId
     ) public onlyRole(DISTRIBUTOR_ROLE) {
@@ -362,7 +350,7 @@ contract Treasury is AccessControl {
             initialDeposit += lockedRakeback[gameId][to] * precisionRate;
             lockedRakeback[gameId][to] = 0;
         }
-        uint256 withdrawnFees = (initialDeposit * fee) / FEE_DENOMINATOR;
+        uint256 withdrawnFees = (initialDeposit * usedFee) / FEE_DENOMINATOR;
         uint256 wonAmount = (initialDeposit - withdrawnFees) +
             ((initialDeposit - withdrawnFees) * rate) /
             (FEE_DENOMINATOR * PRECISION_AMPLIFIER);
@@ -379,12 +367,13 @@ contract Treasury is AccessControl {
     function calculateSetupRate(
         uint256 lostTeamTotal,
         uint256 wonTeamTotal,
+        uint256 setupFee,
         address initiator,
         bytes32 gameId
     ) external onlyRole(DISTRIBUTOR_ROLE) returns (uint256, uint256) {
         lostTeamTotal *= precisionRate;
         wonTeamTotal *= precisionRate;
-        uint256 withdrawnFees = (lostTeamTotal * fee) / FEE_DENOMINATOR;
+        uint256 withdrawnFees = (lostTeamTotal * setupFee) / FEE_DENOMINATOR;
         collectedFee += withdrawnFees;
         uint256 lostTeamFee = (lostTeamTotal * setupInitiatorFee) /
             FEE_DENOMINATOR;
@@ -418,6 +407,7 @@ contract Treasury is AccessControl {
         collectedFee += lostTeamFee + wonTeamFee;
         locked[gameId] -= lostTeamFee + wonTeamFee;
         //collect dust
+
         rate =
             ((lostTeamTotal - lostTeamFee) *
                 (FEE_DENOMINATOR * PRECISION_AMPLIFIER)) /

@@ -44,7 +44,7 @@ contract UpDown is AccessControl {
     bytes32 public currentGameId;
     address public treasury;
     uint256 public maxPlayers = 100;
-    uint256 public fee = 100;
+    uint256 public fee = 1500;
     uint256 public minDepositAmount = 5000;
 
     constructor() {
@@ -331,6 +331,7 @@ contract UpDown is AccessControl {
                 ITreasury(treasury).distributeWithoutFee(
                     finalRate,
                     UpPlayers[i],
+                    fee,
                     depositAmounts[UpPlayers[i]],
                     currentGameId
                 );
@@ -347,6 +348,7 @@ contract UpDown is AccessControl {
                 ITreasury(treasury).distributeWithoutFee(
                     finalRate,
                     DownPlayers[i],
+                    fee,
                     depositAmounts[DownPlayers[i]],
                     currentGameId
                 );
@@ -465,5 +467,13 @@ contract UpDown is AccessControl {
         uint256 newMinAmount
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         minDepositAmount = newMinAmount;
+    }
+
+    /**
+     * Change fee
+     * @param newFee new fee in bp
+     */
+    function setFee(uint256 newFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        fee = newFee;
     }
 }

@@ -77,7 +77,6 @@ describe("Setup Game", () => {
     );
     Game = await new Setup__factory(owner).deploy(await Treasury.getAddress());
     Upkeep = await new MockVerifier__factory(owner).deploy();
-    await Treasury.setFee(100);
     await Treasury.setUpkeep(await Upkeep.getAddress());
     await USDT.mint(bob.address, parse18("1000"));
     await USDT.mint(alice.address, parse18("1000"));

@@ -31,6 +31,7 @@ const requireStartingPrice = "Starting price must be set";
 const requireNewPlayer = "Already participating";
 const requireSufficentDepositAmount = "Insufficent deposit amount";
 const requireWithdrawRakeback = "Can't withdraw from unfinished game";
+const requireDepositAmountAboveMin = "Wrong deposit amount";
 
 describe("UpDown", () => {
   let owner: HardhatEthersSigner;
@@ -161,6 +162,13 @@ describe("UpDown", () => {
       );
       expect(oldAliceBalance - newAliceBalance).to.be.equal(
         parse18((usdtAmount / 10000).toString())
+      );
+    });
+
+    it("should fail - Wrong deposit amount", async function () {
+      const wrongDepositAmount = 4000;
+      await expect(Game.play(true, wrongDepositAmount)).to.be.revertedWith(
+        requireDepositAmountAboveMin
       );
     });
 

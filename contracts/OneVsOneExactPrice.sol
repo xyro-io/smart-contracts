@@ -61,6 +61,7 @@ contract OneVsOneExactPrice is AccessControl {
     address public treasury;
     uint256 public fee = 100;
     uint256 public refundFee = 1000;
+    uint256 public minDepositAmount = 1;
     uint256 public minDuration = 30 minutes;
     uint256 public maxDuration = 4 weeks;
 
@@ -82,6 +83,7 @@ contract OneVsOneExactPrice is AccessControl {
         uint32 initiatorPrice,
         uint16 depositAmount
     ) public {
+        require(depositAmount >= minDepositAmount, "Wrong deposit amount");
         require(opponent != msg.sender, "Wrong opponent");
         require(
             endTime - block.timestamp >= minDuration,
@@ -138,6 +140,7 @@ contract OneVsOneExactPrice is AccessControl {
         uint32 initiatorPrice,
         uint16 depositAmount
     ) public {
+        require(depositAmount >= minDepositAmount, "Wrong deposit amount");
         require(opponent != msg.sender, "Wrong opponent");
         require(
             endTime - block.timestamp >= minDuration,
@@ -147,7 +150,6 @@ contract OneVsOneExactPrice is AccessControl {
             endTime - block.timestamp <= maxDuration,
             "Max game duration must be lower"
         );
-        require(depositAmount >= 10, "Wrong deposit amount");
 
         bytes32 gameId = keccak256(
             abi.encodePacked(endTime, block.timestamp, msg.sender, opponent)
@@ -196,6 +198,7 @@ contract OneVsOneExactPrice is AccessControl {
         uint16 depositAmount,
         ITreasury.PermitData calldata permitData
     ) public {
+        require(depositAmount >= minDepositAmount, "Wrong deposit amount");
         require(opponent != msg.sender, "Wrong opponent");
         require(
             endTime - block.timestamp >= minDuration,
@@ -205,7 +208,6 @@ contract OneVsOneExactPrice is AccessControl {
             endTime - block.timestamp <= maxDuration,
             "Max game duration must be lower"
         );
-        require(depositAmount >= 10, "Wrong deposit amount");
 
         bytes32 gameId = keccak256(
             abi.encodePacked(endTime, block.timestamp, msg.sender, opponent)
@@ -548,5 +550,14 @@ contract OneVsOneExactPrice is AccessControl {
         uint256 newRefundFee
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         refundFee = newRefundFee;
+    }
+
+     * Change allowed minimal deposit amount
+     * @param newMinAmount new minimal deposit amount
+     */
+    function changeMinDepositAmount(
+        uint256 newMinAmount
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        minDepositAmount = newMinAmount;
     }
 }

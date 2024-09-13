@@ -37,7 +37,6 @@ contract Treasury is AccessControl {
         1250000
     ];
     uint256 public collectedFee;
-    uint256 public minDepositAmount = 1;
     mapping(address => uint256) public deposits;
     mapping(bytes32 => uint256) public locked;
     mapping(bytes32 => bool) public gameStatus;
@@ -94,7 +93,6 @@ contract Treasury is AccessControl {
      * @param amount token amount
      */
     function deposit(uint256 amount) public {
-        require(amount >= minDepositAmount, "Wrong deposit amount");
         uint256 oldBalance = IERC20(approvedToken).balanceOf(address(this));
         SafeERC20.safeTransferFrom(
             IERC20(approvedToken),
@@ -121,7 +119,6 @@ contract Treasury is AccessControl {
         bytes32 gameId,
         bool isRakeback
     ) public onlyRole(DISTRIBUTOR_ROLE) returns (uint256 rakeback) {
-        require(amount >= minDepositAmount, "Wrong deposit amount");
         uint256 oldBalance = IERC20(approvedToken).balanceOf(address(this));
         SafeERC20.safeTransferFrom(
             IERC20(approvedToken),
@@ -152,7 +149,6 @@ contract Treasury is AccessControl {
         bytes32 r,
         bytes32 s
     ) public {
-        require(amount >= minDepositAmount, "Wrong deposit amount");
         uint256 oldBalance = IERC20(approvedToken).balanceOf(address(this));
         IERC20Permit(approvedToken).permit(
             msg.sender,
@@ -486,11 +482,5 @@ contract Treasury is AccessControl {
         require(newUpkeep != address(0), "Zero address");
         upkeep = newUpkeep;
         emit UpkeepChanged(newUpkeep);
-    }
-
-    function changeMinDepositAmount(
-        uint256 newMinAmount
-    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        minDepositAmount = newMinAmount;
     }
 }

@@ -22,7 +22,7 @@ const monthUnix = 2629743;
 const fortyFiveMinutes = 2700;
 const requireMaxBetDuration = "Max game duration must be lower";
 const requireMinBetDuration = "Min game duration must be higher";
-const requireWrongusdtAmount = "Wrong deposit amount";
+const requireDepositAmountAboveMin = "Wrong deposit amount";
 const requireWrongStatus = "Wrong status!";
 const requireGameClosed = "Game is closed for new players";
 const requireSameAssetPrice = "Same asset prices";
@@ -153,9 +153,9 @@ describe("OneVsOneExactPrice", () => {
           opponent.address,
           (await time.latest()) + fortyFiveMinutes,
           initiatorPrice,
-          1
+          0
         )
-      ).to.be.revertedWith(requireWrongusdtAmount);
+      ).to.be.revertedWith(requireDepositAmountAboveMin);
     });
 
     it("should fail - Wrong opponent", async function () {
@@ -612,7 +612,7 @@ describe("OneVsOneExactPrice", () => {
           opponent.address,
           (await time.latest()) + fortyFiveMinutes,
           initiatorPrice,
-          1,
+          0,
           {
             deadline: deadline,
             v: ownerPermit.v,
@@ -620,7 +620,7 @@ describe("OneVsOneExactPrice", () => {
             s: ownerPermit.s,
           }
         )
-      ).to.be.revertedWith(requireWrongusdtAmount);
+      ).to.be.revertedWith(requireDepositAmountAboveMin);
     });
 
     it("should accept game with permit", async function () {

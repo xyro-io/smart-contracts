@@ -112,6 +112,8 @@ contract Treasury is AccessControl {
      * Deposit token in treasury and lock them
      * @param amount token amount
      * @param from token sender
+     * @param gameId game id
+     * @param isRakeback set to true if game supports rakeback
      */
     function depositAndLock(
         uint256 amount,
@@ -177,6 +179,8 @@ contract Treasury is AccessControl {
      * Deposit token in treasury with permit
      * @param amount token amount
      * @param from token sender
+     * @param gameId game id
+     * @param isRakeback set to true if game supports rakeback
      */
     function depositAndLockWithPermit(
         uint256 amount,
@@ -218,6 +222,7 @@ contract Treasury is AccessControl {
 
     /**
      * Withdraw all tokens from user deposit
+     * @param amount amount of tokens to withdraw
      */
     function withdraw(uint256 amount) public {
         require(deposits[msg.sender] >= amount * precisionRate, "Wrong amount");
@@ -231,6 +236,10 @@ contract Treasury is AccessControl {
 
     /**
      * Locks deposited tokens (only game contracts can call)
+     * @param amount token amount
+     * @param from token sender
+     * @param gameId game id
+     * @param isRakeback set to true if game supports rakeback
      */
     function lock(
         uint256 amount,
@@ -255,6 +264,7 @@ contract Treasury is AccessControl {
      * Refunds tokens
      * @param amount token amount
      * @param to reciever address
+     * @param gameId game id
      */
     function refund(
         uint256 amount,
@@ -277,6 +287,8 @@ contract Treasury is AccessControl {
      * Refunds tokens and withdraws fees
      * @param amount token amount
      * @param to reciever address
+     * @param refundFee fee in bp to withheld
+     * @param gameId game id
      */
     function refundWithFees(
         uint256 amount,
@@ -302,6 +314,7 @@ contract Treasury is AccessControl {
     /**
      * Withdraws earned fees
      * @param to account that will recieve fee
+     * @param amount amount to withdraw
      */
 
     function withdrawFees(
@@ -323,6 +336,7 @@ contract Treasury is AccessControl {
      * @param to token reciever
      * @param initialDeposit initial deposit amount
      * @param gameFee game mode fees in bp
+     * @param gameId game id
      */
     function distribute(
         uint256 amount,
@@ -350,6 +364,7 @@ contract Treasury is AccessControl {
      * @param rate reward rate in bp
      * @param to token reciever
      * @param initialDeposit initial deposit amount
+     * @param gameId game id
      */
     function distributeWithoutFee(
         uint256 rate,
@@ -375,6 +390,7 @@ contract Treasury is AccessControl {
      * @param lostTeamTotal summ of lost team deposits
      * @param wonTeamTotal summ of won team deposits
      * @param initiator game initiator address
+     * @param gameId setup game id
      */
     function calculateSetupRate(
         uint256 lostTeamTotal,
@@ -404,6 +420,7 @@ contract Treasury is AccessControl {
      * @param lostTeamTotal summ of lost team deposits
      * @param wonTeamTotal summ of won team deposits
      * @param updownFee updown game fee
+     * @param gameId updown game id
      */
     function calculateUpDownRate(
         uint256 lostTeamTotal,
@@ -454,6 +471,10 @@ contract Treasury is AccessControl {
         return (initialDeposit * rate * 100) / FEE_DENOMINATOR;
     }
 
+    /**
+     * Changes game status wich allows players to withdraw rakeback
+     * @param gameIds array of game ids with earned rakeback
+     */
     function withdrawRakeback(bytes32[] calldata gameIds) public {
         uint256 rakeback;
         for (uint i = 0; i < gameIds.length; i++) {
@@ -468,6 +489,9 @@ contract Treasury is AccessControl {
         emit UsedRakeback(gameIds, rakeback * precisionRate);
     }
 
+    /**
+     * Changes game status wich allows players to withdraw rakeback
+     */
     function setGameFinished(
         bytes32 gameId
     ) external onlyRole(DISTRIBUTOR_ROLE) {

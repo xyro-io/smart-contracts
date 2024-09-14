@@ -59,7 +59,7 @@ contract OneVsOneExactPrice is AccessControl {
 
     mapping(bytes32 => GameInfoPacked) public games;
     address public treasury;
-    uint256 public fee = 100;
+    uint256 public fee = 500;
     uint256 public refundFee = 1000;
     uint256 public minDepositAmount = 1;
     uint256 public minDuration = 30 minutes;
@@ -552,6 +552,7 @@ contract OneVsOneExactPrice is AccessControl {
         refundFee = newRefundFee;
     }
 
+    /**
      * Change allowed minimal deposit amount
      * @param newMinAmount new minimal deposit amount
      */

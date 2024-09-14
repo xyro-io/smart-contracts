@@ -60,7 +60,6 @@ describe("Bullseye", () => {
     Upkeep = await new MockVerifier__factory(owner).deploy();
     await Game.setTreasury(await Treasury.getAddress());
     await Treasury.setUpkeep(await Upkeep.getAddress());
-    await Treasury.setFee(100);
     await USDT.mint(await opponent.getAddress(), parse18("10000000"));
     await USDT.mint(await alice.getAddress(), parse18("10000000"));
     await USDT.mint(await bob.getAddress(), parse18("10000000"));
@@ -246,7 +245,7 @@ describe("Bullseye", () => {
       );
       let newAliceBalance = await USDT.balanceOf(alice.getAddress());
       let newOpponentBalance = await USDT.balanceOf(opponent.getAddress());
-      expect(newAliceBalance - oldAliceBalance).to.be.above(parse18("48"));
+      expect(newAliceBalance - oldAliceBalance).to.be.above(parse18("42"));
       expect(newOpponentBalance - oldOpponentBalance).to.be.above(
         parse18("148")
       );

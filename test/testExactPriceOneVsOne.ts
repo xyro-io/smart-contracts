@@ -22,7 +22,7 @@ const monthUnix = 2629743;
 const fortyFiveMinutes = 2700;
 const requireMaxBetDuration = "Max game duration must be lower";
 const requireMinBetDuration = "Min game duration must be higher";
-const requireWrongusdtAmount = "Wrong deposit amount";
+const requireDepositAmountAboveMin = "Wrong deposit amount";
 const requireWrongStatus = "Wrong status!";
 const requireGameClosed = "Game is closed for new players";
 const requireSameAssetPrice = "Same asset prices";
@@ -73,7 +73,6 @@ describe("OneVsOneExactPrice", () => {
     await Game.setTreasury(await Treasury.getAddress());
     await USDT.mint(opponent.address, parse18("1000"));
     await Treasury.setUpkeep(await Upkeep.getAddress());
-    await Treasury.setFee(100);
     await Treasury.grantRole(
       await Treasury.DISTRIBUTOR_ROLE(),
       await Game.getAddress()
@@ -153,9 +152,9 @@ describe("OneVsOneExactPrice", () => {
           opponent.address,
           (await time.latest()) + fortyFiveMinutes,
           initiatorPrice,
-          1
+          0
         )
-      ).to.be.revertedWith(requireWrongusdtAmount);
+      ).to.be.revertedWith(requireDepositAmountAboveMin);
     });
 
     it("should fail - Wrong opponent", async function () {
@@ -280,7 +279,7 @@ describe("OneVsOneExactPrice", () => {
         Status.Cancelled
       );
       await Treasury.connect(owner).withdraw(
-        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
+        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 14))
       );
     });
 
@@ -301,6 +300,42 @@ describe("OneVsOneExactPrice", () => {
       expect(game.gameStatus).to.be.equal(Status.Started);
       await expect(Game.closeGame(currentGameId)).to.be.revertedWith(
         requireWrongStatus
+      );
+    });
+
+    it("should close old game and get fees", async function () {
+      const tx = await Game.createGame(
+        feedNumber,
+        opponent.address,
+        (await time.latest()) + fortyFiveMinutes,
+        initiatorPrice,
+        usdtAmount
+      );
+      const DENOMINATOR = 10000;
+      receipt = await tx.wait();
+      currentGameId = receipt!.logs[1]!.args[0];
+      let game = await Game.decodeData(currentGameId);
+      expect(game.gameStatus).to.be.equal(Status.Created);
+      await time.increase(monthUnix);
+      const oldCreatorBalance = await Treasury.deposits(owner.address);
+      const oldCollectedFees = await Treasury.collectedFee();
+      await Game.liquidateGame(currentGameId);
+      const newCollectedFees = await Treasury.collectedFee();
+      const newCreatorBalance = await Treasury.deposits(owner.address);
+      expect(newCollectedFees - oldCollectedFees).to.be.equal(
+        BigInt(game.depositAmount) * (await Game.refundFee())
+      );
+      expect(newCreatorBalance - oldCreatorBalance).to.be.equal(
+        parse18(
+          (
+            (BigInt(game.depositAmount) *
+              (BigInt(DENOMINATOR) - (await Game.refundFee()))) /
+            BigInt(DENOMINATOR)
+          ).toString()
+        )
+      );
+      await Treasury.connect(owner).withdraw(
+        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 14))
       );
     });
 
@@ -344,11 +379,16 @@ describe("OneVsOneExactPrice", () => {
       const game = await Game.decodeData(currentGameId);
       expect(game.gameStatus).to.be.equal(Status.Finished);
       await Treasury.connect(opponent).withdraw(
-        (await Treasury.deposits(opponent.address)) / BigInt(Math.pow(10, 18))
+        (await Treasury.deposits(opponent.address)) / BigInt(Math.pow(10, 14))
       );
       let newBalance = await USDT.balanceOf(opponent.address);
       expect(newBalance - oldBalance).to.be.equal(
-        parse18((usdtAmount * 2 - (usdtAmount * 2) / 100).toString())
+        parse18(
+          (
+            usdtAmount * 2 -
+            (usdtAmount * 2 * Number(await Game.fee())) / 10000
+          ).toString()
+        )
       );
     });
 
@@ -376,11 +416,16 @@ describe("OneVsOneExactPrice", () => {
       const game = await Game.decodeData(currentGameId);
       expect(game.gameStatus).to.be.equal(Status.Finished);
       await Treasury.connect(owner).withdraw(
-        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
+        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 14))
       );
       let newBalance = await USDT.balanceOf(owner.address);
       expect(newBalance - oldBalance).to.be.equal(
-        parse18((usdtAmount * 2 - (usdtAmount * 2) / 100).toString())
+        parse18(
+          (
+            usdtAmount * 2 -
+            (usdtAmount * 2 * Number(await Game.fee())) / 10000
+          ).toString()
+        )
       );
     });
 
@@ -409,7 +454,7 @@ describe("OneVsOneExactPrice", () => {
         )
       );
       await Treasury.connect(opponent).withdraw(
-        (await Treasury.deposits(opponent.address)) / BigInt(Math.pow(10, 18))
+        (await Treasury.deposits(opponent.address)) / BigInt(Math.pow(10, 14))
       );
       const game = await Game.decodeData(currentGameId);
       expect(game.gameStatus).to.be.equal(Status.Finished);
@@ -576,7 +621,7 @@ describe("OneVsOneExactPrice", () => {
           opponent.address,
           (await time.latest()) + fortyFiveMinutes,
           initiatorPrice,
-          1,
+          0,
           {
             deadline: deadline,
             v: ownerPermit.v,
@@ -584,7 +629,7 @@ describe("OneVsOneExactPrice", () => {
             s: ownerPermit.s,
           }
         )
-      ).to.be.revertedWith(requireWrongusdtAmount);
+      ).to.be.revertedWith(requireDepositAmountAboveMin);
     });
 
     it("should accept game with permit", async function () {

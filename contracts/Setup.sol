@@ -70,6 +70,8 @@ contract Setup is AccessControl {
         uint256 packedData;
         uint256 packedData2;
         uint256 finalRate;
+        uint256 totalRakebackTP;
+        uint256 totalRakebackSL;
     }
 
     mapping(bytes32 => GameInfoPacked) public games;
@@ -77,6 +79,8 @@ contract Setup is AccessControl {
     mapping(bytes32 => mapping(address => uint256)) public depositAmounts;
     uint256 public minDuration = 30 minutes;
     uint256 public maxDuration = 24 weeks;
+    uint256 public fee = 1000;
+    uint256 public minDepositAmount = 10000;
     address public treasury;
 
     constructor(address newTreasury) {
@@ -176,24 +180,41 @@ contract Setup is AccessControl {
      * @param depositAmount game id
      */
     function play(bool isLong, uint256 depositAmount, bytes32 gameId) public {
+        require(depositAmount >= minDepositAmount, "Wrong deposit amount");
         GameInfo memory data = decodeData(gameId);
         require(data.gameStatus == Status.Created, "Wrong status!");
         require(
             data.startTime + (data.endTime - data.startTime) / 3 >
-                block.timestamp &&
-                (data.totalDepositsSL + depositAmount <= type(uint32).max ||
-                    data.totalDepositsTP + depositAmount <= type(uint32).max),
+                block.timestamp,
             "Game is closed for new players"
         );
         require(
             depositAmounts[gameId][msg.sender] == 0,
             "You are already in the game"
         );
-        ITreasury(treasury).depositAndLock(depositAmount, msg.sender);
+        if (isLong) {
+            require(
+                data.totalDepositsTP + depositAmount <= type(uint32).max,
+                "Game is closed for new TP players"
+            );
+        } else {
+            require(
+                data.totalDepositsSL + depositAmount <= type(uint32).max,
+                "Game is closed for new SL players"
+            );
+        }
+        uint256 rakeback = ITreasury(treasury).depositAndLock(
+            depositAmount,
+            msg.sender,
+            gameId,
+            true
+        );
+        depositAmount -= rakeback;
         depositAmounts[gameId][msg.sender] = depositAmount;
         if (isLong) {
             withdrawStatus[gameId][msg.sender] = UserStatus.TP;
             //rewrites totalDepositsTP
+            games[gameId].totalRakebackTP += rakeback;
             games[gameId].packedData2 =
                 ((games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 113)) &
                     ~(uint256(0xFFFFFFFF) << 177)) |
@@ -202,6 +223,7 @@ contract Setup is AccessControl {
         } else {
             withdrawStatus[gameId][msg.sender] = UserStatus.SL;
             //rewrites totalDepositsSL
+            games[gameId].totalRakebackSL += rakeback;
             games[gameId].packedData2 =
                 ((games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 81)) &
                     ~(uint256(0xFFFFFFFF) << 209)) |
@@ -222,24 +244,41 @@ contract Setup is AccessControl {
         uint256 depositAmount,
         bytes32 gameId
     ) public {
+        require(depositAmount >= minDepositAmount, "Wrong deposit amount");
         GameInfo memory data = decodeData(gameId);
         require(data.gameStatus == Status.Created, "Wrong status!");
         require(
             data.startTime + (data.endTime - data.startTime) / 3 >
-                block.timestamp &&
-                (data.totalDepositsSL + depositAmount <= type(uint32).max ||
-                    data.totalDepositsTP + depositAmount <= type(uint32).max),
+                block.timestamp,
             "Game is closed for new players"
         );
         require(
             depositAmounts[gameId][msg.sender] == 0,
             "You are already in the game"
         );
-        ITreasury(treasury).lock(depositAmount, msg.sender);
+        if (isLong) {
+            require(
+                data.totalDepositsTP + depositAmount <= type(uint32).max,
+                "Game is closed for new TP players"
+            );
+        } else {
+            require(
+                data.totalDepositsSL + depositAmount <= type(uint32).max,
+                "Game is closed for new SL players"
+            );
+        }
+        uint256 rakeback = ITreasury(treasury).lock(
+            depositAmount,
+            msg.sender,
+            gameId,
+            true
+        );
+        depositAmount -= rakeback;
         depositAmounts[gameId][msg.sender] = depositAmount;
         if (isLong) {
             withdrawStatus[gameId][msg.sender] = UserStatus.TP;
             //rewrites totalDepositsTP
+            games[gameId].totalRakebackTP += rakeback;
             games[gameId].packedData2 =
                 ((games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 113)) &
                     ~(uint256(0xFFFFFFFF) << 177)) |
@@ -248,6 +287,7 @@ contract Setup is AccessControl {
         } else {
             withdrawStatus[gameId][msg.sender] = UserStatus.SL;
             //rewrites totalDepositsSL
+            games[gameId].totalRakebackSL += rakeback;
             games[gameId].packedData2 =
                 ((games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 81)) &
                     ~(uint256(0xFFFFFFFF) << 209)) |
@@ -270,6 +310,7 @@ contract Setup is AccessControl {
         bytes32 gameId,
         ITreasury.PermitData calldata permitData
     ) public {
+        require(depositAmount >= minDepositAmount, "Wrong deposit amount");
         GameInfo memory data = decodeData(gameId);
         require(data.gameStatus == Status.Created, "Wrong status!");
         require(
@@ -292,18 +333,22 @@ contract Setup is AccessControl {
             depositAmounts[gameId][msg.sender] == 0,
             "You are already in the game"
         );
-        ITreasury(treasury).depositAndLockWithPermit(
+        uint256 rakeback = ITreasury(treasury).depositAndLockWithPermit(
             depositAmount,
             msg.sender,
+            gameId,
+            true,
             permitData.deadline,
             permitData.v,
             permitData.r,
             permitData.s
         );
         depositAmounts[gameId][msg.sender] = depositAmount;
+        depositAmount -= rakeback;
         if (isLong) {
             withdrawStatus[gameId][msg.sender] = UserStatus.TP;
             //rewrites totalDepositsTP
+            games[gameId].totalRakebackTP += rakeback;
             games[gameId].packedData2 =
                 ((games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 113)) &
                     ~(uint256(0xFFFFFFFF) << 177)) |
@@ -312,6 +357,7 @@ contract Setup is AccessControl {
         } else {
             withdrawStatus[gameId][msg.sender] = UserStatus.SL;
             //rewrites totalDepositsSL
+            games[gameId].totalRakebackSL += rakeback;
             games[gameId].packedData2 =
                 ((games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 81)) &
                     ~(uint256(0xFFFFFFFF) << 209)) |
@@ -353,7 +399,8 @@ contract Setup is AccessControl {
         withdrawStatus[gameId][msg.sender] = UserStatus.Claimed;
         ITreasury(treasury).refund(
             depositAmounts[gameId][msg.sender],
-            msg.sender
+            msg.sender,
+            gameId
         );
     }
 
@@ -397,8 +444,10 @@ contract Setup is AccessControl {
                 (finalRate, initiatorFee) = ITreasury(treasury)
                     .calculateSetupRate(
                         data.totalDepositsSL,
-                        data.totalDepositsTP,
-                        data.initiator
+                        data.totalDepositsTP + games[gameId].totalRakebackTP,
+                        fee,
+                        data.initiator,
+                        gameId
                     );
                 emit SetupFinalized(
                     gameId,
@@ -412,8 +461,10 @@ contract Setup is AccessControl {
                 (finalRate, initiatorFee) = ITreasury(treasury)
                     .calculateSetupRate(
                         data.totalDepositsTP,
-                        data.totalDepositsSL,
-                        data.initiator
+                        data.totalDepositsSL + games[gameId].totalRakebackSL,
+                        fee,
+                        data.initiator,
+                        gameId
                     );
                 emit SetupFinalized(
                     gameId,
@@ -434,8 +485,10 @@ contract Setup is AccessControl {
                 (finalRate, initiatorFee) = ITreasury(treasury)
                     .calculateSetupRate(
                         data.totalDepositsTP,
-                        data.totalDepositsSL,
-                        data.initiator
+                        data.totalDepositsSL + games[gameId].totalRakebackSL,
+                        fee,
+                        data.initiator,
+                        gameId
                     );
                 emit SetupFinalized(
                     gameId,
@@ -448,8 +501,10 @@ contract Setup is AccessControl {
                 (finalRate, initiatorFee) = ITreasury(treasury)
                     .calculateSetupRate(
                         data.totalDepositsSL,
-                        data.totalDepositsTP,
-                        data.initiator
+                        data.totalDepositsTP + games[gameId].totalRakebackTP,
+                        fee,
+                        data.initiator,
+                        gameId
                     );
                 emit SetupFinalized(
                     gameId,
@@ -460,7 +515,7 @@ contract Setup is AccessControl {
                 );
             }
         }
-
+        ITreasury(treasury).setGameFinished(gameId);
         uint256 packedData2 = games[gameId].packedData2;
         games[gameId].finalRate = finalRate;
         //rewrites endTime
@@ -493,7 +548,9 @@ contract Setup is AccessControl {
                 ITreasury(treasury).distributeWithoutFee(
                     games[gameId].finalRate,
                     msg.sender,
-                    depositAmounts[gameId][msg.sender]
+                    fee,
+                    depositAmounts[gameId][msg.sender],
+                    gameId
                 );
             } else if (data.finalPrice <= data.stopLossPrice) {
                 // sl team wins
@@ -505,7 +562,9 @@ contract Setup is AccessControl {
                 ITreasury(treasury).distributeWithoutFee(
                     games[gameId].finalRate,
                     msg.sender,
-                    depositAmounts[gameId][msg.sender]
+                    fee,
+                    depositAmounts[gameId][msg.sender],
+                    gameId
                 );
             }
         } else {
@@ -519,7 +578,9 @@ contract Setup is AccessControl {
                 ITreasury(treasury).distributeWithoutFee(
                     games[gameId].finalRate,
                     msg.sender,
-                    depositAmounts[gameId][msg.sender]
+                    fee,
+                    depositAmounts[gameId][msg.sender],
+                    gameId
                 );
             } else if (data.finalPrice <= data.takeProfitPrice) {
                 require(
@@ -530,7 +591,9 @@ contract Setup is AccessControl {
                 ITreasury(treasury).distributeWithoutFee(
                     games[gameId].finalRate,
                     msg.sender,
-                    depositAmounts[gameId][msg.sender]
+                    fee,
+                    depositAmounts[gameId][msg.sender],
+                    gameId
                 );
             }
         }
@@ -585,5 +648,23 @@ contract Setup is AccessControl {
         require(newTreasury != address(0), "Zero address");
         treasury = newTreasury;
         emit NewTreasury(newTreasury);
+    }
+
+    /**
+     * Change allowed minimal deposit amount
+     * @param newMinAmount new minimal deposit amount
+     */
+    function changeMinDepositAmount(
+        uint256 newMinAmount
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        minDepositAmount = newMinAmount;
+    }
+
+    /**
+     * Change fee
+     * @param newFee new fee in bp
+     */
+    function setFee(uint256 newFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        fee = newFee;
     }
 }

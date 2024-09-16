@@ -29,10 +29,12 @@ contract Bullseye is AccessControl {
         address player,
         uint32 assetPrice,
         uint256 depositAmount,
-        bytes32 gameId
+        bytes32 gameId,
+        uint256 index
     );
     event BullseyeFinalized(
         address[3] players,
+        uint256[3] topIndexes,
         int192 finalPrice,
         bool isExact,
         bytes32 gameId
@@ -126,7 +128,8 @@ contract Bullseye is AccessControl {
             msg.sender,
             assetPrice,
             game.depositAmount,
-            currentGameId
+            currentGameId,
+            packedGuessData.length
         );
     }
 
@@ -160,7 +163,8 @@ contract Bullseye is AccessControl {
             msg.sender,
             assetPrice,
             game.depositAmount,
-            currentGameId
+            currentGameId,
+            packedGuessData.length
         );
     }
 
@@ -201,7 +205,8 @@ contract Bullseye is AccessControl {
             msg.sender,
             assetPrice,
             game.depositAmount,
-            currentGameId
+            currentGameId,
+            packedGuessData.length
         );
     }
 
@@ -284,6 +289,7 @@ contract Bullseye is AccessControl {
                         playerTwoGuessData.player,
                         address(0)
                     ],
+                    [uint256(0), uint256(1), uint256(0)],
                     finalPrice,
                     playerOneDiff <= exactRange,
                     currentGameId
@@ -320,6 +326,7 @@ contract Bullseye is AccessControl {
                         playerOneGuessData.player,
                         address(0)
                     ],
+                    [uint256(1), uint256(0), uint256(0)],
                     finalPrice,
                     playerTwoDiff <= exactRange,
                     currentGameId
@@ -328,6 +335,7 @@ contract Bullseye is AccessControl {
         } else {
             uint256 totalDeposited = game.depositAmount *
                 packedGuessData.length;
+            uint256[3] memory topIndexes;
             uint256[3] memory topsRakeback;
             address[3] memory topPlayers;
             uint256[3] memory topTimestamps;
@@ -354,6 +362,7 @@ contract Bullseye is AccessControl {
                         closestDiff[i] = currentDiff;
                         topPlayers[i] = playerGuessData.player;
                         topTimestamps[i] = playerGuessData.timestamp;
+                        topIndexes[i] = j;
                         if (playerGuessData.rakeback != 0) {
                             topsRakeback[i] = playerGuessData.rakeback;
                         }
@@ -368,6 +377,7 @@ contract Bullseye is AccessControl {
                             topPlayers[k] = topPlayers[k - 1];
                         }
                         topPlayers[i] = playerGuessData.player;
+                        topIndexes[i] = j;
                         if (playerGuessData.rakeback != 0) {
                             topsRakeback[i] = playerGuessData.rakeback;
                         }
@@ -412,6 +422,7 @@ contract Bullseye is AccessControl {
             }
             emit BullseyeFinalized(
                 topPlayers,
+                topIndexes,
                 finalPrice,
                 closestDiff[0] <= exactRange,
                 currentGameId

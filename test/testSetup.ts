@@ -62,7 +62,7 @@ describe("Setup Game", () => {
     USDT = await new MockToken__factory(owner).deploy(
       parse18((1e13).toString())
     );
-    XyroToken = await new XyroToken__factory(owner).deploy(parse18("1"));
+    XyroToken = await new XyroToken__factory(owner).deploy(parse18("12600001"));
     Treasury = await new Treasury__factory(owner).deploy(
       await USDT.getAddress(),
       await XyroToken.getAddress()
@@ -75,6 +75,8 @@ describe("Setup Game", () => {
     await USDT.mint(alice.address, parse18("1000"));
     await USDT.mint(harry.address, parse18("1000"));
     await Game.grantRole(await Game.GAME_MASTER_ROLE(), owner.address);
+    await XyroToken.transfer(bob.address, parse18("1260000"));
+
     await Treasury.grantRole(
       await Treasury.DEFAULT_ADMIN_ROLE(),
       await Game.getAddress()

@@ -53,9 +53,9 @@ describe("UpDown", () => {
     USDT = await new MockToken__factory(owner).deploy(
       parse18((1e13).toString())
     );
-    XyroToken = await new XyroToken__factory(owner).deploy(parse18("5000"));
-    await XyroToken.mint(bob.address, parse18("1260000"));
-    await XyroToken.mint(opponent.address, parse18("1260000"));
+    XyroToken = await new XyroToken__factory(owner).deploy(parse18("2525000"));
+    await XyroToken.transfer(bob.address, parse18("1260000"));
+    await XyroToken.transfer(opponent.address, parse18("1260000"));
     Treasury = await new Treasury__factory(owner).deploy(
       await USDT.getAddress(),
       await XyroToken.getAddress()

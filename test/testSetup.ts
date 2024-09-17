@@ -70,7 +70,7 @@ describe("Setup Game", () => {
     USDT = await new MockToken__factory(owner).deploy(
       parse18((1e13).toString())
     );
-    XyroToken = await new XyroToken__factory(owner).deploy(parse18("1"));
+    XyroToken = await new XyroToken__factory(owner).deploy(parse18("12600001"));
     Treasury = await new Treasury__factory(owner).deploy(
       await USDT.getAddress(),
       await XyroToken.getAddress()
@@ -81,7 +81,7 @@ describe("Setup Game", () => {
     await USDT.mint(bob.address, parse18("1000"));
     await USDT.mint(alice.address, parse18("1000"));
     await USDT.mint(harry.address, parse18("1000"));
-    await XyroToken.mint(bob.address, parse18("1260000"));
+    await XyroToken.transfer(bob.address, parse18("1260000"));
 
     await Treasury.grantRole(
       await Treasury.DEFAULT_ADMIN_ROLE(),
@@ -409,7 +409,7 @@ describe("Setup Game", () => {
       expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(
         parse18((usdtAmount / 10000).toString())
       );
-      expect(game.totalDepositsTP).to.equal(usdtAmount * 3);
+      expect(game.totalDepositsTP).to.equal(usdtAmount * 2 + usdtAmount * 0.9);
     });
 
     it("should fail - can't enter twice", async function () {

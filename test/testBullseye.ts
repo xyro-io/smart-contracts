@@ -51,7 +51,7 @@ describe("Bullseye", () => {
     USDT = await new MockToken__factory(owner).deploy(
       parse18((1e13).toString())
     );
-    XyroToken = await new XyroToken__factory(owner).deploy(parse18("5000"));
+    XyroToken = await new XyroToken__factory(owner).deploy(parse18("1255000"));
     Treasury = await new Treasury__factory(owner).deploy(
       await USDT.getAddress(),
       await XyroToken.getAddress()
@@ -315,7 +315,7 @@ describe("Bullseye", () => {
     let gameId: any;
     it("should earn rakeback", async function () {
       await Game.closeGame();
-      await XyroToken.mint(alice.address, parse18("1250000"));
+      await XyroToken.transfer(alice.address, parse18("1250000"));
       const endTime = (await time.latest()) + fortyFiveMinutes;
       const stopPredictAt = (await time.latest()) + fifteenMinutes;
       await Game.startGame(endTime, stopPredictAt, usdtAmount, feedNumber);

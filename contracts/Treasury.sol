@@ -16,8 +16,7 @@ contract Treasury is AccessControl {
     address public approvedToken;
     address public xyroToken;
     address public upkeep;
-    uint256 public fee = 100; //100 for 1%
-    uint256 public setupInitiatorFee = 100;
+    uint256 public setupInitiatorFee = 1000;
     uint256 public constant FEE_DENOMINATOR = 10000;
     uint256 public constant PRECISION_AMPLIFIER = 100000;
     bytes32 public constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
@@ -45,19 +44,6 @@ contract Treasury is AccessControl {
     function setToken(address token) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(token != address(0), "Zero address");
         approvedToken = token;
-    }
-
-    /**
-     * Set new fee
-     * @param newFee fee in bp
-     */
-    function setFee(uint256 newFee) public {
-        require(
-            hasRole(DAO_ROLE, msg.sender) ||
-                hasRole(DEFAULT_ADMIN_ROLE, msg.sender),
-            "Invalid role"
-        );
-        fee = newFee;
     }
 
     /**
@@ -259,6 +245,29 @@ contract Treasury is AccessControl {
     }
 
     /**
+     * Refunds tokens and withdraws fees
+     * @param amount token amount
+     * @param to reciever address
+     */
+    function refundWithFees(
+        uint256 amount,
+        address to,
+        uint256 refundFee
+    ) public onlyRole(DISTRIBUTOR_ROLE) {
+        require(
+            locked[to] >= amount * 10 ** IERC20Mint(approvedToken).decimals(),
+            "Wrong amount"
+        );
+        uint256 withdrawnFees = (amount * refundFee) / FEE_DENOMINATOR;
+        collectedFee += withdrawnFees;
+        emit FeeCollected(withdrawnFees, collectedFee);
+        locked[to] -= amount * 10 ** IERC20Mint(approvedToken).decimals();
+        deposits[to] +=
+            (amount - withdrawnFees) *
+            10 ** IERC20Mint(approvedToken).decimals();
+    }
+
+    /**
      * Withdraws earned fees
      * @param to account that will recieve fee
      */
@@ -283,31 +292,21 @@ contract Treasury is AccessControl {
      * Distribute reward
      * @param amount token amount
      * @param to token reciever
-     * @param initialDeposit initial deposit amount
      * @param gameFee game mode fees in bp
      */
     function distribute(
         uint256 amount,
         address to,
-        uint256 initialDeposit,
         uint256 gameFee
     ) public onlyRole(DISTRIBUTOR_ROLE) {
         amount *= 10 ** IERC20Mint(approvedToken).decimals();
-        initialDeposit *= 10 ** IERC20Mint(approvedToken).decimals();
         uint256 withdrawnFees = (amount * gameFee) / FEE_DENOMINATOR;
-        uint256 wonAmount = amount -
-            (withdrawnFees -
-                (withdrawnFees * getCommissionCut(to)) /
-                FEE_DENOMINATOR);
+        uint256 wonAmount = amount - (withdrawnFees / FEE_DENOMINATOR);
         collectedFee +=
             withdrawnFees /
             10 ** IERC20Mint(approvedToken).decimals();
         emit FeeCollected(withdrawnFees, collectedFee);
         deposits[to] += wonAmount;
-
-        if (getRakebackAmount(to, initialDeposit) != 0) {
-            earnedRakeback[to] += getRakebackAmount(to, initialDeposit);
-        }
     }
 
     /**
@@ -319,17 +318,15 @@ contract Treasury is AccessControl {
     function distributeWithoutFee(
         uint256 rate,
         address to,
+        uint256 usedFee,
         uint256 initialDeposit
     ) public onlyRole(DISTRIBUTOR_ROLE) {
         initialDeposit *= 10 ** IERC20Mint(approvedToken).decimals();
-        uint256 withdrawnFees = (initialDeposit * fee) / FEE_DENOMINATOR;
+        uint256 withdrawnFees = (initialDeposit * usedFee) / FEE_DENOMINATOR;
         uint256 wonAmount = (initialDeposit - withdrawnFees) +
             ((initialDeposit - withdrawnFees) * rate) /
             (FEE_DENOMINATOR * PRECISION_AMPLIFIER);
         deposits[to] += wonAmount;
-        if (getRakebackAmount(to, initialDeposit) != 0) {
-            earnedRakeback[to] += getRakebackAmount(to, initialDeposit);
-        }
     }
 
     /**
@@ -341,11 +338,12 @@ contract Treasury is AccessControl {
     function calculateSetupRate(
         uint256 lostTeamTotal,
         uint256 wonTeamTotal,
+        uint256 setupFee,
         address initiator
     ) external onlyRole(DISTRIBUTOR_ROLE) returns (uint256, uint256) {
         lostTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
         wonTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
-        uint256 withdrawnFees = (lostTeamTotal * fee) / FEE_DENOMINATOR;
+        uint256 withdrawnFees = (lostTeamTotal * setupFee) / FEE_DENOMINATOR;
         collectedFee += withdrawnFees;
         uint256 lostTeamFee = (lostTeamTotal * setupInitiatorFee) /
             FEE_DENOMINATOR;
@@ -380,62 +378,6 @@ contract Treasury is AccessControl {
             ((lostTeamTotal - lostTeamFee) *
                 (FEE_DENOMINATOR * PRECISION_AMPLIFIER)) /
             (wonTeamTotal - wonTeamFee);
-    }
-
-    /**
-     *  Mints earned amount of Xyro tokens
-     * @param amount amount to withdraw
-     */
-    function withdrawRakeback(uint256 amount) public {
-        require(
-            earnedRakeback[msg.sender] >=
-                amount * 10 ** IERC20Mint(xyroToken).decimals(),
-            "Amount is greated than earned rakeback"
-        );
-        earnedRakeback[msg.sender] -=
-            amount *
-            10 ** IERC20Mint(xyroToken).decimals();
-        IERC20Mint(xyroToken).mint(
-            msg.sender,
-            amount * 10 ** IERC20Mint(xyroToken).decimals()
-        );
-    }
-
-    /**
-     * Counts earned rakeback amount
-     * @param target player address
-     * @param initialDeposit initial deposit amount
-     */
-    function getRakebackAmount(
-        address target,
-        uint256 initialDeposit
-    ) internal view returns (uint256) {
-        uint256 targetBalance = IERC20(xyroToken).balanceOf(target);
-        uint256 tier = targetBalance / (2500 * 10 ** 18) >= 4
-            ? 4
-            : targetBalance / (2500 * 10 ** 18);
-        return (initialDeposit * 500 * tier) / FEE_DENOMINATOR;
-    }
-
-    /**
-     * Counts commission cut for player address
-     * @param target player address
-     */
-    function getCommissionCut(
-        address target
-    ) public view returns (uint256 comissionCut) {
-        uint256 targetBalance = IERC20(xyroToken).balanceOf(target);
-        uint256 tier = targetBalance / (2500 * 10 ** 18) >= 4
-            ? 4
-            : targetBalance / (2500 * 10 ** 18);
-
-        if (tier == 4) {
-            //30%
-            comissionCut = 3000;
-        } else if (tier > 0) {
-            //10-20%
-            comissionCut = 1000 + 500 * tier - 1;
-        }
     }
 
     /**

@@ -30,24 +30,27 @@ interface ITreasury {
 
     function upkeep() external view returns (address);
 
-    function distribute(
-        uint256 amount,
-        address to,
-        uint256 initialDeposit,
-        uint256 gameFee
-    ) external;
+    function distribute(uint256 amount, address to, uint256 gameFee) external;
 
     function refund(uint256 amount, address to) external;
+
+    function refundWithFees(
+        uint256 amount,
+        address to,
+        uint256 refundFee
+    ) external;
 
     function distributeWithoutFee(
         uint256 rate,
         address to,
+        uint256 usedFee,
         uint256 initialDeposit
     ) external;
 
     function calculateSetupRate(
         uint256 lostTeamTotal,
         uint256 wonTeamTotal,
+        uint256 setupFee,
         address initiator
     ) external returns (uint256, uint256);
 

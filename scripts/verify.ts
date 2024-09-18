@@ -132,17 +132,17 @@ async function verifySetupsFactory() {
 }
 
 async function verifyOneVsOneExactPrice() {
-  if (contracts.ExactPriceOneVsOne.address !== undefined) {
-    let targetAddress = contracts.ExactPriceOneVsOne.address;
+  if (contracts.OneVsOne.address !== undefined) {
+    let targetAddress = contracts.OneVsOne.address;
     try {
       await hre.run("verify:verify", {
         address: targetAddress,
         constructorArguments: [],
       });
-      contracts.ExactPriceOneVsOne.url = getVerifiedUrl(targetAddress);
+      contracts.OneVsOne.url = getVerifiedUrl(targetAddress);
     } catch (e) {
       if (isAlreadyVerified(e, targetAddress))
-        contracts.ExactPriceOneVsOne.url = getVerifiedUrl(targetAddress);
+        contracts.OneVsOne.url = getVerifiedUrl(targetAddress);
     }
   }
 }
@@ -233,7 +233,7 @@ async function verifyVerifier() {
     try {
       await hre.run("verify:verify", {
         address: targetAddress,
-        constructorArguments: [],
+        constructorArguments: ["0x2ff010DEbC1297f19579B4246cad07bd24F2488A"],
       });
       contracts.RealUpkeep.url = getVerifiedUrl(targetAddress);
     } catch (e) {
@@ -248,14 +248,14 @@ async function verify() {
   await verifyMockUSDC();
   await verifyTreasury();
   await verifyOneVsOneExactPrice();
-  await verifyOneVsOneUpDown();
-  await verifySetupsFactory();
+  // await verifyOneVsOneUpDown();
+  // await verifySetupsFactory();
   await verifyBullseye();
   await verifyUpDown();
   // await verifyFrontHelper();
   // await verifyUpkeep();
   await verifySetup();
-  // await verifyRealUpkeep();
+  await verifyVerifier();
   // await verifySetups();
   const json = JSON.stringify(contracts);
   fs.writeFileSync("./contracts.json", json);

@@ -58,7 +58,7 @@ describe("Bullseye", () => {
     Upkeep = await new MockVerifier__factory(owner).deploy();
     await Game.setTreasury(await Treasury.getAddress());
     await Treasury.setUpkeep(await Upkeep.getAddress());
-    await Treasury.setFee(100);
+
     await USDT.mint(await opponent.getAddress(), parse18("10000000"));
     await USDT.mint(await alice.getAddress(), parse18("10000000"));
     await USDT.mint(await bob.getAddress(), parse18("10000000"));

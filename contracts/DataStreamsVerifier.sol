@@ -7,6 +7,7 @@ import {IRewardManager} from "@chainlink/contracts/src/v0.8/llo-feeds/interfaces
 import {IVerifierFeeManager} from "@chainlink/contracts/src/v0.8/llo-feeds/interfaces/IVerifierFeeManager.sol";
 import {IERC20} from "@chainlink/contracts-ccip/src/v0.8/vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@chainlink/contracts-ccip/src/v0.8/vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
+// import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 using SafeERC20 for IERC20;
 
@@ -82,7 +83,7 @@ contract DataStreamsVerifier {
     error NotOwner(address caller); // Thrown when a caller tries to execute a function that is restricted to the contract's owner.
 
     struct BasicReport {
-        bytes32 feedNumber; // The feed ID the report has data for
+        bytes32 feedId; // The feed ID the report has data for
         uint32 validFromTimestamp; // Earliest timestamp for which price is applicable
         uint32 observationsTimestamp; // Latest timestamp for which price is applicable
         uint192 nativeFee; // Base cost to validate a transaction using the report, denominated in the chain’s native token (WETH/ETH)
@@ -92,7 +93,7 @@ contract DataStreamsVerifier {
     }
 
     struct PremiumReport {
-        bytes32 feedNumber; // The feed ID the report has data for
+        bytes32 feedId; // The feed ID the report has data for
         uint32 validFromTimestamp; // Earliest timestamp for which price is applicable
         uint32 observationsTimestamp; // Latest timestamp for which price is applicable
         uint192 nativeFee; // Base cost to validate a transaction using the report, denominated in the chain’s native token (WETH/ETH)
@@ -103,20 +104,22 @@ contract DataStreamsVerifier {
         int192 ask; // Simulated price impact of a sell order up to the X% depth of liquidity utilisation
     }
 
-    mapping(uint8 => IVerifierProxy) public verifiersProxy;
-    // IVerifierProxy public s_verifierProxy;
+    mapping(uint8 => bytes32) public assetId;
 
     address private s_owner;
+    IVerifierProxy public s_verifier;
     int192 public last_decoded_price;
     uint32 public last_validFromTimestamp;
+    // bytes32 public constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
 
-    event DecodedPrice(int192);
+    event DecodedData(int192, bytes32);
 
     /**
      * You can find these addresses on https://docs.chain.link/data-streams/stream-ids
      */
-    constructor() {
+    constructor(address verifier) {
         s_owner = msg.sender;
+        s_verifier = IVerifierProxy(verifier);
     }
 
     /// @notice Checks if the caller is the owner of the contract.
@@ -131,7 +134,7 @@ contract DataStreamsVerifier {
     ) external returns (int192, uint32) {
         // Report verification fees
         IFeeManager feeManager = IFeeManager(
-            address(verifiersProxy[feedNumber].s_feeManager())
+            address(s_verifier.s_feeManager())
         );
 
         IRewardManager rewardManager = IRewardManager(
@@ -152,7 +155,7 @@ contract DataStreamsVerifier {
         IERC20(feeTokenAddress).approve(address(rewardManager), fee.amount);
 
         // Verify the report
-        bytes memory verifiedReportData = verifiersProxy[feedNumber].verify(
+        bytes memory verifiedReportData = s_verifier.verify(
             unverifiedReport,
             abi.encode(feeTokenAddress)
         );
@@ -162,9 +165,12 @@ contract DataStreamsVerifier {
             verifiedReportData,
             (BasicReport)
         );
-
+        require(
+            verifiedReport.feedId == assetId[feedNumber],
+            "Wrong feed number"
+        );
         // Log price from report
-        emit DecodedPrice(verifiedReport.price);
+        emit DecodedData(verifiedReport.price, verifiedReport.feedId);
 
         // require(feedNumber == verifiedReport.feedNumber, "Wrong feed id");
         last_decoded_price = verifiedReport.price;
@@ -178,7 +184,7 @@ contract DataStreamsVerifier {
     ) external returns (int192) {
         // Report verification fees
         IFeeManager feeManager = IFeeManager(
-            address(verifiersProxy[feedNumber].s_feeManager())
+            address(s_verifier.s_feeManager())
         );
 
         IRewardManager rewardManager = IRewardManager(
@@ -199,7 +205,7 @@ contract DataStreamsVerifier {
         IERC20(feeTokenAddress).approve(address(rewardManager), fee.amount);
 
         // Verify the report
-        bytes memory verifiedReportData = verifiersProxy[feedNumber].verify(
+        bytes memory verifiedReportData = s_verifier.verify(
             unverifiedReport,
             abi.encode(feeTokenAddress)
         );
@@ -210,16 +216,29 @@ contract DataStreamsVerifier {
             (BasicReport)
         );
 
+        require(
+            verifiedReport.feedId == assetId[feedNumber],
+            "Wrong feed number"
+        );
         // Log price from report
-        emit DecodedPrice(verifiedReport.price);
+        emit DecodedData(verifiedReport.price, verifiedReport.feedId);
 
         // require(feedNumber == verifiedReport.feedNumber, "Wrong feed id");
         last_decoded_price = verifiedReport.price;
         return verifiedReport.price;
     }
 
-    function setfeedNumber(uint8 feedNumber, address verifierProxy) public {
-        verifiersProxy[feedNumber] = IVerifierProxy(verifierProxy);
+    function setfeedNumber(
+        uint8 feedNumber,
+        bytes32 _assetId
+    ) public onlyOwner {
+        assetId[feedNumber] = _assetId;
+    }
+
+    function setfeedNumberBatch(bytes32[] memory _assetIds) public onlyOwner {
+        for (uint8 i; i < _assetIds.length; i++) {
+            assetId[i] = _assetIds[i];
+        }
     }
 
     /**
@@ -239,17 +258,5 @@ contract DataStreamsVerifier {
         if (amount == 0) revert NothingToWithdraw();
 
         IERC20(_token).safeTransfer(_beneficiary, amount);
-    }
-
-    function approve(uint8 feedNumber, uint256 amount) public {
-        IFeeManager feeManager = IFeeManager(
-            address(verifiersProxy[feedNumber].s_feeManager())
-        );
-
-        IRewardManager rewardManager = IRewardManager(
-            address(feeManager.i_rewardManager())
-        );
-        address feeTokenAddress = feeManager.i_linkAddress();
-        IERC20(feeTokenAddress).approve(address(rewardManager), amount);
     }
 }

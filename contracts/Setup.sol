@@ -77,6 +77,7 @@ contract Setup is AccessControl {
     mapping(bytes32 => mapping(address => uint256)) public depositAmounts;
     uint256 public minDuration = 30 minutes;
     uint256 public maxDuration = 24 weeks;
+    uint256 public fee = 1000;
     address public treasury;
 
     constructor(address newTreasury) {
@@ -398,6 +399,7 @@ contract Setup is AccessControl {
                     .calculateSetupRate(
                         data.totalDepositsSL,
                         data.totalDepositsTP,
+                        fee,
                         data.initiator
                     );
                 emit SetupFinalized(
@@ -413,6 +415,7 @@ contract Setup is AccessControl {
                     .calculateSetupRate(
                         data.totalDepositsTP,
                         data.totalDepositsSL,
+                        fee,
                         data.initiator
                     );
                 emit SetupFinalized(
@@ -435,6 +438,7 @@ contract Setup is AccessControl {
                     .calculateSetupRate(
                         data.totalDepositsTP,
                         data.totalDepositsSL,
+                        fee,
                         data.initiator
                     );
                 emit SetupFinalized(
@@ -449,6 +453,7 @@ contract Setup is AccessControl {
                     .calculateSetupRate(
                         data.totalDepositsSL,
                         data.totalDepositsTP,
+                        fee,
                         data.initiator
                     );
                 emit SetupFinalized(
@@ -493,6 +498,7 @@ contract Setup is AccessControl {
                 ITreasury(treasury).distributeWithoutFee(
                     games[gameId].finalRate,
                     msg.sender,
+                    fee,
                     depositAmounts[gameId][msg.sender]
                 );
             } else if (data.finalPrice <= data.stopLossPrice) {
@@ -505,6 +511,7 @@ contract Setup is AccessControl {
                 ITreasury(treasury).distributeWithoutFee(
                     games[gameId].finalRate,
                     msg.sender,
+                    fee,
                     depositAmounts[gameId][msg.sender]
                 );
             }
@@ -519,6 +526,7 @@ contract Setup is AccessControl {
                 ITreasury(treasury).distributeWithoutFee(
                     games[gameId].finalRate,
                     msg.sender,
+                    fee,
                     depositAmounts[gameId][msg.sender]
                 );
             } else if (data.finalPrice <= data.takeProfitPrice) {
@@ -530,6 +538,7 @@ contract Setup is AccessControl {
                 ITreasury(treasury).distributeWithoutFee(
                     games[gameId].finalRate,
                     msg.sender,
+                    fee,
                     depositAmounts[gameId][msg.sender]
                 );
             }
@@ -585,5 +594,13 @@ contract Setup is AccessControl {
         require(newTreasury != address(0), "Zero address");
         treasury = newTreasury;
         emit NewTreasury(newTreasury);
+    }
+
+    /**
+     * Change fee
+     * @param newFee new fee in bp
+     */
+    function setFee(uint256 newFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        fee = newFee;
     }
 }

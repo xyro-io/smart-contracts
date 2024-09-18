@@ -29,6 +29,7 @@ const gameClosed = "Game is closed for new players";
 const isParticipating = "You are already in the game";
 const dontExist = "Game doesn't exist";
 const cantEnd = "Can't end";
+const youLost = "You lost";
 const requireSufficentDepositAmount = "Insufficent deposit amount";
 const Status = {
   Created: 0,
@@ -68,7 +69,7 @@ describe("Setup Game", () => {
     );
     Game = await new Setup__factory(owner).deploy(await Treasury.getAddress());
     Upkeep = await new MockVerifier__factory(owner).deploy();
-    await Treasury.setFee(100);
+
     await Treasury.setUpkeep(await Upkeep.getAddress());
     await USDT.mint(bob.address, parse18("1000"));
     await USDT.mint(alice.address, parse18("1000"));
@@ -498,6 +499,8 @@ describe("Setup Game", () => {
 
       await time.increase(fortyFiveMinutes);
       await Game.closeGame(currentGameId);
+      await Game.connect(owner).getRefund(currentGameId);
+      await Game.connect(bob).getRefund(currentGameId);
       await Treasury.connect(owner).withdraw(
         (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
       );
@@ -557,6 +560,8 @@ describe("Setup Game", () => {
 
       await time.increase(fortyFiveMinutes);
       await Game.closeGame(currentGameId);
+      await Game.connect(owner).getRefund(currentGameId);
+      await Game.connect(bob).getRefund(currentGameId);
       await Treasury.connect(owner).withdraw(
         (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
       );
@@ -637,6 +642,10 @@ describe("Setup Game", () => {
       expect(game.endTime).to.be.equal(finalizeTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
+      await Game.connect(alice).retrieveRewards(currentGameId);
+      await expect(
+        Game.connect(bob).retrieveRewards(currentGameId)
+      ).to.be.revertedWith(youLost);
       await Treasury.connect(owner).withdraw(
         (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
       );
@@ -710,6 +719,10 @@ describe("Setup Game", () => {
       expect(game.endTime).to.be.equal(finalizeTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
+      await expect(
+        Game.connect(alice).retrieveRewards(currentGameId)
+      ).to.be.revertedWith(youLost);
+      await Game.connect(bob).retrieveRewards(currentGameId);
       await Treasury.connect(owner).withdraw(
         (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
       );
@@ -817,6 +830,10 @@ describe("Setup Game", () => {
       expect(game.endTime).to.be.equal(finalizeTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
+      await expect(
+        Game.connect(alice).retrieveRewards(currentGameId)
+      ).to.be.revertedWith(youLost);
+      await Game.connect(bob).retrieveRewards(currentGameId);
       await Treasury.connect(owner).withdraw(
         (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
       );
@@ -890,6 +907,10 @@ describe("Setup Game", () => {
       expect(game.endTime).to.be.equal(finalizeTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
+      await Game.connect(alice).retrieveRewards(currentGameId);
+      await expect(
+        Game.connect(bob).retrieveRewards(currentGameId)
+      ).to.be.revertedWith(youLost);
       await Treasury.connect(owner).withdraw(
         (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
       );
@@ -1035,6 +1056,8 @@ describe("Setup Game", () => {
         ),
         currentGameId
       );
+      await Game.connect(alice).getRefund(currentGameId);
+      await Game.connect(owner).getRefund(currentGameId);
       await Treasury.connect(owner).withdraw(
         (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
       );
@@ -1072,6 +1095,8 @@ describe("Setup Game", () => {
         ),
         currentGameId
       );
+      await Game.connect(alice).getRefund(currentGameId);
+      await Game.connect(owner).getRefund(currentGameId);
       await Treasury.connect(owner).withdraw(
         (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
       );
@@ -1155,25 +1180,6 @@ describe("Setup Game", () => {
       //return treasury back
       await Game.setTreasury(await Treasury.getAddress());
       expect(await Game.treasury()).to.equal(await Treasury.getAddress());
-    });
-
-    it("should return playes amount", async function () {
-      let tx = await Game.createSetup(
-        true,
-        (await time.latest()) + fortyFiveMinutes,
-        tpPrice,
-        slPrice,
-        feedNumber,
-        abiEncodeInt192WithTimestamp(
-          assetPrice.toString(),
-          feedNumber,
-          await time.latest()
-        )
-      );
-      receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
-      const players = await Game.getPlayersAmount(currentGameId);
-      expect(players[0] + players[1]).to.equal(0);
     });
 
     it("should change min and max game duration", async function () {

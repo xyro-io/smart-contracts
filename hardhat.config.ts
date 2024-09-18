@@ -4,12 +4,15 @@ import { HardhatUserConfig } from "hardhat/config";
 import "hardhat-gas-reporter";
 // import "@nomicfoundation/hardhat-ethers";
 // import "@typechain/hardhat";
-import 'solidity-coverage'
+import "solidity-coverage";
 import "@nomicfoundation/hardhat-toolbox";
 import "./scripts/task.ts";
 
 const config: HardhatUserConfig = {
   networks: {
+    hardhat: {
+      chainId: 1337,
+    },
     arbsepolia: {
       url: "https://arbitrum-sepolia.infura.io/v3/e835b1abe0dc4e7283a019b732e34366",
       accounts: [
@@ -91,8 +94,8 @@ const config: HardhatUserConfig = {
     enabled: true,
     currency: "USD",
     // gasPrice: 25,
-    L2:"arbitrum",
-    L2Etherscan:"9AR42Q41ANB6QNX2493XMV46TTNV971H8B",
+    L2: "arbitrum",
+    L2Etherscan: "9AR42Q41ANB6QNX2493XMV46TTNV971H8B",
     token: "ETH",
     gasPriceApi: "https://api.bscscan.com/api?module=proxy&action=eth_gasPrice",
     coinmarketcap: "d64e6644-6472-4b53-8375-5ae706aec3eb",

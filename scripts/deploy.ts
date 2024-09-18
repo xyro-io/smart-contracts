@@ -20,7 +20,7 @@ let contracts: {
   Setup,
   Staking,
   SetupsFactory,
-  ExactPriceOneVsOne,
+  OneVsOne,
   UpDownOneVsOne,
   Bullseye,
   GovernanceToken,
@@ -167,30 +167,15 @@ async function deployBullseye() {
 async function deployOneVsOneExactPrice() {
   factory = await ethers.getContractFactory("OneVsOneExactPrice");
   if (
-    contracts.ExactPriceOneVsOne?.address == undefined ||
-    contracts.ExactPriceOneVsOne?.address == ""
+    contracts.OneVsOne?.address == undefined ||
+    contracts.OneVsOne?.address == ""
   ) {
-    ExactPriceOneVsOne = await wrapFnc([], factory);
-    contracts.ExactPriceOneVsOne = { address: "", url: "" };
-    contracts.ExactPriceOneVsOne.address = ExactPriceOneVsOne.target;
-    console.log("ExactPriceOneVsOne deployed");
+    OneVsOne = await wrapFnc([], factory);
+    contracts.OneVsOne = { address: "", url: "" };
+    contracts.OneVsOne.address = OneVsOne.target;
+    console.log("OneVsOne deployed");
   } else {
-    console.log("ExactPriceOneVsOne already deployed skipping...");
-  }
-}
-
-async function deployOneVsOneUpDown() {
-  factory = await ethers.getContractFactory("OneVsOneUpDown");
-  if (
-    contracts.UpDownOneVsOne?.address == undefined ||
-    contracts.UpDownOneVsOne?.address == ""
-  ) {
-    UpDownOneVsOne = await wrapFnc([], factory);
-    contracts.UpDownOneVsOne = { address: "", url: "" };
-    contracts.UpDownOneVsOne.address = UpDownOneVsOne.target;
-    console.log("UpDownOneVsOne deployed");
-  } else {
-    console.log("UpDownOneVsOne already deployed skipping...");
+    console.log("OneVsOne already deployed skipping...");
   }
 }
 
@@ -255,12 +240,16 @@ async function deployMockVerifier() {
 }
 
 async function deployVerifier() {
-  factory = await ethers.getContractFactory("ClientReportsVerifier");
+  factory = await ethers.getContractFactory("DataStreamsVerifier");
   if (
     contracts.RealUpkeep?.address == undefined ||
     contracts.RealUpkeep?.address == ""
   ) {
-    RealUpkeep = await wrapFnc([], factory);
+    //Arb sepolia upkeep
+    RealUpkeep = await wrapFnc(
+      ["0x2ff010DEbC1297f19579B4246cad07bd24F2488A"],
+      factory
+    );
     contracts.RealUpkeep = { address: "", url: "" };
     contracts.RealUpkeep.address = RealUpkeep.target;
     console.log("RealUpkeep deployed");
@@ -308,12 +297,12 @@ async function main() {
     await deployTreasury();
     // await deployStaking();
     await deployOneVsOneExactPrice();
-    await deployOneVsOneUpDown();
+    // await deployOneVsOneUpDown();
     await deploySetup();
     // await deploySetupsFactory();
     await deployBullseye();
-    await deployMockVerifier();
-    await deployFrontHelper();
+    // await deployMockVerifier();
+    // await deployFrontHelper();
     await deployUpDown();
     await deployVerifier();
   } catch (e) {

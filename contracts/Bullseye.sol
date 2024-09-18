@@ -8,7 +8,7 @@ import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 contract Bullseye is AccessControl {
     uint256 constant DENOMINATOR = 100;
     uint256 public exactRange = 100;
-    uint256 public fee = 100;
+    uint256 public fee = 1500;
     uint256 public maxPlayers = 100;
     uint256[3] public rate = [50, 35, 15];
     uint256[3] public exactRate = [75, 15, 10];
@@ -28,10 +28,12 @@ contract Bullseye is AccessControl {
         address player,
         uint32 assetPrice,
         uint256 depositAmount,
-        bytes32 gameId
+        bytes32 gameId,
+        uint256 index
     );
     event BullseyeFinalized(
         address[3] players,
+        uint256[3] topIndexes,
         int192 finalPrice,
         bool isExact,
         bytes32 gameId
@@ -117,7 +119,8 @@ contract Bullseye is AccessControl {
             msg.sender,
             assetPrice,
             game.depositAmount,
-            currentGameId
+            currentGameId,
+            packedGuessData.length
         );
     }
 
@@ -144,7 +147,8 @@ contract Bullseye is AccessControl {
             msg.sender,
             assetPrice,
             game.depositAmount,
-            currentGameId
+            currentGameId,
+            packedGuessData.length
         );
     }
 
@@ -181,7 +185,8 @@ contract Bullseye is AccessControl {
             msg.sender,
             assetPrice,
             game.depositAmount,
-            currentGameId
+            currentGameId,
+            packedGuessData.length
         );
     }
 
@@ -243,7 +248,6 @@ contract Bullseye is AccessControl {
                 ITreasury(treasury).distribute(
                     wonAmountFirst,
                     playerOneGuessData.player,
-                    game.depositAmount,
                     fee
                 );
                 uint256 wonAmountSecond = 2 *
@@ -252,7 +256,6 @@ contract Bullseye is AccessControl {
                 ITreasury(treasury).distribute(
                     wonAmountSecond,
                     playerTwoGuessData.player,
-                    game.depositAmount,
                     fee
                 );
                 emit BullseyeFinalized(
@@ -261,6 +264,7 @@ contract Bullseye is AccessControl {
                         playerTwoGuessData.player,
                         address(0)
                     ],
+                    [uint256(0), uint256(1), uint256(0)],
                     finalPrice,
                     playerOneDiff <= exactRange,
                     currentGameId
@@ -277,7 +281,6 @@ contract Bullseye is AccessControl {
                 ITreasury(treasury).distribute(
                     wonAmountFirst,
                     playerOneGuessData.player,
-                    game.depositAmount,
                     fee
                 );
                 uint256 wonAmountSecond = 2 *
@@ -286,7 +289,6 @@ contract Bullseye is AccessControl {
                 ITreasury(treasury).distribute(
                     wonAmountSecond,
                     playerOneGuessData.player,
-                    game.depositAmount,
                     fee
                 );
                 emit BullseyeFinalized(
@@ -295,12 +297,14 @@ contract Bullseye is AccessControl {
                         playerOneGuessData.player,
                         address(0)
                     ],
+                    [uint256(1), uint256(0), uint256(0)],
                     finalPrice,
                     playerTwoDiff <= exactRange,
                     currentGameId
                 );
             }
         } else {
+            uint256[3] memory topIndexes;
             address[3] memory topPlayers;
             uint256[3] memory topTimestamps;
             uint256[3] memory closestDiff = [
@@ -323,6 +327,7 @@ contract Bullseye is AccessControl {
                         closestDiff[i] = currentDiff;
                         topPlayers[i] = playerGuessData.player;
                         topTimestamps[i] = playerGuessData.timestamp;
+                        topIndexes[i] = j;
                         break;
                     } else if (
                         //write top timestamps
@@ -333,6 +338,7 @@ contract Bullseye is AccessControl {
                             closestDiff[k] = closestDiff[k - 1];
                             topPlayers[k] = topPlayers[k - 1];
                         }
+                        topIndexes[i] = j;
                         topPlayers[i] = playerGuessData.player;
                         break;
                     }
@@ -352,7 +358,6 @@ contract Bullseye is AccessControl {
                         ITreasury(treasury).distribute(
                             (totalDeposited * wonAmount[i]) / DENOMINATOR,
                             topPlayers[i],
-                            game.depositAmount,
                             fee
                         );
                     } else {
@@ -363,7 +368,6 @@ contract Bullseye is AccessControl {
                                     (totalDeposited * wonAmount[1]) /
                                     DENOMINATOR),
                             topPlayers[i],
-                            game.depositAmount,
                             fee
                         );
                     }
@@ -371,6 +375,7 @@ contract Bullseye is AccessControl {
             }
             emit BullseyeFinalized(
                 topPlayers,
+                topIndexes,
                 finalPrice,
                 closestDiff[0] <= exactRange,
                 currentGameId
@@ -454,5 +459,13 @@ contract Bullseye is AccessControl {
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         exactRange = newRange;
         emit NewExactRange(newRange);
+    }
+
+    /**
+     * Change fee
+     * @param newFee new fee in bp
+     */
+    function setFee(uint256 newFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        fee = newFee;
     }
 }

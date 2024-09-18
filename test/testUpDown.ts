@@ -59,7 +59,7 @@ describe("UpDown", () => {
     Game = await new UpDown__factory(owner).deploy();
     Upkeep = await new MockVerifier__factory(owner).deploy();
     await Game.setTreasury(await Treasury.getAddress());
-    await Treasury.setFee(100);
+
     await Treasury.setUpkeep(await Upkeep.getAddress());
     await USDT.mint(opponent.address, parse18("10000000"));
     await USDT.mint(alice.address, parse18("10000000"));

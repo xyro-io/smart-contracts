@@ -283,6 +283,32 @@ describe("OneVsOneExactPrice", () => {
       );
     });
 
+    it("should create and liquidate game", async function () {
+      const tx = await Game.createGame(
+        feedNumber,
+        opponent.address,
+        (await time.latest()) + fortyFiveMinutes,
+        initiatorPrice,
+        usdtAmount
+      );
+      await time.increase(monthUnix);
+      receipt = await tx.wait();
+      currentGameId = receipt!.logs[1]!.args[0];
+      await expect(Game.liquidateGame(currentGameId)).to.emit(
+        Treasury,
+        "FeeCollected"
+      );
+      expect(await Treasury.collectedFee()).to.be.equal(
+        parse18((usdtAmount * 0.1).toString())
+      );
+      expect((await Game.decodeData(currentGameId)).gameStatus).to.equal(
+        Status.Cancelled
+      );
+      await Treasury.connect(owner).withdraw(
+        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
+      );
+    });
+
     it("should fail - closeGame wrong status", async function () {
       const tx = await Game.createGame(
         feedNumber,

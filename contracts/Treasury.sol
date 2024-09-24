@@ -257,22 +257,14 @@ contract Treasury is AccessControl {
         address to,
         uint256 refundFee
     ) public onlyRole(DISTRIBUTOR_ROLE) {
-        require(
-            locked[to] >= amount * 10 ** IERC20Mint(approvedToken).decimals(),
-            "Wrong amount"
-        );
+        amount *= 10 ** IERC20Mint(approvedToken).decimals();
+        require(locked[to] >= amount, "Wrong amount");
         uint256 withdrawnFees = (amount * refundFee) / FEE_DENOMINATOR;
         collectedFee += withdrawnFees;
         emit FeeCollected(withdrawnFees, collectedFee);
-        locked[to] -= amount * 10 ** IERC20Mint(approvedToken).decimals();
-        deposits[to] +=
-            (amount - withdrawnFees) *
-            10 ** IERC20Mint(approvedToken).decimals();
-        emit Refunded(
-            to,
-            (amount - withdrawnFees) *
-                10 ** IERC20Mint(approvedToken).decimals()
-        );
+        locked[to] -= amount;
+        deposits[to] += (amount - withdrawnFees);
+        emit Refunded(to, (amount - withdrawnFees));
     }
 
     /**
@@ -284,16 +276,10 @@ contract Treasury is AccessControl {
         address to,
         uint256 amount
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(
-            collectedFee >= amount * 10 ** IERC20Mint(approvedToken).decimals(),
-            "Wrong amount"
-        );
-        collectedFee -= amount * 10 ** IERC20Mint(approvedToken).decimals();
-        SafeERC20.safeTransfer(
-            IERC20(approvedToken),
-            to,
-            amount * 10 ** IERC20Mint(approvedToken).decimals()
-        );
+        amount *= 10 ** IERC20Mint(approvedToken).decimals();
+        require(collectedFee >= amount, "Wrong amount");
+        collectedFee -= amount;
+        SafeERC20.safeTransfer(IERC20(approvedToken), to, amount);
     }
 
     /**
@@ -310,9 +296,7 @@ contract Treasury is AccessControl {
         amount *= 10 ** IERC20Mint(approvedToken).decimals();
         uint256 withdrawnFees = (amount * gameFee) / FEE_DENOMINATOR;
         uint256 wonAmount = amount - (withdrawnFees / FEE_DENOMINATOR);
-        collectedFee +=
-            withdrawnFees /
-            10 ** IERC20Mint(approvedToken).decimals();
+        collectedFee += withdrawnFees;
         emit FeeCollected(withdrawnFees, collectedFee);
         deposits[to] += wonAmount;
         emit Distributed(to, wonAmount);
@@ -355,6 +339,7 @@ contract Treasury is AccessControl {
         wonTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
         uint256 withdrawnFees = (lostTeamTotal * setupFee) / FEE_DENOMINATOR;
         collectedFee += withdrawnFees;
+        emit FeeCollected(withdrawnFees, collectedFee);
         uint256 lostTeamFee = (lostTeamTotal * setupInitiatorFee) /
             FEE_DENOMINATOR;
         uint256 wonTeamFee = (wonTeamTotal * setupInitiatorFee) /
@@ -384,6 +369,7 @@ contract Treasury is AccessControl {
         uint256 lostTeamFee = (lostTeamTotal * updownFee) / FEE_DENOMINATOR;
         uint256 wonTeamFee = (wonTeamTotal * updownFee) / FEE_DENOMINATOR;
         collectedFee += lostTeamFee + wonTeamFee;
+        emit FeeCollected(lostTeamFee + wonTeamFee, collectedFee);
         //collect dust
         rate =
             ((lostTeamTotal - lostTeamFee) *

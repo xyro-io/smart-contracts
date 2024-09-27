@@ -76,7 +76,6 @@ contract Bullseye is AccessControl {
         uint8 feedNumber
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(packedData == 0, "Finish previous game first");
-        require(depositAmount >= 10, "Wrong deposit amount");
         require(endTime > block.timestamp, "Wrong ending time");
         packedData = (block.timestamp |
             (uint256(stopPredictAt) << 32) |

@@ -204,14 +204,14 @@ contract Bullseye is AccessControl {
             if (packedGuessData.length == 1) {
                 GuessStruct memory playerGuessData = decodeGuess(0);
                 emit BullseyeCancelled(currentGameId);
-                packedData = 0;
-                currentGameId = bytes32(0);
                 ITreasury(treasury).refund(
                     game.depositAmount,
                     playerGuessData.player
                 );
                 delete packedGuessData;
             }
+            packedData = 0;
+            currentGameId = bytes32(0);
             return;
         }
 

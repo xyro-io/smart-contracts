@@ -19,10 +19,12 @@ contract Setup is AccessControl {
         bool takeProfitWon,
         int192 finalPrice,
         uint256 endTime,
-        uint256 initiatorFee
+        uint256 initiatorFee,
+        uint256 rate
     );
     event SetupCreated(CreateSetup data);
     event SetupGameID(bytes32 gameId);
+    event SetupRetrieved(bytes32 gameId, address player, uint256 depositAmount);
 
     enum Status {
         Created,
@@ -356,6 +358,11 @@ contract Setup is AccessControl {
             depositAmounts[gameId][msg.sender],
             msg.sender
         );
+        emit SetupRetrieved(
+            gameId,
+            msg.sender,
+            depositAmounts[gameId][msg.sender]
+        );
     }
 
     /**
@@ -407,7 +414,8 @@ contract Setup is AccessControl {
                     true,
                     finalPrice,
                     endTime,
-                    initiatorFee
+                    initiatorFee,
+                    finalRate
                 );
             } else if (uint192(finalPrice) / 1e14 <= data.stopLossPrice) {
                 // sl team wins
@@ -423,7 +431,8 @@ contract Setup is AccessControl {
                     false,
                     finalPrice,
                     endTime,
-                    initiatorFee
+                    initiatorFee,
+                    finalRate
                 );
             }
         } else {
@@ -446,7 +455,8 @@ contract Setup is AccessControl {
                     false,
                     finalPrice,
                     endTime,
-                    initiatorFee
+                    initiatorFee,
+                    finalRate
                 );
             } else if (uint192(finalPrice) / 1e14 <= data.takeProfitPrice) {
                 (finalRate, initiatorFee) = ITreasury(treasury)
@@ -461,7 +471,8 @@ contract Setup is AccessControl {
                     true,
                     finalPrice,
                     endTime,
-                    initiatorFee
+                    initiatorFee,
+                    finalRate
                 );
             }
         }
@@ -543,6 +554,11 @@ contract Setup is AccessControl {
                 );
             }
         }
+        emit SetupRetrieved(
+            gameId,
+            msg.sender,
+            depositAmounts[gameId][msg.sender]
+        );
     }
 
     /**

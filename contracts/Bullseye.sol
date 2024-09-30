@@ -6,6 +6,7 @@ import {ITreasury} from "./interfaces/ITreasury.sol";
 import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 
 contract Bullseye is AccessControl {
+    bytes32 public constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
     uint256 constant DENOMINATOR = 100;
     uint256 public exactRange = 100;
     uint256 public fee = 1500;
@@ -74,7 +75,7 @@ contract Bullseye is AccessControl {
         uint32 stopPredictAt,
         uint32 depositAmount,
         uint8 feedNumber
-    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) public onlyRole(GAME_MASTER_ROLE) {
         require(packedData == 0, "Finish previous game first");
         require(depositAmount >= 10, "Wrong deposit amount");
         require(endTime > block.timestamp, "Wrong ending time");
@@ -196,7 +197,7 @@ contract Bullseye is AccessControl {
      */
     function finalizeGame(
         bytes memory unverifiedReport
-    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) public onlyRole(GAME_MASTER_ROLE) {
         GameInfo memory game = decodeData();
         require(currentGameId != bytes32(0), "Start the game first");
         require(block.timestamp >= game.endTime, "Too early to finish");
@@ -389,7 +390,7 @@ contract Bullseye is AccessControl {
     /**
      * Closes game and makes refund
      */
-    function closeGame() public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function closeGame() public onlyRole(GAME_MASTER_ROLE) {
         require(packedData != 0, "Game not started");
         GameInfo memory game = decodeData();
         uint256 deposit = game.depositAmount;

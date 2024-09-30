@@ -22,7 +22,7 @@ contract Treasury is AccessControl {
     uint256 public constant FEE_DENOMINATOR = 10000;
     uint256 public constant PRECISION_AMPLIFIER = 100000;
     bytes32 public constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
-    bytes32 public constant DAO_ROLE = keccak256("DAO_ROLE");
+    bytes32 public constant ACCOUNTANT_ROLE = keccak256("ACCOUNTANT_ROLE");
     uint256 public collectedFee;
     uint256 public minDepositAmount = 1;
     mapping(address => uint256) public earnedRakeback;
@@ -52,12 +52,7 @@ contract Treasury is AccessControl {
      * Set new fee for setup games
      * @param newFee fee in bp
      */
-    function setSetupFee(uint256 newFee) public {
-        require(
-            hasRole(DAO_ROLE, msg.sender) ||
-                hasRole(DEFAULT_ADMIN_ROLE, msg.sender),
-            "Invalid role"
-        );
+    function setSetupFee(uint256 newFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
         setupInitiatorFee = newFee;
     }
 
@@ -272,10 +267,12 @@ contract Treasury is AccessControl {
      * @param to account that will recieve fee
      */
 
-    function withdrawFees(
-        address to,
-        uint256 amount
-    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function withdrawFees(address to, uint256 amount) public {
+        require(
+            hasRole(ACCOUNTANT_ROLE, msg.sender) ||
+                hasRole(DEFAULT_ADMIN_ROLE, msg.sender),
+            "Invalid role"
+        );
         amount *= 10 ** IERC20Mint(approvedToken).decimals();
         require(collectedFee >= amount, "Wrong amount");
         collectedFee -= amount;

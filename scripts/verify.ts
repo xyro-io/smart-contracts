@@ -185,7 +185,10 @@ async function verifyFrontHelper() {
     try {
       await hre.run("verify:verify", {
         address: targetAddress,
-        constructorArguments: [],
+        constructorArguments: [
+          contracts.USDC.address,
+          contracts.Treasury.address,
+        ],
       });
       contracts.FrontHelper.url = getVerifiedUrl(targetAddress);
     } catch (e) {

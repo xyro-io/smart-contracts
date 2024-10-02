@@ -56,7 +56,10 @@ async function deployFrontHelper() {
     contracts.FrontHelper?.address == undefined ||
     contracts.FrontHelper?.address == ""
   ) {
-    FrontHelper = await wrapFnc([], factory);
+    FrontHelper = await wrapFnc(
+      [contracts.USDC.address, contracts.Treasury.address],
+      factory
+    );
     contracts.FrontHelper = { address: "", url: "" };
     contracts.FrontHelper.address = FrontHelper.target;
     console.log("FrontHelper deployed");

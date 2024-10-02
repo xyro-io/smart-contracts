@@ -12,15 +12,11 @@ async function setupTreasury() {
     "Treasury",
     contracts.Treasury.address
   );
-  const defaultAdminRole = await contract.DEFAULT_ADMIN_ROLE();
-  await wrapFnc(
-    [defaultAdminRole, contracts.Setup.address],
-    contract.grantRole
-  );
-  await wrapFnc([defaultAdminRole, GAME_MASTER], contract.grantRole);
-  await wrapFnc([defaultAdminRole, GAME_MASTER_2], contract.grantRole);
-  await wrapFnc([defaultAdminRole, GAME_MASTER_3], contract.grantRole);
-  await wrapFnc([defaultAdminRole, GAME_MASTER_4], contract.grantRole);
+  const gameMasterRole = await contract.GAME_MASTER_ROLE();
+  await wrapFnc([gameMasterRole, GAME_MASTER], contract.grantRole);
+  await wrapFnc([gameMasterRole, GAME_MASTER_2], contract.grantRole);
+  await wrapFnc([gameMasterRole, GAME_MASTER_3], contract.grantRole);
+  await wrapFnc([gameMasterRole, GAME_MASTER_4], contract.grantRole);
   const role = await contract.DISTRIBUTOR_ROLE();
   await wrapFnc([contracts.RealUpkeep.address], contract.setUpkeep);
   await wrapFnc([contracts.MockVerifier.address], contract.setUpkeep);
@@ -36,11 +32,11 @@ async function setupBullseye() {
     contracts.Bullseye.address
   );
   await wrapFnc([contracts.Treasury.address], contract.setTreasury);
-  const defaultAdminRole = await contract.DEFAULT_ADMIN_ROLE();
-  await wrapFnc([defaultAdminRole, GAME_MASTER], contract.grantRole);
-  await wrapFnc([defaultAdminRole, GAME_MASTER_2], contract.grantRole);
-  await wrapFnc([defaultAdminRole, GAME_MASTER_3], contract.grantRole);
-  await wrapFnc([defaultAdminRole, GAME_MASTER_4], contract.grantRole);
+  const gameMasterRole = await contract.GAME_MASTER_ROLE();
+  await wrapFnc([gameMasterRole, GAME_MASTER], contract.grantRole);
+  await wrapFnc([gameMasterRole, GAME_MASTER_2], contract.grantRole);
+  await wrapFnc([gameMasterRole, GAME_MASTER_3], contract.grantRole);
+  await wrapFnc([gameMasterRole, GAME_MASTER_4], contract.grantRole);
 }
 
 async function setupUpDown() {
@@ -49,11 +45,11 @@ async function setupUpDown() {
     contracts.UpDown.address
   );
   await wrapFnc([contracts.Treasury.address], contract.setTreasury);
-  const defaultAdminRole = await contract.DEFAULT_ADMIN_ROLE();
-  await wrapFnc([defaultAdminRole, GAME_MASTER], contract.grantRole);
-  await wrapFnc([defaultAdminRole, GAME_MASTER_2], contract.grantRole);
-  await wrapFnc([defaultAdminRole, GAME_MASTER_3], contract.grantRole);
-  await wrapFnc([defaultAdminRole, GAME_MASTER_4], contract.grantRole);
+  const gameMasterRole = await contract.GAME_MASTER_ROLE();
+  await wrapFnc([gameMasterRole, GAME_MASTER], contract.grantRole);
+  await wrapFnc([gameMasterRole, GAME_MASTER_2], contract.grantRole);
+  await wrapFnc([gameMasterRole, GAME_MASTER_3], contract.grantRole);
+  await wrapFnc([gameMasterRole, GAME_MASTER_4], contract.grantRole);
 }
 
 async function setupExactPriceOneVsOne() {
@@ -62,20 +58,20 @@ async function setupExactPriceOneVsOne() {
     contracts.OneVsOne.address
   );
   await wrapFnc([contracts.Treasury.address], contract.setTreasury);
-  const defaultAdminRole = await contract.DEFAULT_ADMIN_ROLE();
-  await wrapFnc([defaultAdminRole, GAME_MASTER], contract.grantRole);
-  await wrapFnc([defaultAdminRole, GAME_MASTER_2], contract.grantRole);
-  await wrapFnc([defaultAdminRole, GAME_MASTER_3], contract.grantRole);
-  await wrapFnc([defaultAdminRole, GAME_MASTER_4], contract.grantRole);
+  const gameMasterRole = await contract.GAME_MASTER_ROLE();
+  await wrapFnc([gameMasterRole, GAME_MASTER], contract.grantRole);
+  await wrapFnc([gameMasterRole, GAME_MASTER_2], contract.grantRole);
+  await wrapFnc([gameMasterRole, GAME_MASTER_3], contract.grantRole);
+  await wrapFnc([gameMasterRole, GAME_MASTER_4], contract.grantRole);
 }
 
 async function setupSetup() {
   const contract = await ethers.getContractAt("Setup", contracts.Setup.address);
-  const defaultAdminRole = await contract.DEFAULT_ADMIN_ROLE();
-  await wrapFnc([defaultAdminRole, GAME_MASTER], contract.grantRole);
-  await wrapFnc([defaultAdminRole, GAME_MASTER_2], contract.grantRole);
-  await wrapFnc([defaultAdminRole, GAME_MASTER_3], contract.grantRole);
-  await wrapFnc([defaultAdminRole, GAME_MASTER_4], contract.grantRole);
+  const gameMasterRole = await contract.GAME_MASTER_ROLE();
+  await wrapFnc([gameMasterRole, GAME_MASTER], contract.grantRole);
+  await wrapFnc([gameMasterRole, GAME_MASTER_2], contract.grantRole);
+  await wrapFnc([gameMasterRole, GAME_MASTER_3], contract.grantRole);
+  await wrapFnc([gameMasterRole, GAME_MASTER_4], contract.grantRole);
 }
 
 async function main() {

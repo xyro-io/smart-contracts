@@ -73,6 +73,7 @@ describe("OneVsOneExactPrice", () => {
     await Game.setTreasury(await Treasury.getAddress());
     await USDT.mint(opponent.address, parse18("1000"));
     await Treasury.setUpkeep(await Upkeep.getAddress());
+    await Game.grantRole(await Game.GAME_MASTER_ROLE(), owner.address);
     await Treasury.grantRole(
       await Treasury.DISTRIBUTOR_ROLE(),
       await Game.getAddress()

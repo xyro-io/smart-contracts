@@ -74,7 +74,7 @@ describe("Setup Game", () => {
     await USDT.mint(bob.address, parse18("1000"));
     await USDT.mint(alice.address, parse18("1000"));
     await USDT.mint(harry.address, parse18("1000"));
-
+    await Game.grantRole(await Game.GAME_MASTER_ROLE(), owner.address);
     await Treasury.grantRole(
       await Treasury.DEFAULT_ADMIN_ROLE(),
       await Game.getAddress()

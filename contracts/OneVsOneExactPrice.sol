@@ -57,6 +57,7 @@ contract OneVsOneExactPrice is AccessControl {
         uint256 packedData2;
     }
 
+    bytes32 public constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
     mapping(bytes32 => GameInfoPacked) public games;
     address public treasury;
     uint256 public fee = 500;
@@ -363,7 +364,7 @@ contract OneVsOneExactPrice is AccessControl {
      * Allows admin to close old\outdated games
      * @param gameId game id
      */
-    function liquidateGame(bytes32 gameId) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function liquidateGame(bytes32 gameId) public onlyRole(GAME_MASTER_ROLE) {
         GameInfo memory game = decodeData(gameId);
         require(block.timestamp - game.endTime >= 1 weeks, "Too early");
         require(game.gameStatus == Status.Created, "Wrong status!");
@@ -387,7 +388,7 @@ contract OneVsOneExactPrice is AccessControl {
     function finalizeGame(
         bytes32 gameId,
         bytes memory unverifiedReport
-    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) public onlyRole(GAME_MASTER_ROLE) {
         address upkeep = ITreasury(treasury).upkeep();
         GameInfo memory game = decodeData(gameId);
         (int192 finalPrice, uint32 priceTimestamp) = IDataStreamsVerifier(

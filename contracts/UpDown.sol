@@ -35,7 +35,7 @@ contract UpDown is AccessControl {
     }
 
     uint256 packedData;
-
+    bytes32 public constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
     address[] public UpPlayers;
     address[] public DownPlayers;
     mapping(address => bool) public isParticipating;
@@ -57,7 +57,7 @@ contract UpDown is AccessControl {
         uint32 endTime,
         uint32 stopPredictAt,
         uint8 feedNumber
-    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) public onlyRole(GAME_MASTER_ROLE) {
         require(packedData == 0, "Finish previous game first");
         require(endTime > stopPredictAt, "Ending time must be higher");
         packedData = (block.timestamp |
@@ -192,7 +192,7 @@ contract UpDown is AccessControl {
 
     function setStartingPrice(
         bytes memory unverifiedReport
-    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) public onlyRole(GAME_MASTER_ROLE) {
         GameInfo memory game = decodeData();
         require(block.timestamp >= game.stopPredictAt, "Too early");
         require(
@@ -217,7 +217,7 @@ contract UpDown is AccessControl {
      */
     function finalizeGame(
         bytes memory unverifiedReport
-    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) public onlyRole(GAME_MASTER_ROLE) {
         GameInfo memory game = decodeData();
         require(packedData != 0, "Start the game first");
         require(block.timestamp >= game.endTime, "Too early to finish");
@@ -328,7 +328,7 @@ contract UpDown is AccessControl {
         packedData = 0;
     }
 
-    function closeGame() public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function closeGame() public onlyRole(GAME_MASTER_ROLE) {
         require(currentGameId != bytes32(0), "Game not started");
         for (uint i; i < UpPlayers.length; i++) {
             ITreasury(treasury).refund(

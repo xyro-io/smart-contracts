@@ -64,6 +64,7 @@ describe("UpDown", () => {
     await USDT.mint(opponent.address, parse18("10000000"));
     await USDT.mint(alice.address, parse18("10000000"));
     await USDT.mint(bob.address, parse18("10000000"));
+    await Game.grantRole(await Game.GAME_MASTER_ROLE(), owner.address);
     await Treasury.grantRole(
       await Treasury.DISTRIBUTOR_ROLE(),
       await Game.getAddress()

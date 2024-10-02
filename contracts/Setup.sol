@@ -74,6 +74,7 @@ contract Setup is AccessControl {
         uint256 finalRate;
     }
 
+    bytes32 public constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
     mapping(bytes32 => GameInfoPacked) public games;
     mapping(bytes32 => mapping(address => UserStatus)) public withdrawStatus;
     mapping(bytes32 => mapping(address => uint256)) public depositAmounts;
@@ -373,7 +374,7 @@ contract Setup is AccessControl {
     function finalizeGame(
         bytes memory unverifiedReport,
         bytes32 gameId
-    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) public onlyRole(GAME_MASTER_ROLE) {
         GameInfo memory data = decodeData(gameId);
         require(data.gameStatus == Status.Created, "Wrong status!");
         (int192 finalPrice, uint256 endTime) = IDataStreamsVerifier(

@@ -143,7 +143,6 @@ contract OneVsOneExactPrice is AccessControl {
             endTime - block.timestamp <= maxDuration,
             "Max game duration must be lower"
         );
-        require(depositAmount >= 10, "Wrong deposit amount");
 
         ITreasury(treasury).lock(depositAmount, msg.sender);
         bytes32 gameId = keccak256(
@@ -196,7 +195,6 @@ contract OneVsOneExactPrice is AccessControl {
             endTime - block.timestamp <= maxDuration,
             "Max game duration must be lower"
         );
-        require(depositAmount >= 10, "Wrong deposit amount");
 
         ITreasury(treasury).depositAndLockWithPermit(
             depositAmount,

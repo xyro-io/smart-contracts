@@ -4,6 +4,7 @@ import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { XyroToken } from "../typechain-types/contracts/XyroToken";
 import { XyroToken__factory } from "../typechain-types/factories/contracts/XyroToken__factory";
 import { getPermitSignature } from "../scripts/helper";
+import { time } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 const parse18 = ethers.parseEther;
 
 describe("Permit", () => {
@@ -20,7 +21,7 @@ describe("Permit", () => {
   it("Should transfer with permit", async function () {
     const spender = alice.address;
     const amount = parse18("10");
-    const deadline = Math.floor(Date.now() / 1000) + 1000;
+    const deadline = (await time.latest()) + 1000;
     const result = await getPermitSignature(
       owner,
       XyroToken,

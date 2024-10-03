@@ -52,8 +52,6 @@ describe("UpDown", () => {
       parse18((1e13).toString())
     );
     XyroToken = await new XyroToken__factory(owner).deploy(parse18("5000"));
-    await XyroToken.mint(bob.address, parse18("1260000"));
-    await XyroToken.mint(opponent.address, parse18("1260000"));
     Treasury = await new Treasury__factory(owner).deploy(
       await USDT.getAddress(),
       await XyroToken.getAddress()

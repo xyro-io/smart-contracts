@@ -38,7 +38,6 @@ describe("Treasury", () => {
     );
     await USDT.mint(alice.address, parse18("100000"));
     XyroToken = await new XyroToken__factory(owner).deploy(parse18("2500"));
-    await XyroToken.mint(alice.address, parse18("5000"));
     Treasury = await new Treasury__factory(owner).deploy(
       await USDT.getAddress(),
       await XyroToken.getAddress()

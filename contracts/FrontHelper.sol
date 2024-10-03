@@ -21,12 +21,17 @@ contract FrontHelper {
         token = _token;
     }
 
-    function getBalanceData(address target) public view returns (Data memory) {
-        return
-            Data({
-                balance: IERC20(token).balanceOf(target),
-                deposited: ITreasury(treasury).deposits(target),
-                allowance: IERC20(token).allowance(target, treasury)
+    function getBalanceData(
+        address[] calldata targets
+    ) public view returns (Data[] memory) {
+        Data[] memory data = new Data[](targets.length);
+        for (uint i; i < targets.length; i++) {
+            data[i] = Data({
+                balance: IERC20(token).balanceOf(targets[i]),
+                deposited: ITreasury(treasury).deposits(targets[i]),
+                allowance: IERC20(token).allowance(targets[i], treasury)
             });
+        }
+        return data;
     }
 }

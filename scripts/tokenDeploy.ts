@@ -1,6 +1,8 @@
 import { wrapFnc } from "./helper";
 import { ethers } from "hardhat";
 
+const parse18 = ethers.parseEther;
+
 async function main() {
   const [deployer] = await ethers.getSigners();
   console.log("Deployer = ", deployer.address);

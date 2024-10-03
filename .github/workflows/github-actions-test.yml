@@ -1,0 +1,26 @@
+name: Run tests
+on:
+  push:
+    branches-ignore:
+      - dev
+      - test
+
+jobs:
+  build:
+    name: build and deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Inject slug/short variables
+        uses: rlespinasse/github-slug-action@v4
+
+      - name: run
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@xyro-io'
+      - run: npm install
+      - run: npm run test

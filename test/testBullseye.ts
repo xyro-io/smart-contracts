@@ -49,7 +49,7 @@ describe("Bullseye", () => {
     USDT = await new MockToken__factory(owner).deploy(
       parse18((1e13).toString())
     );
-    XyroToken = await new XyroToken__factory(owner).deploy(parse18("5000"));
+    XyroToken = await new XyroToken__factory(owner).deploy(parse18("1255000"));
     Treasury = await new Treasury__factory(owner).deploy(
       await USDT.getAddress(),
       await XyroToken.getAddress()

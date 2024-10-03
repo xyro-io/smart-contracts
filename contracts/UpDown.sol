@@ -89,7 +89,9 @@ contract UpDown is AccessControl {
         );
         GameInfo memory game = decodeData();
         require(
-            game.stopPredictAt > block.timestamp,
+            game.stopPredictAt > block.timestamp &&
+                (game.totalDepositsDown + depositAmount <= type(uint32).max ||
+                    game.totalDepositsUp + depositAmount <= type(uint32).max),
             "Game is closed for new players"
         );
         if (isLong) {
@@ -124,7 +126,9 @@ contract UpDown is AccessControl {
         );
         GameInfo memory game = decodeData();
         require(
-            game.stopPredictAt > block.timestamp,
+            game.stopPredictAt > block.timestamp &&
+                (game.totalDepositsDown + depositAmount <= type(uint32).max ||
+                    game.totalDepositsUp + depositAmount <= type(uint32).max),
             "Game is closed for new players"
         );
         if (isLong) {
@@ -161,7 +165,9 @@ contract UpDown is AccessControl {
         );
         GameInfo memory game = decodeData();
         require(
-            game.stopPredictAt > block.timestamp,
+            game.stopPredictAt > block.timestamp &&
+                (game.totalDepositsDown + depositAmount <= type(uint32).max ||
+                    game.totalDepositsUp + depositAmount <= type(uint32).max),
             "Game is closed for new players"
         );
         if (isLong) {

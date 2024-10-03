@@ -162,6 +162,22 @@ describe("UpDown", () => {
       );
     });
 
+    it("should fail - overflow deposit amount play()", async function () {
+      const maxUint32 = 4394967295;
+      await expect(Game.play(true, maxUint32)).to.be.revertedWith(
+        requireOpenedGame
+      );
+    });
+
+    it("should fail - overflow deposit amount playWithDeposit()", async function () {
+      const maxUint32 = 4394967295;
+      await Treasury.deposit(maxUint32);
+      await expect(Game.playWithDeposit(true, maxUint32)).to.be.revertedWith(
+        requireOpenedGame
+      );
+      await Treasury.withdraw(maxUint32);
+    });
+
     it("should fail - insufficent deposit amount", async function () {
       await expect(Game.playWithDeposit(true, usdtAmount)).to.be.revertedWith(
         requireSufficentDepositAmount
@@ -473,12 +489,35 @@ describe("UpDown", () => {
   });
 
   describe("Permit", () => {
-    it("should play down with permit", async function () {
+    it("should fail - overflow deposit amount playWithDeposit()", async function () {
       await Game.startGame(
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
         feedNumber
       );
+      const maxUint32 = 4394967295;
+
+      const deadline = (await time.latest()) + fortyFiveMinutes;
+      let result = await getPermitSignature(
+        owner,
+        USDT,
+        await Treasury.getAddress(),
+        parse18(maxUint32.toString()),
+        BigInt(deadline)
+      );
+      await Treasury.deposit(maxUint32);
+      await expect(
+        Game.playWithPermit(true, maxUint32, {
+          deadline: deadline,
+          v: result.v,
+          r: result.r,
+          s: result.s,
+        })
+      ).to.be.revertedWith(requireOpenedGame);
+      await Treasury.withdraw(maxUint32);
+    });
+
+    it("should play down with permit", async function () {
       const deadline = (await time.latest()) + fortyFiveMinutes;
       let result = await getPermitSignature(
         owner,

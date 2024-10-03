@@ -62,7 +62,7 @@ contract OneVsOneExactPrice is AccessControl {
     address public treasury;
     uint256 public fee = 500;
     uint256 public refundFee = 1000;
-    uint256 public minDuration = 30 minutes;
+    uint256 public minDuration = 280;
     uint256 public maxDuration = 4 weeks;
 
     constructor() {

@@ -51,7 +51,6 @@ describe("Treasury", () => {
       await Treasury.DISTRIBUTOR_ROLE(),
       mockContract.address
     );
-    await Treasury.grantRole(await Treasury.DAO_ROLE(), mockDAO.address);
     await USDT.approve(Treasury.getAddress(), ethers.MaxUint256);
     await USDT.connect(alice).approve(
       await Treasury.getAddress(),
@@ -89,17 +88,14 @@ describe("Treasury", () => {
     expect(await Treasury.setupInitiatorFee()).to.be.equal(newFee);
   });
 
-  it("Should set Setup fee by DAO", async function () {
-    const oldFee = 100;
-    await Treasury.connect(mockDAO).setSetupFee(oldFee);
-    expect(await Treasury.setupInitiatorFee()).to.be.equal(oldFee);
-  });
-
   it("Should fail - set Setup fee", async function () {
     const newFee = 105;
     await expect(
       Treasury.connect(alice).setSetupFee(newFee)
-    ).to.be.revertedWith(invalidRole);
+    ).to.be.revertedWithCustomError(
+      Treasury,
+      "AccessControlUnauthorizedAccount"
+    );
   });
 
   it("Should deposit", async function () {

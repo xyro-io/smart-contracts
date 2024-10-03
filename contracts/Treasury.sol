@@ -162,6 +162,7 @@ contract Treasury is AccessControl {
         bytes32 r,
         bytes32 s
     ) public onlyRole(DISTRIBUTOR_ROLE) {
+        require(amount >= minDepositAmount, "Wrong deposit amount");
         uint256 oldBalance = IERC20(approvedToken).balanceOf(address(this));
         IERC20Permit(approvedToken).permit(
             from,

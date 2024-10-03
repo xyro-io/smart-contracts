@@ -603,7 +603,7 @@ describe("OneVsOneExactPrice", () => {
         owner,
         USDT,
         await Treasury.getAddress(),
-        parse18(usdtAmount.toString()),
+        parse18("0"),
         BigInt(deadline)
       );
       await expect(
@@ -612,7 +612,7 @@ describe("OneVsOneExactPrice", () => {
           opponent.address,
           (await time.latest()) + fortyFiveMinutes,
           initiatorPrice,
-          1,
+          0,
           {
             deadline: deadline,
             v: ownerPermit.v,

@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 contract XyroToken is ERC20Permit {
     constructor(
         uint256 initialSupply
-    ) ERC20("Xyro", "XYR") ERC20Permit("Xyro") {
+    ) ERC20("XYRO", "XYRO") ERC20Permit("XYRO") {
         _mint(msg.sender, initialSupply);
     }
 }

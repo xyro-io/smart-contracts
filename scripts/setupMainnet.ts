@@ -16,14 +16,8 @@ async function setupTreasury(deployer: HardhatEthersSigner) {
     "Treasury",
     contracts.Treasury.address
   );
-  const gameMasterRole = await contract.GAME_MASTER_ROLE();
-  await wrapFnc([gameMasterRole, GAME_MASTER], contract.grantRole);
-  await wrapFnc([gameMasterRole, GAME_MASTER_2], contract.grantRole);
-  await wrapFnc([gameMasterRole, GAME_MASTER_3], contract.grantRole);
-  await wrapFnc([gameMasterRole, GAME_MASTER_4], contract.grantRole);
   const role = await contract.DISTRIBUTOR_ROLE();
   await wrapFnc([contracts.RealUpkeep.address], contract.setUpkeep);
-  await wrapFnc([contracts.MockVerifier.address], contract.setUpkeep);
   await wrapFnc([role, contracts.Bullseye.address], contract.grantRole);
   await wrapFnc([role, contracts.OneVsOne.address], contract.grantRole);
   await wrapFnc([role, contracts.UpDown.address], contract.grantRole);

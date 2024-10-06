@@ -329,7 +329,7 @@ contract Setup is AccessControl {
      * Closes setup game
      * @param gameId game id
      */
-    function closeGame(bytes32 gameId) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function closeGame(bytes32 gameId) public onlyRole(GAME_MASTER_ROLE) {
         GameInfo memory data = decodeData(gameId);
         require(data.startTime != 0, "Game doesn't exist");
         require(

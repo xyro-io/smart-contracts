@@ -49,10 +49,7 @@ async function deployXyroToken() {
 
 async function deployTreasury() {
   factory = await ethers.getContractFactory("Treasury");
-  Treasury = await wrapFnc(
-    [contracts.USDC.address, contracts.XyroToken.address],
-    factory
-  );
+  Treasury = await wrapFnc([contracts.USDC.address], factory);
   contracts.Treasury = { address: "", url: "" };
   contracts.Treasury.address = Treasury.target;
   console.log("Treasury deployed");

@@ -89,10 +89,7 @@ async function deployTreasury() {
     contracts.Treasury?.address == undefined ||
     contracts.Treasury?.address == ""
   ) {
-    Treasury = await wrapFnc(
-      [contracts.USDC.address, contracts.XyroToken.address],
-      factory
-    );
+    Treasury = await wrapFnc([contracts.USDC.address], factory);
     contracts.Treasury = { address: "", url: "" };
     contracts.Treasury.address = Treasury.target;
     console.log("Treasury deployed");
@@ -305,7 +302,7 @@ async function main() {
     // await deploySetupsFactory();
     await deployBullseye();
     // await deployMockVerifier();
-    // await deployFrontHelper();
+    await deployFrontHelper();
     await deployUpDown();
     await deployVerifier();
   } catch (e) {

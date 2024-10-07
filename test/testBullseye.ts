@@ -51,8 +51,7 @@ describe("Bullseye", () => {
     );
     XyroToken = await new XyroToken__factory(owner).deploy(parse18("1255000"));
     Treasury = await new Treasury__factory(owner).deploy(
-      await USDT.getAddress(),
-      await XyroToken.getAddress()
+      await USDT.getAddress()
     );
     Game = await new Bullseye__factory(owner).deploy();
     Upkeep = await new MockVerifier__factory(owner).deploy();
@@ -310,8 +309,7 @@ describe("Bullseye", () => {
 
   it("should change treasury", async function () {
     let temporaryTreasury = await new Treasury__factory(owner).deploy(
-      await USDT.getAddress(),
-      await XyroToken.getAddress()
+      await USDT.getAddress()
     );
     await Game.setTreasury(await temporaryTreasury.getAddress());
     expect(await Game.treasury()).to.equal(

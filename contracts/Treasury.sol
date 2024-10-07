@@ -16,7 +16,6 @@ contract Treasury is AccessControl {
     event Refunded(address to, uint256 amount);
     event UpkeepChanged(address newUpkeep);
     address public approvedToken;
-    address public xyroToken;
     address public upkeep;
     uint256 public setupInitiatorFee = 1000;
     uint256 public constant FEE_DENOMINATOR = 10000;
@@ -25,18 +24,15 @@ contract Treasury is AccessControl {
     bytes32 public constant ACCOUNTANT_ROLE = keccak256("ACCOUNTANT_ROLE");
     uint256 public collectedFee;
     uint256 public minDepositAmount = 1;
-    mapping(address => uint256) public earnedRakeback;
     mapping(address => uint256) public deposits;
     mapping(address => uint256) public locked;
 
     /**
      * @param newApprovedToken stable token used in games
-     * @param xyroTokenAdr Xyro's token
      */
-    constructor(address newApprovedToken, address xyroTokenAdr) {
+    constructor(address newApprovedToken) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         approvedToken = newApprovedToken;
-        xyroToken = xyroTokenAdr;
     }
 
     /**

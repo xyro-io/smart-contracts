@@ -53,8 +53,7 @@ describe("UpDown", () => {
     );
     XyroToken = await new XyroToken__factory(owner).deploy(parse18("5000"));
     Treasury = await new Treasury__factory(owner).deploy(
-      await USDT.getAddress(),
-      await XyroToken.getAddress()
+      await USDT.getAddress()
     );
     Game = await new UpDown__factory(owner).deploy();
     Upkeep = await new MockVerifier__factory(owner).deploy();

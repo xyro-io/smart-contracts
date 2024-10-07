@@ -1,5 +1,8 @@
 import contracts from "../contracts.json";
 import { ethers } from "hardhat";
+import { wrapFnc } from "./helper";
+const ADMIN_ROLE =
+  "0x0000000000000000000000000000000000000000000000000000000000000000";
 
 async function main() {
   let [deployer] = await ethers.getSigners();
@@ -32,6 +35,15 @@ async function main() {
     "DataStreamsVerifier",
     contracts.RealUpkeep.address
   );
-  await contract.setfeedNumberBatch(feedIds);
+
+  await wrapFnc([feedIds], contract.setfeedNumberBatch);
+
+  await wrapFnc([ADMIN_ROLE, contracts.Bullseye.address], contract.grantRole);
+
+  await wrapFnc([ADMIN_ROLE, contracts.OneVsOne.address], contract.grantRole);
+
+  await wrapFnc([ADMIN_ROLE, contracts.Setup.address], contract.grantRole);
+
+  await wrapFnc([ADMIN_ROLE, contracts.UpDown.address], contract.grantRole);
 }
 main();

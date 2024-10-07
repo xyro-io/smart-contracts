@@ -19,9 +19,7 @@ let contracts: {
   Vesting,
   Setup,
   Staking,
-  SetupsFactory,
   OneVsOne,
-  UpDownOneVsOne,
   Bullseye,
   GovernanceToken,
   TimeLock,
@@ -134,21 +132,6 @@ async function deployStaking() {
   }
 }
 
-async function deploySetupsFactory() {
-  factory = await ethers.getContractFactory("SetupsFactory");
-  if (
-    contracts.SetupsFactory?.address == undefined ||
-    contracts.SetupsFactory?.address == ""
-  ) {
-    SetupsFactory = await wrapFnc([contracts.Treasury.address], factory);
-    contracts.SetupsFactory = { address: "", url: "" };
-    contracts.SetupsFactory.address = SetupsFactory.target;
-    console.log("SetupsFactory deployed");
-  } else {
-    console.log("SetupsFactory already deployed skipping...");
-  }
-}
-
 async function deployBullseye() {
   factory = await ethers.getContractFactory("Bullseye");
   if (
@@ -239,17 +222,14 @@ async function deployMockVerifier() {
   }
 }
 
-async function deployVerifier() {
+async function deployVerifier(verifier: string) {
   factory = await ethers.getContractFactory("DataStreamsVerifier");
   if (
     contracts.RealUpkeep?.address == undefined ||
     contracts.RealUpkeep?.address == ""
   ) {
     //Arb sepolia upkeep
-    RealUpkeep = await wrapFnc(
-      ["0x2ff010DEbC1297f19579B4246cad07bd24F2488A"],
-      factory
-    );
+    RealUpkeep = await wrapFnc([verifier], factory);
     contracts.RealUpkeep = { address: "", url: "" };
     contracts.RealUpkeep.address = RealUpkeep.target;
     console.log("RealUpkeep deployed");
@@ -293,18 +273,18 @@ async function main() {
     // await deployTimeLock(deployer);
     // await deployDAO();
     await deployUSDC();
-    await deployXyroToken();
+    // await deployXyroToken();
     await deployTreasury();
     // await deployStaking();
     await deployOneVsOneExactPrice();
-    // await deployOneVsOneUpDown();
     await deploySetup();
-    // await deploySetupsFactory();
     await deployBullseye();
     // await deployMockVerifier();
-    await deployFrontHelper();
+    // await deployFrontHelper();
     await deployUpDown();
-    await deployVerifier();
+    const mainnetVerifierAdr = "0x478Aa2aC9F6D65F84e09D9185d126c3a17c2a93C";
+    const testnetVerifierAdr = "0x2ff010DEbC1297f19579B4246cad07bd24F2488A";
+    await deployVerifier(testnetVerifierAdr);
   } catch (e) {
     const json = JSON.stringify(contracts);
     fs.writeFileSync("./contracts.json", json);
@@ -312,6 +292,5 @@ async function main() {
 
   const json = JSON.stringify(contracts);
   fs.writeFileSync("./contracts.json", json);
-  // process.exit();
 }
 main();

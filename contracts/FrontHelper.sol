@@ -11,6 +11,7 @@ contract FrontHelper {
         uint256 balance;
         uint256 deposited;
         uint256 allowance;
+        uint256 etherBalance;
     }
 
     address public token;
@@ -29,7 +30,8 @@ contract FrontHelper {
             data[i] = Data({
                 balance: IERC20(token).balanceOf(targets[i]),
                 deposited: ITreasury(treasury).deposits(targets[i]),
-                allowance: IERC20(token).allowance(targets[i], treasury)
+                allowance: IERC20(token).allowance(targets[i], treasury),
+                etherBalance: targets[i].balance
             });
         }
         return data;

@@ -16,10 +16,12 @@ contract FrontHelper {
 
     address public token;
     address public treasury;
+    address public owner;
 
     constructor(address _token, address _treasury) {
         treasury = _treasury;
         token = _token;
+        owner = msg.sender;
     }
 
     function getBalanceData(
@@ -35,5 +37,10 @@ contract FrontHelper {
             });
         }
         return data;
+    }
+
+    function setToken(address newToken) public {
+        require(msg.sender == owner, "Not an owner");
+        token = newToken;
     }
 }

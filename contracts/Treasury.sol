@@ -288,7 +288,7 @@ contract Treasury is AccessControl {
     ) public onlyRole(DISTRIBUTOR_ROLE) {
         amount *= 10 ** IERC20Mint(approvedToken).decimals();
         uint256 withdrawnFees = (amount * gameFee) / FEE_DENOMINATOR;
-        uint256 wonAmount = amount - (withdrawnFees / FEE_DENOMINATOR);
+        uint256 wonAmount = amount - withdrawnFees;
         collectedFee += withdrawnFees;
         emit FeeCollected(withdrawnFees, collectedFee);
         deposits[to] += wonAmount;
@@ -307,7 +307,7 @@ contract Treasury is AccessControl {
         uint256 gameFee
     ) public onlyRole(DISTRIBUTOR_ROLE) {
         uint256 withdrawnFees = (amount * gameFee) / FEE_DENOMINATOR;
-        uint256 wonAmount = amount - (withdrawnFees / FEE_DENOMINATOR);
+        uint256 wonAmount = amount - withdrawnFees;
         collectedFee += withdrawnFees;
         emit FeeCollected(withdrawnFees, collectedFee);
         deposits[to] += wonAmount;

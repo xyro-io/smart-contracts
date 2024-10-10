@@ -32,6 +32,14 @@ interface ITreasury {
 
     function distribute(uint256 amount, address to, uint256 gameFee) external;
 
+    function distributeBullseye(
+        uint256 amount,
+        address to,
+        uint256 gameFee
+    ) external;
+
+    function approvedToken() external returns (address);
+
     function refund(uint256 amount, address to) external;
 
     function refundWithFees(

@@ -8,8 +8,8 @@ import { MockToken } from "../typechain-types/contracts/mock/MockERC20.sol/MockT
 import { MockToken__factory } from "../typechain-types/factories/contracts/mock/MockERC20.sol/MockToken__factory";
 import { Treasury } from "../typechain-types/contracts/Treasury.sol/Treasury";
 import { Treasury__factory } from "../typechain-types/factories/contracts/Treasury.sol/Treasury__factory";
-import { Bullseye } from "../typechain-types/contracts/Bullseye";
-import { Bullseye__factory } from "../typechain-types/factories/contracts/Bullseye__factory";
+import { Bullseye } from "../typechain-types/contracts/Bullseye.sol/Bullseye";
+import { Bullseye__factory } from "../typechain-types/factories/contracts/Bullseye.sol/Bullseye__factory";
 import { MockVerifier } from "../typechain-types/contracts/mock/MockVerifier";
 import { MockVerifier__factory } from "../typechain-types/factories/contracts/mock/MockVerifier__factory";
 import {

@@ -7,7 +7,6 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 interface IERC20Mint {
     function decimals() external view returns (uint256);
-    function mint(address to, uint256 value) external;
 }
 
 contract Treasury is AccessControl {
@@ -288,6 +287,25 @@ contract Treasury is AccessControl {
         uint256 gameFee
     ) public onlyRole(DISTRIBUTOR_ROLE) {
         amount *= 10 ** IERC20Mint(approvedToken).decimals();
+        uint256 withdrawnFees = (amount * gameFee) / FEE_DENOMINATOR;
+        uint256 wonAmount = amount - (withdrawnFees / FEE_DENOMINATOR);
+        collectedFee += withdrawnFees;
+        emit FeeCollected(withdrawnFees, collectedFee);
+        deposits[to] += wonAmount;
+        emit Distributed(to, wonAmount);
+    }
+
+    /**
+     * Distribute bullseye reward
+     * @param amount token amount
+     * @param to token reciever
+     * @param gameFee game mode fees in bp
+     */
+    function distributeBullseye(
+        uint256 amount,
+        address to,
+        uint256 gameFee
+    ) public onlyRole(DISTRIBUTOR_ROLE) {
         uint256 withdrawnFees = (amount * gameFee) / FEE_DENOMINATOR;
         uint256 wonAmount = amount - (withdrawnFees / FEE_DENOMINATOR);
         collectedFee += withdrawnFees;

@@ -215,8 +215,8 @@ describe("Bullseye", () => {
       );
       await Game.connect(opponent).play(guessPriceOpponent);
       await Game.connect(alice).play(guessPriceAlice);
-      let oldAliceBalance = await USDT.balanceOf(alice.getAddress());
-      let oldOpponentBalance = await USDT.balanceOf(opponent.getAddress());
+      let oldAliceBalance = await Treasury.deposits(alice.address);
+      let oldOpponentBalance = await Treasury.deposits(opponent.address);
       await time.increase(fortyFiveMinutes);
       await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
@@ -225,17 +225,28 @@ describe("Bullseye", () => {
           await time.latest()
         )
       );
-      await Treasury.connect(alice).withdraw(
-        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+
+      let newAliceBalance = await Treasury.deposits(alice.address);
+      let newOpponentBalance = await Treasury.deposits(opponent.address);
+      const wonAmountAlice =
+        (parse18((2 * usdtAmount).toString()) *
+          (await Game.twoPlayersRate(1))) /
+        BigInt(10000);
+      const withdrawnFeesAlice =
+        (wonAmountAlice * (await Game.fee())) / BigInt(10000);
+
+      const wonAmountOpponent =
+        (parse18((2 * usdtAmount).toString()) *
+          (await Game.twoPlayersRate(0))) /
+        BigInt(10000);
+      const withdrawnFeesOpponent =
+        (wonAmountOpponent * (await Game.fee())) / BigInt(10000);
+
+      expect(newAliceBalance - oldAliceBalance).to.be.equal(
+        wonAmountAlice - withdrawnFeesAlice
       );
-      await Treasury.connect(opponent).withdraw(
-        (await Treasury.deposits(opponent.address)) / BigInt(Math.pow(10, 18))
-      );
-      let newAliceBalance = await USDT.balanceOf(alice.getAddress());
-      let newOpponentBalance = await USDT.balanceOf(opponent.getAddress());
-      expect(newAliceBalance - oldAliceBalance).to.be.above(parse18("48"));
-      expect(newOpponentBalance - oldOpponentBalance).to.be.above(
-        parse18("148")
+      expect(newOpponentBalance - oldOpponentBalance).to.be.equal(
+        wonAmountOpponent - withdrawnFeesOpponent
       );
     });
 

@@ -251,7 +251,7 @@ contract OneVsOneExactPrice is AccessControl {
             );
         } else {
             require(msg.sender != game.initiator, "Wrong opponent");
-            games[gameId].packedData = uint256(uint160(msg.sender));
+            games[gameId].packedData |= uint256(uint160(msg.sender));
         }
         games[gameId].packedData |= uint256(opponentPrice) << 224;
         ITreasury(treasury).depositAndLock(game.depositAmount, msg.sender);
@@ -287,7 +287,7 @@ contract OneVsOneExactPrice is AccessControl {
             );
         } else {
             require(msg.sender != game.initiator, "Wrong opponent");
-            games[gameId].packedData = uint256(uint160(msg.sender));
+            games[gameId].packedData |= uint256(uint160(msg.sender));
         }
         games[gameId].packedData |= uint256(opponentPrice) << 224;
         ITreasury(treasury).lock(game.depositAmount, msg.sender);
@@ -324,7 +324,7 @@ contract OneVsOneExactPrice is AccessControl {
             );
         } else {
             require(msg.sender != game.initiator, "Wrong opponent");
-            games[gameId].packedData = uint256(uint160(msg.sender));
+            games[gameId].packedData |= uint256(uint160(msg.sender));
         }
         games[gameId].packedData |= uint256(opponentPrice) << 224;
         ITreasury(treasury).depositAndLockWithPermit(

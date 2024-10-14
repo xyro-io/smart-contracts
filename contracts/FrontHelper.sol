@@ -4,6 +4,11 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface ITreasury {
     function deposits(address target) external view returns (uint256);
+    function setupInitiatorFee() external view returns (uint256);
+}
+
+interface IGame {
+    function fee() external view returns (uint256);
 }
 
 contract FrontHelper {
@@ -14,6 +19,14 @@ contract FrontHelper {
         uint256 etherBalance;
     }
 
+    struct FeeData {
+        uint256 setupFee;
+        uint256 setupInitiatorFee;
+        uint256 oneVsOneFee;
+        uint256 upDownfee;
+        uint256 bullseyeFee;
+    }
+
     address public token;
     address public treasury;
     address public owner;
@@ -22,6 +35,22 @@ contract FrontHelper {
         treasury = _treasury;
         token = _token;
         owner = msg.sender;
+    }
+
+    function getFeeData(
+        address oneVsOne,
+        address setup,
+        address upDown,
+        address bullseye
+    ) public view returns (FeeData memory) {
+        return
+            FeeData({
+                setupFee: IGame(setup).fee(),
+                setupInitiatorFee: ITreasury(treasury).setupInitiatorFee(),
+                oneVsOneFee: IGame(oneVsOne).fee(),
+                upDownfee: IGame(upDown).fee(),
+                bullseyeFee: IGame(bullseye).fee()
+            });
     }
 
     function getBalanceData(

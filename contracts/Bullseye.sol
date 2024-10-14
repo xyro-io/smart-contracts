@@ -15,7 +15,7 @@ contract Bullseye is AccessControl {
     uint256[3] public exactlessThan5PlayersRate = [10000, 0, 0];
     uint256[3] public lessThan10PlayersRate = [7500, 2500, 0];
     uint256[3] public exactLessThan10PlayersRate = [9000, 1000, 0];
-    uint256[3] public MoreThan10PlayersRate = [5000, 3500, 1500];
+    uint256[3] public moreThan10PlayersRate = [5000, 3500, 1500];
     uint256[3] public exactMoreThan10PlayersRate = [7500, 1500, 1000];
     event NewTreasury(address newTreasury);
     event NewExactRange(uint256 newExactRange);
@@ -229,6 +229,7 @@ contract Bullseye is AccessControl {
         );
         if (packedGuessData.length == 2) {
             GuessStruct memory playerOneGuessData = decodeGuess(0);
+
             GuessStruct memory playerTwoGuessData = decodeGuess(1);
             uint256 playerOneDiff = playerOneGuessData.assetPrice >
                 uint192(finalPrice)
@@ -240,7 +241,7 @@ contract Bullseye is AccessControl {
                 : uint192(finalPrice) - playerTwoGuessData.assetPrice;
             if (playerOneDiff < playerTwoDiff) {
                 // player 1 closer
-                if (playerOneDiff >= exactRange) {
+                if (playerOneDiff > exactRange) {
                     uint256 wonAmountFirst = (2 *
                         game.depositAmount *
                         10 **
@@ -287,7 +288,7 @@ contract Bullseye is AccessControl {
                 );
             } else {
                 // player 2 closer
-                if (playerTwoDiff >= exactRange) {
+                if (playerTwoDiff > exactRange) {
                     uint256 wonAmountFirst = (2 *
                         game.depositAmount *
                         10 **
@@ -353,6 +354,7 @@ contract Bullseye is AccessControl {
                         for (uint256 k = 2; k > i; k--) {
                             closestDiff[k] = closestDiff[k - 1];
                             topPlayers[k] = topPlayers[k - 1];
+                            topIndexes[k] = topIndexes[k - 1];
                         }
                         closestDiff[i] = currentDiff;
                         topPlayers[i] = playerGuessData.player;
@@ -367,6 +369,7 @@ contract Bullseye is AccessControl {
                         for (uint256 k = 2; k > i; k--) {
                             closestDiff[k] = closestDiff[k - 1];
                             topPlayers[k] = topPlayers[k - 1];
+                            topIndexes[k] = topIndexes[k - 1];
                         }
                         topIndexes[i] = j;
                         topPlayers[i] = playerGuessData.player;
@@ -391,7 +394,7 @@ contract Bullseye is AccessControl {
                 } else if (packedGuessData.length <= 10) {
                     wonAmount = lessThan10PlayersRate;
                 } else {
-                    wonAmount = MoreThan10PlayersRate;
+                    wonAmount = moreThan10PlayersRate;
                 }
             }
             for (uint256 i = 0; i < 3; i++) {

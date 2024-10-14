@@ -18,6 +18,7 @@ contract Bullseye is AccessControl {
     uint256[3] public moreThan10PlayersRate = [5000, 3500, 1500];
     uint256[3] public exactMoreThan10PlayersRate = [7500, 1500, 1000];
     event NewTreasury(address newTreasury);
+    event NewFee(uint256 newFee);
     event NewExactRange(uint256 newExactRange);
     event BullseyeStart(
         uint256 startTime,
@@ -535,6 +536,33 @@ contract Bullseye is AccessControl {
      */
     function setFee(uint256 newFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
         fee = newFee;
+        emit NewFee(newFee);
+    }
+
+    function setRate(
+        uint256[3] memory rate,
+        uint256 playersCount,
+        bool isExact
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (playersCount <= 5) {
+            if (isExact) {
+                exactlessThan5PlayersRate = rate;
+            } else {
+                lessThan5PlayersRate = rate;
+            }
+        } else if (playersCount <= 10) {
+            if (isExact) {
+                exactLessThan10PlayersRate = rate;
+            } else {
+                lessThan10PlayersRate = rate;
+            }
+        } else {
+            if (isExact) {
+                exactMoreThan10PlayersRate = rate;
+            } else {
+                moreThan10PlayersRate = rate;
+            }
+        }
     }
 }
 

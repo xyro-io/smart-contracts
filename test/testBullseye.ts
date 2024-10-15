@@ -237,15 +237,13 @@ describe("Bullseye", () => {
       let newAliceBalance = await Treasury.deposits(alice.address);
       let newOpponentBalance = await Treasury.deposits(opponent.address);
       const wonAmountAlice =
-        (parse18((2 * usdtAmount).toString()) *
-          (await Game.lessThan5PlayersRate(1))) /
+        (parse18((2 * usdtAmount).toString()) * (await Game.rates(0, 1))) /
         BigInt(10000);
       const withdrawnFeesAlice =
         (wonAmountAlice * (await Game.fee())) / BigInt(10000);
 
       const wonAmountOpponent =
-        (parse18((2 * usdtAmount).toString()) *
-          (await Game.lessThan5PlayersRate(0))) /
+        (parse18((2 * usdtAmount).toString()) * (await Game.rates(0, 0))) /
         BigInt(10000);
       const withdrawnFeesOpponent =
         (wonAmountOpponent * (await Game.fee())) / BigInt(10000);
@@ -410,12 +408,10 @@ describe("Bullseye", () => {
       expect(finalizeEventLog[3]).to.be.equal(false);
 
       let wonAmountBob =
-        (parse18((3 * usdtAmount).toString()) *
-          (await Game.lessThan5PlayersRate(0))) /
+        (parse18((3 * usdtAmount).toString()) * (await Game.rates(0, 0))) /
         BigInt(10000);
       let wonAmountOpponent =
-        (parse18((3 * usdtAmount).toString()) *
-          (await Game.lessThan5PlayersRate(1))) /
+        (parse18((3 * usdtAmount).toString()) * (await Game.rates(0, 1))) /
         BigInt(10000);
 
       let newBobDeposit = await Treasury.deposits(bob.address);
@@ -479,12 +475,10 @@ describe("Bullseye", () => {
       expect(finalizeEventLog[3]).to.be.equal(true);
 
       let wonAmountAlice =
-        (parse18((6 * usdtAmount).toString()) *
-          (await Game.exactLessThan10PlayersRate(0))) /
+        (parse18((6 * usdtAmount).toString()) * (await Game.rates(3, 0))) /
         BigInt(10000);
       let wonAmountOwner =
-        (parse18((6 * usdtAmount).toString()) *
-          (await Game.exactLessThan10PlayersRate(1))) /
+        (parse18((6 * usdtAmount).toString()) * (await Game.rates(3, 1))) /
         BigInt(10000);
 
       let newBobDeposit = await Treasury.deposits(bob.address);
@@ -554,12 +548,10 @@ describe("Bullseye", () => {
       expect(finalizeEventLog[3]).to.be.equal(false);
 
       let wonAmountBob =
-        (parse18((6 * usdtAmount).toString()) *
-          (await Game.lessThan10PlayersRate(1))) /
+        (parse18((6 * usdtAmount).toString()) * (await Game.rates(2, 1))) /
         BigInt(10000);
       let wonAmountOwner =
-        (parse18((6 * usdtAmount).toString()) *
-          (await Game.lessThan10PlayersRate(0))) /
+        (parse18((6 * usdtAmount).toString()) * (await Game.rates(2, 0))) /
         BigInt(10000);
 
       let newBobDeposit = await Treasury.deposits(bob.address);
@@ -638,16 +630,13 @@ describe("Bullseye", () => {
       expect(finalizeEventLog[3]).to.be.equal(false);
 
       let wonAmountBob =
-        (parse18((12 * usdtAmount).toString()) *
-          (await Game.moreThan10PlayersRate(1))) /
+        (parse18((12 * usdtAmount).toString()) * (await Game.rates(4, 1))) /
         BigInt(10000);
       let wonAmountOwner =
-        (parse18((12 * usdtAmount).toString()) *
-          (await Game.moreThan10PlayersRate(0))) /
+        (parse18((12 * usdtAmount).toString()) * (await Game.rates(4, 0))) /
         BigInt(10000);
       let wonAmountOpponent =
-        (parse18((12 * usdtAmount).toString()) *
-          (await Game.moreThan10PlayersRate(2))) /
+        (parse18((12 * usdtAmount).toString()) * (await Game.rates(4, 2))) /
         BigInt(10000);
 
       let newBobDeposit = await Treasury.deposits(bob.address);
@@ -732,16 +721,13 @@ describe("Bullseye", () => {
       expect(finalizeEventLog[3]).to.be.equal(true);
 
       let wonAmountBob =
-        (parse18((12 * usdtAmount).toString()) *
-          (await Game.exactMoreThan10PlayersRate(2))) /
+        (parse18((12 * usdtAmount).toString()) * (await Game.rates(5, 2))) /
         BigInt(10000);
       let wonAmountOwner =
-        (parse18((12 * usdtAmount).toString()) *
-          (await Game.exactMoreThan10PlayersRate(1))) /
+        (parse18((12 * usdtAmount).toString()) * (await Game.rates(5, 1))) /
         BigInt(10000);
       let wonAmountAlice =
-        (parse18((12 * usdtAmount).toString()) *
-          (await Game.exactMoreThan10PlayersRate(0))) /
+        (parse18((12 * usdtAmount).toString()) * (await Game.rates(5, 0))) /
         BigInt(10000);
 
       let newBobDeposit = await Treasury.deposits(bob.address);

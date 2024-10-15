@@ -19,12 +19,6 @@ contract Bullseye is AccessControl {
         [5000, 3500, 1500],
         [7500, 1500, 1000]
     ];
-    uint256[3] public lessThan5PlayersRate = [9000, 1000, 0];
-    uint256[3] public exactlessThan5PlayersRate = [10000, 0, 0];
-    uint256[3] public lessThan10PlayersRate = [7500, 2500, 0];
-    uint256[3] public exactLessThan10PlayersRate = [9000, 1000, 0];
-    uint256[3] public moreThan10PlayersRate = [5000, 3500, 1500];
-    uint256[3] public exactMoreThan10PlayersRate = [7500, 1500, 1000];
     event NewTreasury(address newTreasury);
     event NewFee(uint256 newFee);
     event NewExactRange(uint256 newExactRange);

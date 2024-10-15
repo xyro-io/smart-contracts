@@ -11,6 +11,14 @@ contract Bullseye is AccessControl {
     uint256 public exactRange = 50000;
     uint256 public fee = 1000;
     uint256 public maxPlayers = 100;
+    uint256[3][6] public rates = [
+        [9000, 1000, 0],
+        [10000, 0, 0],
+        [7500, 2500, 0],
+        [9000, 1000, 0],
+        [5000, 3500, 1500],
+        [7500, 1500, 1000]
+    ];
     uint256[3] public lessThan5PlayersRate = [9000, 1000, 0];
     uint256[3] public exactlessThan5PlayersRate = [10000, 0, 0];
     uint256[3] public lessThan10PlayersRate = [7500, 2500, 0];
@@ -248,7 +256,7 @@ contract Bullseye is AccessControl {
                         10 **
                             IERC20(ITreasury(treasury).approvedToken())
                                 .decimals() *
-                        lessThan5PlayersRate[0]) / DENOMINATOR;
+                        rates[0][0]) / DENOMINATOR;
                     ITreasury(treasury).distributeBullseye(
                         wonAmountFirst,
                         playerOneGuessData.player,
@@ -295,7 +303,7 @@ contract Bullseye is AccessControl {
                         10 **
                             IERC20(ITreasury(treasury).approvedToken())
                                 .decimals() *
-                        lessThan5PlayersRate[0]) / DENOMINATOR;
+                        rates[0][0]) / DENOMINATOR;
                     ITreasury(treasury).distributeBullseye(
                         wonAmountFirst,
                         playerTwoGuessData.player,
@@ -383,19 +391,19 @@ contract Bullseye is AccessControl {
             uint256[3] memory wonAmount;
             if (closestDiff[0] <= exactRange) {
                 if (packedGuessData.length <= 5) {
-                    wonAmount = exactlessThan5PlayersRate;
+                    wonAmount = rates[1];
                 } else if (packedGuessData.length <= 10) {
-                    wonAmount = exactLessThan10PlayersRate;
+                    wonAmount = rates[3];
                 } else {
-                    wonAmount = exactMoreThan10PlayersRate;
+                    wonAmount = rates[5];
                 }
             } else {
                 if (packedGuessData.length <= 5) {
-                    wonAmount = lessThan5PlayersRate;
+                    wonAmount = rates[0];
                 } else if (packedGuessData.length <= 10) {
-                    wonAmount = lessThan10PlayersRate;
+                    wonAmount = rates[2];
                 } else {
-                    wonAmount = moreThan10PlayersRate;
+                    wonAmount = rates[4];
                 }
             }
             for (uint256 i = 0; i < 3; i++) {
@@ -539,30 +547,25 @@ contract Bullseye is AccessControl {
         emit NewFee(newFee);
     }
 
+    function getRateIndex(
+        uint256 playersCount,
+        bool isExact
+    ) public pure returns (uint256 index) {
+        if (playersCount <= 5) {
+            index = isExact ? 1 : 0;
+        } else if (playersCount <= 10) {
+            index = isExact ? 3 : 2;
+        } else {
+            index = isExact ? 5 : 4;
+        }
+    }
+
     function setRate(
         uint256[3] memory rate,
         uint256 playersCount,
         bool isExact
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (playersCount <= 5) {
-            if (isExact) {
-                exactlessThan5PlayersRate = rate;
-            } else {
-                lessThan5PlayersRate = rate;
-            }
-        } else if (playersCount <= 10) {
-            if (isExact) {
-                exactLessThan10PlayersRate = rate;
-            } else {
-                lessThan10PlayersRate = rate;
-            }
-        } else {
-            if (isExact) {
-                exactMoreThan10PlayersRate = rate;
-            } else {
-                moreThan10PlayersRate = rate;
-            }
-        }
+        rates[getRateIndex(playersCount, isExact)] = rate;
     }
 }
 

@@ -6,6 +6,7 @@ import {ITreasury} from "./interfaces/ITreasury.sol";
 import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 
 contract UpDown is AccessControl {
+    event NewFee(uint256 newFee);
     event NewTreasury(address newTreasury);
     event UpDownCreated(
         uint256 startTime,
@@ -405,5 +406,6 @@ contract UpDown is AccessControl {
      */
     function setFee(uint256 newFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
         fee = newFee;
+        emit NewFee(newFee);
     }
 }

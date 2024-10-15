@@ -8,14 +8,19 @@ import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 contract Bullseye is AccessControl {
     bytes32 public constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
     uint256 constant DENOMINATOR = 10000;
-    uint256 public exactRange = 100;
-    uint256 public fee = 1500;
+    uint256 public exactRange = 50000;
+    uint256 public fee = 1000;
     uint256 public maxPlayers = 100;
-    uint256[3] public rate = [5000, 3500, 1500];
-    uint256[3] public exactRate = [7500, 1500, 1000];
-    uint256[2] public twoPlayersRate = [7500, 2500];
-    uint256[2] public twoPlayersExactRate = [8000, 2000];
+    uint256[3][6] public rates = [
+        [9000, 1000, 0],
+        [10000, 0, 0],
+        [7500, 2500, 0],
+        [9000, 1000, 0],
+        [5000, 3500, 1500],
+        [7500, 1500, 1000]
+    ];
     event NewTreasury(address newTreasury);
+    event NewFee(uint256 newFee);
     event NewExactRange(uint256 newExactRange);
     event BullseyeStart(
         uint256 startTime,
@@ -227,6 +232,7 @@ contract Bullseye is AccessControl {
         );
         if (packedGuessData.length == 2) {
             GuessStruct memory playerOneGuessData = decodeGuess(0);
+
             GuessStruct memory playerTwoGuessData = decodeGuess(1);
             uint256 playerOneDiff = playerOneGuessData.assetPrice >
                 uint192(finalPrice)
@@ -238,30 +244,40 @@ contract Bullseye is AccessControl {
                 : uint192(finalPrice) - playerTwoGuessData.assetPrice;
             if (playerOneDiff < playerTwoDiff) {
                 // player 1 closer
-                uint256 wonAmountFirst = (2 *
-                    game.depositAmount *
-                    10 **
-                        IERC20(ITreasury(treasury).approvedToken()).decimals() *
-                    (
-                        playerOneDiff <= exactRange
-                            ? twoPlayersExactRate[0]
-                            : twoPlayersRate[0]
-                    )) / DENOMINATOR;
-                ITreasury(treasury).distributeBullseye(
-                    wonAmountFirst,
-                    playerOneGuessData.player,
-                    fee
-                );
-                uint256 wonAmountSecond = 2 *
-                    game.depositAmount *
-                    10 **
-                        IERC20(ITreasury(treasury).approvedToken()).decimals() -
-                    wonAmountFirst;
-                ITreasury(treasury).distributeBullseye(
-                    wonAmountSecond,
-                    playerTwoGuessData.player,
-                    fee
-                );
+                if (playerOneDiff > exactRange) {
+                    uint256 wonAmountFirst = (2 *
+                        game.depositAmount *
+                        10 **
+                            IERC20(ITreasury(treasury).approvedToken())
+                                .decimals() *
+                        rates[0][0]) / DENOMINATOR;
+                    ITreasury(treasury).distributeBullseye(
+                        wonAmountFirst,
+                        playerOneGuessData.player,
+                        fee
+                    );
+                    uint256 wonAmountSecond = 2 *
+                        game.depositAmount *
+                        10 **
+                            IERC20(ITreasury(treasury).approvedToken())
+                                .decimals() -
+                        wonAmountFirst;
+                    ITreasury(treasury).distributeBullseye(
+                        wonAmountSecond,
+                        playerTwoGuessData.player,
+                        fee
+                    );
+                } else {
+                    ITreasury(treasury).distributeBullseye(
+                        2 *
+                            game.depositAmount *
+                            10 **
+                                IERC20(ITreasury(treasury).approvedToken())
+                                    .decimals(),
+                        playerOneGuessData.player,
+                        fee
+                    );
+                }
                 emit BullseyeFinalized(
                     [
                         playerOneGuessData.player,
@@ -275,30 +291,40 @@ contract Bullseye is AccessControl {
                 );
             } else {
                 // player 2 closer
-                uint256 wonAmountFirst = (2 *
-                    game.depositAmount *
-                    10 **
-                        IERC20(ITreasury(treasury).approvedToken()).decimals() *
-                    (
-                        playerTwoDiff <= exactRange
-                            ? twoPlayersExactRate[0]
-                            : twoPlayersRate[0]
-                    )) / DENOMINATOR;
-                ITreasury(treasury).distributeBullseye(
-                    wonAmountFirst,
-                    playerOneGuessData.player,
-                    fee
-                );
-                uint256 wonAmountSecond = 2 *
-                    game.depositAmount *
-                    10 **
-                        IERC20(ITreasury(treasury).approvedToken()).decimals() -
-                    wonAmountFirst;
-                ITreasury(treasury).distributeBullseye(
-                    wonAmountSecond,
-                    playerOneGuessData.player,
-                    fee
-                );
+                if (playerTwoDiff > exactRange) {
+                    uint256 wonAmountFirst = (2 *
+                        game.depositAmount *
+                        10 **
+                            IERC20(ITreasury(treasury).approvedToken())
+                                .decimals() *
+                        rates[0][0]) / DENOMINATOR;
+                    ITreasury(treasury).distributeBullseye(
+                        wonAmountFirst,
+                        playerTwoGuessData.player,
+                        fee
+                    );
+                    uint256 wonAmountSecond = 2 *
+                        game.depositAmount *
+                        10 **
+                            IERC20(ITreasury(treasury).approvedToken())
+                                .decimals() -
+                        wonAmountFirst;
+                    ITreasury(treasury).distributeBullseye(
+                        wonAmountSecond,
+                        playerOneGuessData.player,
+                        fee
+                    );
+                } else {
+                    ITreasury(treasury).distributeBullseye(
+                        2 *
+                            game.depositAmount *
+                            10 **
+                                IERC20(ITreasury(treasury).approvedToken())
+                                    .decimals(),
+                        playerTwoGuessData.player,
+                        fee
+                    );
+                }
                 emit BullseyeFinalized(
                     [
                         playerTwoGuessData.player,
@@ -331,6 +357,7 @@ contract Bullseye is AccessControl {
                         for (uint256 k = 2; k > i; k--) {
                             closestDiff[k] = closestDiff[k - 1];
                             topPlayers[k] = topPlayers[k - 1];
+                            topIndexes[k] = topIndexes[k - 1];
                         }
                         closestDiff[i] = currentDiff;
                         topPlayers[i] = playerGuessData.player;
@@ -345,6 +372,7 @@ contract Bullseye is AccessControl {
                         for (uint256 k = 2; k > i; k--) {
                             closestDiff[k] = closestDiff[k - 1];
                             topPlayers[k] = topPlayers[k - 1];
+                            topIndexes[k] = topIndexes[k - 1];
                         }
                         topIndexes[i] = j;
                         topPlayers[i] = playerGuessData.player;
@@ -356,46 +384,63 @@ contract Bullseye is AccessControl {
                 packedGuessData.length;
             uint256[3] memory wonAmount;
             if (closestDiff[0] <= exactRange) {
-                wonAmount = exactRate;
+                if (packedGuessData.length <= 5) {
+                    wonAmount = rates[1];
+                } else if (packedGuessData.length <= 10) {
+                    wonAmount = rates[3];
+                } else {
+                    wonAmount = rates[5];
+                }
             } else {
-                wonAmount = rate;
+                if (packedGuessData.length <= 5) {
+                    wonAmount = rates[0];
+                } else if (packedGuessData.length <= 10) {
+                    wonAmount = rates[2];
+                } else {
+                    wonAmount = rates[4];
+                }
             }
             for (uint256 i = 0; i < 3; i++) {
                 if (topPlayers[i] != address(0)) {
-                    if (i != 3) {
-                        ITreasury(treasury).distributeBullseye(
-                            (totalDeposited *
-                                10 **
-                                    IERC20(ITreasury(treasury).approvedToken())
-                                        .decimals() *
-                                wonAmount[i]) / DENOMINATOR,
-                            topPlayers[i],
-                            fee
-                        );
-                    } else {
-                        ITreasury(treasury).distributeBullseye(
-                            totalDeposited *
-                                10 **
-                                    IERC20(ITreasury(treasury).approvedToken())
-                                        .decimals() -
-                                ((totalDeposited *
+                    if (wonAmount[i] != 0) {
+                        if (i != 3) {
+                            ITreasury(treasury).distributeBullseye(
+                                (totalDeposited *
                                     10 **
                                         IERC20(
                                             ITreasury(treasury).approvedToken()
                                         ).decimals() *
-                                    wonAmount[0]) /
-                                    DENOMINATOR +
-                                    (totalDeposited *
+                                    wonAmount[i]) / DENOMINATOR,
+                                topPlayers[i],
+                                fee
+                            );
+                        } else {
+                            ITreasury(treasury).distributeBullseye(
+                                totalDeposited *
+                                    10 **
+                                        IERC20(
+                                            ITreasury(treasury).approvedToken()
+                                        ).decimals() -
+                                    ((totalDeposited *
                                         10 **
                                             IERC20(
                                                 ITreasury(treasury)
                                                     .approvedToken()
                                             ).decimals() *
-                                        wonAmount[1]) /
-                                    DENOMINATOR),
-                            topPlayers[i],
-                            fee
-                        );
+                                        wonAmount[0]) /
+                                        DENOMINATOR +
+                                        (totalDeposited *
+                                            10 **
+                                                IERC20(
+                                                    ITreasury(treasury)
+                                                        .approvedToken()
+                                                ).decimals() *
+                                            wonAmount[1]) /
+                                        DENOMINATOR),
+                                topPlayers[i],
+                                fee
+                            );
+                        }
                     }
                 }
             }
@@ -493,6 +538,28 @@ contract Bullseye is AccessControl {
      */
     function setFee(uint256 newFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
         fee = newFee;
+        emit NewFee(newFee);
+    }
+
+    function getRateIndex(
+        uint256 playersCount,
+        bool isExact
+    ) public pure returns (uint256 index) {
+        if (playersCount <= 5) {
+            index = isExact ? 1 : 0;
+        } else if (playersCount <= 10) {
+            index = isExact ? 3 : 2;
+        } else {
+            index = isExact ? 5 : 4;
+        }
+    }
+
+    function setRate(
+        uint256[3] memory rate,
+        uint256 playersCount,
+        bool isExact
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        rates[getRateIndex(playersCount, isExact)] = rate;
     }
 }
 

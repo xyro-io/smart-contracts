@@ -19,9 +19,7 @@ let contracts: {
   Vesting,
   Setup,
   Staking,
-  SetupsFactory,
-  ExactPriceOneVsOne,
-  UpDownOneVsOne,
+  OneVsOne,
   Bullseye,
   GovernanceToken,
   TimeLock,
@@ -56,7 +54,10 @@ async function deployFrontHelper() {
     contracts.FrontHelper?.address == undefined ||
     contracts.FrontHelper?.address == ""
   ) {
-    FrontHelper = await wrapFnc([], factory);
+    FrontHelper = await wrapFnc(
+      [contracts.USDC.address, contracts.Treasury.address],
+      factory
+    );
     contracts.FrontHelper = { address: "", url: "" };
     contracts.FrontHelper.address = FrontHelper.target;
     console.log("FrontHelper deployed");
@@ -86,10 +87,7 @@ async function deployTreasury() {
     contracts.Treasury?.address == undefined ||
     contracts.Treasury?.address == ""
   ) {
-    Treasury = await wrapFnc(
-      [contracts.USDC.address, contracts.XyroToken.address],
-      factory
-    );
+    Treasury = await wrapFnc([contracts.USDC.address], factory);
     contracts.Treasury = { address: "", url: "" };
     contracts.Treasury.address = Treasury.target;
     console.log("Treasury deployed");
@@ -134,21 +132,6 @@ async function deployStaking() {
   }
 }
 
-async function deploySetupsFactory() {
-  factory = await ethers.getContractFactory("SetupsFactory");
-  if (
-    contracts.SetupsFactory?.address == undefined ||
-    contracts.SetupsFactory?.address == ""
-  ) {
-    SetupsFactory = await wrapFnc([contracts.Treasury.address], factory);
-    contracts.SetupsFactory = { address: "", url: "" };
-    contracts.SetupsFactory.address = SetupsFactory.target;
-    console.log("SetupsFactory deployed");
-  } else {
-    console.log("SetupsFactory already deployed skipping...");
-  }
-}
-
 async function deployBullseye() {
   factory = await ethers.getContractFactory("Bullseye");
   if (
@@ -167,30 +150,15 @@ async function deployBullseye() {
 async function deployOneVsOneExactPrice() {
   factory = await ethers.getContractFactory("OneVsOneExactPrice");
   if (
-    contracts.ExactPriceOneVsOne?.address == undefined ||
-    contracts.ExactPriceOneVsOne?.address == ""
+    contracts.OneVsOne?.address == undefined ||
+    contracts.OneVsOne?.address == ""
   ) {
-    ExactPriceOneVsOne = await wrapFnc([], factory);
-    contracts.ExactPriceOneVsOne = { address: "", url: "" };
-    contracts.ExactPriceOneVsOne.address = ExactPriceOneVsOne.target;
-    console.log("ExactPriceOneVsOne deployed");
+    OneVsOne = await wrapFnc([], factory);
+    contracts.OneVsOne = { address: "", url: "" };
+    contracts.OneVsOne.address = OneVsOne.target;
+    console.log("OneVsOne deployed");
   } else {
-    console.log("ExactPriceOneVsOne already deployed skipping...");
-  }
-}
-
-async function deployOneVsOneUpDown() {
-  factory = await ethers.getContractFactory("OneVsOneUpDown");
-  if (
-    contracts.UpDownOneVsOne?.address == undefined ||
-    contracts.UpDownOneVsOne?.address == ""
-  ) {
-    UpDownOneVsOne = await wrapFnc([], factory);
-    contracts.UpDownOneVsOne = { address: "", url: "" };
-    contracts.UpDownOneVsOne.address = UpDownOneVsOne.target;
-    console.log("UpDownOneVsOne deployed");
-  } else {
-    console.log("UpDownOneVsOne already deployed skipping...");
+    console.log("OneVsOne already deployed skipping...");
   }
 }
 
@@ -254,13 +222,14 @@ async function deployMockVerifier() {
   }
 }
 
-async function deployVerifier() {
-  factory = await ethers.getContractFactory("ClientReportsVerifier");
+async function deployVerifier(verifier: string) {
+  factory = await ethers.getContractFactory("DataStreamsVerifier");
   if (
     contracts.RealUpkeep?.address == undefined ||
     contracts.RealUpkeep?.address == ""
   ) {
-    RealUpkeep = await wrapFnc([], factory);
+    //Arb sepolia upkeep
+    RealUpkeep = await wrapFnc([verifier], factory);
     contracts.RealUpkeep = { address: "", url: "" };
     contracts.RealUpkeep.address = RealUpkeep.target;
     console.log("RealUpkeep deployed");
@@ -304,18 +273,18 @@ async function main() {
     // await deployTimeLock(deployer);
     // await deployDAO();
     await deployUSDC();
-    await deployXyroToken();
+    // await deployXyroToken();
     await deployTreasury();
     // await deployStaking();
     await deployOneVsOneExactPrice();
-    await deployOneVsOneUpDown();
     await deploySetup();
-    // await deploySetupsFactory();
     await deployBullseye();
-    await deployMockVerifier();
-    await deployFrontHelper();
+    // await deployMockVerifier();
+    // await deployFrontHelper();
     await deployUpDown();
-    await deployVerifier();
+    const mainnetVerifierAdr = "0x478Aa2aC9F6D65F84e09D9185d126c3a17c2a93C";
+    const testnetVerifierAdr = "0x2ff010DEbC1297f19579B4246cad07bd24F2488A";
+    await deployVerifier(testnetVerifierAdr);
   } catch (e) {
     const json = JSON.stringify(contracts);
     fs.writeFileSync("./contracts.json", json);
@@ -323,6 +292,5 @@ async function main() {
 
   const json = JSON.stringify(contracts);
   fs.writeFileSync("./contracts.json", json);
-  // process.exit();
 }
 main();

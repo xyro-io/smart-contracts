@@ -2,7 +2,8 @@
   "name": "xyro-contracts",
   "scripts": {
     "build": "hardhat compile",
-    "clean": "hardhat clean"
+    "clean": "hardhat clean",
+    "test": "hardhat test"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",

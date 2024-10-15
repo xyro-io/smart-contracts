@@ -14,25 +14,25 @@ contract MockVerifier {
 
     function verifyReport(
         bytes memory unverifiedReport,
-        bytes32 feedId
+        uint8 feedNumber
     ) public pure returns (int192) {
-        (int192 price, bytes32 decodedFeed) = abi.decode(
+        (int192 price, uint8 decodedFeed) = abi.decode(
             unverifiedReport,
-            (int192, bytes32)
+            (int192, uint8)
         );
-        require(feedId == decodedFeed, "Wrong feedId");
+        require(feedNumber == decodedFeed, "Wrong feedNumber");
         return price;
     }
 
     function verifyReportWithTimestamp(
         bytes memory unverifiedReport,
-        bytes32 feedId
+        uint8 feedNumber
     ) public pure returns (int192, uint32) {
-        (int192 price, bytes32 decodedFeed, uint32 timestamp) = abi.decode(
+        (int192 price, uint8 decodedFeed, uint32 timestamp) = abi.decode(
             unverifiedReport,
-            (int192, bytes32, uint32)
+            (int192, uint8, uint32)
         );
-        require(feedId == decodedFeed, "Wrong feedId");
+        require(feedNumber == decodedFeed, "Wrong feedNumber");
         return (price, timestamp);
     }
 }

@@ -6,6 +6,7 @@ import {ITreasury} from "./interfaces/ITreasury.sol";
 import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 
 contract OneVsOneExactPrice is AccessControl {
+    event NewFee(uint256 newFee);
     event NewTreasury(address newTreasury);
     event ExactPriceCreated(
         bytes32 gameId,
@@ -496,6 +497,7 @@ contract OneVsOneExactPrice is AccessControl {
      */
     function setFee(uint256 newFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
         fee = newFee;
+        emit NewFee(newFee);
     }
 
     /**

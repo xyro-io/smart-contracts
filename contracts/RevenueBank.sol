@@ -12,24 +12,32 @@ interface IERC20Mint {
     function mint(address to, uint256 value) external;
 }
 
+interface ITreasury {
+    function withdrawFees(address to, uint256 amount) external;
+}
+
 contract RevenueBank is AccessControl, EIP712, Nonces {
     using ECDSA for bytes32;
     event NewSigner(address newSigner);
     address public approvedToken;
     address public xyroToken;
     address public signer;
+    address public treasury;
     /**
-     * @param newApprovedToken stable token used in games
-     * @param xyroTokenAdr Xyro's token
+     * @param _approvedToken stable token used in games
+     * @param _xyroToken Xyro's token
+     * @param _treasury Xyro's treasury
      */
     constructor(
-        address newApprovedToken,
-        address xyroTokenAdr
+        address _approvedToken,
+        address _xyroToken,
+        address _treasury
     ) EIP712("XYRO", "1") {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        approvedToken = newApprovedToken;
-        xyroToken = xyroTokenAdr;
+        approvedToken = _approvedToken;
+        xyroToken = _xyroToken;
         signer = msg.sender;
+        treasury = _treasury;
     }
 
     function withdraw(
@@ -45,7 +53,8 @@ contract RevenueBank is AccessControl, EIP712, Nonces {
         uint256 deadline;
     }
 
-    function verify(Data memory data, bytes memory signature) public {
+    function verifyTransfer(Data memory data, bytes memory signature) public {
+        require(block.timestamp < data.deadline, "Deadline expired");
         bytes32 hash = _hashTypedDataV4(
             keccak256(
                 abi.encode(
@@ -63,6 +72,10 @@ contract RevenueBank is AccessControl, EIP712, Nonces {
 
         require(recoveredSigner == signer, "Wrong signer");
         SafeERC20.safeTransfer(IERC20(xyroToken), data.to, data.amount);
+    }
+
+    function collectFees(uint256 amount) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        ITreasury(treasury).withdrawFees(msg.sender, amount);
     }
 
     function setSigner(address newSigner) public onlyRole(DEFAULT_ADMIN_ROLE) {

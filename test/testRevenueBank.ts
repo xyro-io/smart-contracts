@@ -4,6 +4,8 @@ import { time } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { RevenueBank } from "../typechain-types/contracts/RevenueBank.sol/RevenueBank";
 import { RevenueBank__factory } from "../typechain-types/factories/contracts/RevenueBank.sol/RevenueBank__factory";
+import { Treasury } from "../typechain-types/contracts/Treasury.sol/Treasury";
+import { Treasury__factory } from "../typechain-types/factories/contracts/Treasury.sol/Treasury__factory";
 import { XyroToken } from "../typechain-types/contracts/XyroToken";
 import { XyroToken__factory } from "../typechain-types/factories/contracts/XyroToken__factory";
 import { MockToken } from "../typechain-types/contracts/mock/MockERC20.sol/MockToken";
@@ -14,6 +16,7 @@ describe("RevenueBank", () => {
   let Bank: RevenueBank;
   let XyroToken: XyroToken;
   let USDT: MockToken;
+  let Treasury: Treasury;
   let owner: HardhatEthersSigner;
   let alice: HardhatEthersSigner;
   let domain: any;
@@ -26,12 +29,21 @@ describe("RevenueBank", () => {
     USDT = await new MockToken__factory(owner).deploy(
       parse18((1e13).toString())
     );
+    Treasury = await new Treasury__factory(owner).deploy(
+      await USDT.getAddress()
+    );
+    await Treasury.grantRole(await Treasury.DISTRIBUTOR_ROLE(), owner.address);
     const bankAmount = parse18((1e7).toString());
     Bank = await new RevenueBank__factory(owner).deploy(
       await USDT.getAddress(),
-      await XyroToken.getAddress()
+      await XyroToken.getAddress(),
+      await Treasury.getAddress()
     );
-
+    await Treasury.grantRole(
+      await Treasury.ACCOUNTANT_ROLE(),
+      await Bank.getAddress()
+    );
+    await USDT.mint(await Treasury.getAddress(), parse18("100000"));
     await XyroToken.approve(await Bank.getAddress(), ethers.MaxUint256);
     await XyroToken.transfer(await Bank.getAddress(), bankAmount);
 
@@ -52,7 +64,7 @@ describe("RevenueBank", () => {
     };
   });
 
-  it("Signature verify and token claim", async function () {
+  it("should verify signature and claim tokens", async function () {
     const oldAliceBalance = await XyroToken.balanceOf(alice.address);
     let message = {
       to: alice.address,
@@ -61,19 +73,40 @@ describe("RevenueBank", () => {
       deadline: (await time.latest()) + 100,
     };
     let signature = await owner.signTypedData(domain, types, message);
-    await Bank.connect(alice).verify(message, signature);
+    await Bank.connect(alice).verifyTransfer(message, signature);
     const newAliceBalance = await XyroToken.balanceOf(alice.address);
     expect(newAliceBalance - oldAliceBalance).to.be.equal(message.amount);
     await expect(
-      Bank.connect(alice).verify(message, signature)
+      Bank.connect(alice).verifyTransfer(message, signature)
     ).to.be.revertedWith("Wrong signer");
   });
 
-  //   it("should get some tokens", async function () {
-  //     let oldBalance = await XyroToken.balanceOf(owner.address);
-  //     await time.increase(604800);
-  //     await Vesting.release();
-  //     let newBalance = await XyroToken.balanceOf(owner.address);
-  //     expect(newBalance).to.be.above(oldBalance);
-  //   });
+  it("should revert with expired deadline", async function () {
+    let message = {
+      to: alice.address,
+      amount: 199,
+      nonce: await Bank.nonces(alice.address),
+      deadline: 100,
+    };
+    let signature = await owner.signTypedData(domain, types, message);
+    await expect(
+      Bank.connect(alice).verifyTransfer(message, signature)
+    ).to.be.revertedWith("Deadline expired");
+  });
+
+  it("should withdraw fees", async function () {
+    const oldOwnerBalance = await USDT.balanceOf(owner.address);
+
+    //mock game to earn fees
+    await Treasury.calculateUpDownRate(500, 500, 9000);
+
+    expect(await Treasury.collectedFee()).to.be.equal(parse18("900"));
+    const amount = 100;
+    await Bank.collectFees(amount);
+    expect(await Treasury.collectedFee()).to.be.equal(parse18("800"));
+    const newOwnerBalance = await USDT.balanceOf(owner.address);
+    expect(newOwnerBalance - oldOwnerBalance).to.be.equal(
+      parse18(amount.toString())
+    );
+  });
 });

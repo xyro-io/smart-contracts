@@ -1,11 +1,9 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { time } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { XyroToken } from "../typechain-types/contracts/XyroToken";
 import { XyroToken__factory } from "../typechain-types/factories/contracts/XyroToken__factory";
 import { Treasury } from "../typechain-types/contracts/Treasury.sol/Treasury";
-import { Treasury__factory } from "../typechain-types/factories/contracts/Treasury.sol/Treasury__factory";
 import { OneVsOneExactPrice } from "../typechain-types/contracts/OneVsOneExactPrice";
 import { OneVsOneExactPrice__factory } from "../typechain-types/factories/contracts/OneVsOneExactPrice__factory";
 import { MockToken } from "../typechain-types/contracts/mock/MockERC20.sol/MockToken";
@@ -14,7 +12,6 @@ import { MockVerifier } from "../typechain-types/contracts/mock/MockVerifier";
 import { MockVerifier__factory } from "../typechain-types/factories/contracts/mock/MockVerifier__factory";
 const parse18 = ethers.parseEther;
 const insufficentDepositAmount = "Insufficent deposit amount";
-const invalidRole = "Invalid role";
 const zeroAddress = "Zero address";
 const wrongDepositAmount = "Wrong deposit amount";
 const wrongAmount = "Wrong amount";
@@ -38,8 +35,9 @@ describe("Treasury", () => {
     );
     await USDT.mint(alice.address, parse18("100000"));
     XyroToken = await new XyroToken__factory(owner).deploy(parse18("2500"));
-    Treasury = await new Treasury__factory(owner).deploy(
-      await USDT.getAddress()
+    Treasury = await upgrades.deployProxy(
+      await ethers.getContractFactory("Treasury"),
+      [await USDT.getAddress()]
     );
     Game = await new OneVsOneExactPrice__factory(owner).deploy();
     Upkeep = await new MockVerifier__factory(owner).deploy();
@@ -295,5 +293,13 @@ describe("Treasury", () => {
     await expect(
       Treasury.withdrawFees(alice.address, 1000000)
     ).to.be.revertedWith(wrongAmount);
+  });
+
+  it("Should upgrade treasury", async function () {
+    let TreasuryV2 = await upgrades.upgradeProxy(
+      await Treasury.getAddress(),
+      await ethers.getContractFactory("TreasuryV2")
+    );
+    expect(await TreasuryV2.test()).to.be.equal(333);
   });
 });

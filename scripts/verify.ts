@@ -71,7 +71,7 @@ async function verifyTreasury() {
     try {
       await hre.run("verify:verify", {
         address: targetAddress,
-        constructorArguments: [contracts.USDC.address],
+        constructorArguments: [],
       });
       contracts.Treasury.url = getVerifiedUrl(targetAddress);
     } catch (e) {

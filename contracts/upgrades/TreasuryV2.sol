@@ -10,7 +10,7 @@ interface IERC20Mint {
     function decimals() external view returns (uint256);
 }
 
-contract Treasury is Initializable, AccessControlUpgradeable {
+contract TreasuryV2 is Initializable, AccessControlUpgradeable {
     event FeeCollected(uint256 feeEarned, uint256 totalFees);
     event Distributed(address to, uint256 amount);
     event Refunded(address to, uint256 amount);
@@ -30,6 +30,11 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     /**
      * @param newApprovedToken stable token used in games
      */
+    // constructor(address newApprovedToken) {
+    //     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    //     approvedToken = newApprovedToken;
+    // }
+
     function initialize(address newApprovedToken) public initializer {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         approvedToken = newApprovedToken;
@@ -406,5 +411,9 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         uint256 newMinAmount
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         minDepositAmount = newMinAmount;
+    }
+
+    function test() public pure returns (uint256) {
+        return 333;
     }
 }

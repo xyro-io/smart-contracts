@@ -63,8 +63,9 @@ describe("Setup Game", () => {
       parse18((1e13).toString())
     );
     XyroToken = await new XyroToken__factory(owner).deploy(parse18("12600001"));
-    Treasury = await new Treasury__factory(owner).deploy(
-      await USDT.getAddress()
+    Treasury = await upgrades.deployProxy(
+      await ethers.getContractFactory("Treasury"),
+      [await USDT.getAddress()]
     );
     Game = await new Setup__factory(owner).deploy(await Treasury.getAddress());
     Upkeep = await new MockVerifier__factory(owner).deploy();
@@ -1170,8 +1171,9 @@ describe("Setup Game", () => {
 
   describe("Other", async function () {
     it("should change treasury", async function () {
-      let temporaryTreasury = await new Treasury__factory(owner).deploy(
-        await USDT.getAddress()
+      let temporaryTreasury = await upgrades.deployProxy(
+        await ethers.getContractFactory("Treasury"),
+        [await USDT.getAddress()]
       );
       await Game.setTreasury(await temporaryTreasury.getAddress());
       expect(await Game.treasury()).to.equal(

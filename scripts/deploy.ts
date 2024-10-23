@@ -1,5 +1,5 @@
 import { wrapFnc } from "./helper";
-import { ethers } from "hardhat";
+import { ethers, upgrades } from "hardhat";
 import * as fs from "fs";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
@@ -87,9 +87,13 @@ async function deployTreasury() {
     contracts.Treasury?.address == undefined ||
     contracts.Treasury?.address == ""
   ) {
-    Treasury = await wrapFnc([contracts.USDC.address], factory);
+    const factory = await ethers.getContractFactory("Treasury");
+    Treasury = await upgrades.deployProxy(factory, [contracts.USDC.address], {
+      initializer: "initialize",
+    });
+    await Treasury.waitForDeployment();
     contracts.Treasury = { address: "", url: "" };
-    contracts.Treasury.address = Treasury.target;
+    contracts.Treasury.address = await Treasury.getAddress();
     console.log("Treasury deployed");
   } else {
     console.log("Treasury already deployed skipping...");

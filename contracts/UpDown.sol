@@ -43,7 +43,7 @@ contract UpDown is AccessControl {
     bytes32 public currentGameId;
     address public treasury;
     uint256 public maxPlayers = 100;
-    uint256 public fee = 1000;
+    uint256 public fee = 1500;
     uint256 public minDepositAmount = 5;
 
     constructor() {

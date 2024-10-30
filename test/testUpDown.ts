@@ -20,6 +20,7 @@ import {
 const parse18 = ethers.parseEther;
 const fortyFiveMinutes = 2700;
 const fifteenMinutes = 900;
+const requireMinimalAmount = "Wrong deposit amount";
 const requireFinishedGame = "Finish previous game first";
 const requireOpenedGame = "Game is closed for new players";
 const requireOnTime = "Too early";
@@ -106,6 +107,14 @@ describe("UpDown", () => {
   });
 
   describe("Play game", () => {
+    it("should fail - play with deposit amount below minimal", async function () {
+      const lowerAmount = (await Game.minDepositAmount()) - BigInt(1);
+      await Treasury.connect(bob).deposit(lowerAmount);
+      await expect(
+        Game.connect(bob).playWithDeposit(true, lowerAmount)
+      ).to.be.revertedWith(requireMinimalAmount);
+    });
+
     it("should play up with deposited amount", async function () {
       const oldBobBalance = await USDT.balanceOf(bob.address);
       const oldTreasuryBalance = await USDT.balanceOf(
@@ -123,6 +132,13 @@ describe("UpDown", () => {
       expect(oldBobBalance - newBobBalance).to.be.equal(
         parse18(usdtAmount.toString())
       );
+    });
+
+    it("should fail - play with deposit amount below minimal", async function () {
+      const lowerAmount = (await Game.minDepositAmount()) - BigInt(1);
+      await expect(
+        Game.connect(opponent).play(false, lowerAmount)
+      ).to.be.revertedWith(requireMinimalAmount);
     });
 
     it("should play down", async function () {
@@ -488,7 +504,7 @@ describe("UpDown", () => {
   });
 
   describe("Permit", () => {
-    it("should fail - overflow deposit amount playWithDeposit()", async function () {
+    it("should fail - overflow deposit amount playWithPermit()", async function () {
       await Game.startGame(
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
@@ -504,7 +520,6 @@ describe("UpDown", () => {
         parse18(maxUint32.toString()),
         BigInt(deadline)
       );
-      await Treasury.deposit(maxUint32);
       await expect(
         Game.playWithPermit(true, maxUint32, {
           deadline: deadline,
@@ -513,7 +528,27 @@ describe("UpDown", () => {
           s: result.s,
         })
       ).to.be.revertedWith(requireOpenedGame);
-      await Treasury.withdraw(maxUint32);
+    });
+
+    it("should fail - below minimal deposit amount playWithPermit()", async function () {
+      const lowerAmount = (await Game.minDepositAmount()) - BigInt(1);
+
+      const deadline = (await time.latest()) + fortyFiveMinutes;
+      let result = await getPermitSignature(
+        owner,
+        USDT,
+        await Treasury.getAddress(),
+        parse18(lowerAmount.toString()),
+        BigInt(deadline)
+      );
+      await expect(
+        Game.playWithPermit(true, lowerAmount, {
+          deadline: deadline,
+          v: result.v,
+          r: result.r,
+          s: result.s,
+        })
+      ).to.be.revertedWith(requireMinimalAmount);
     });
 
     it("should play down with permit", async function () {
@@ -579,5 +614,15 @@ describe("UpDown", () => {
     const result = await Game.getTotalPlayers();
     expect(result[0]).to.be.equal(0);
     expect(result[1]).to.be.equal(0);
+  });
+
+  it("should change minimal deposit amount", async function () {
+    const oldAmount = await Game.minDepositAmount();
+    const newAmount = oldAmount + BigInt(10);
+    await Game.changeMinDepositAmount(newAmount);
+    expect(await Game.minDepositAmount()).to.be.equal(newAmount);
+    //return old deposit amount
+    await Game.changeMinDepositAmount(oldAmount);
+    expect(await Game.minDepositAmount()).to.be.equal(oldAmount);
   });
 });

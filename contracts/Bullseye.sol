@@ -125,7 +125,7 @@ contract Bullseye is AccessControl {
             assetPrice,
             game.depositAmount,
             currentGameId,
-            packedGuessData.length
+            packedGuessData.length - 1
         );
     }
 
@@ -153,7 +153,7 @@ contract Bullseye is AccessControl {
             assetPrice,
             game.depositAmount,
             currentGameId,
-            packedGuessData.length
+            packedGuessData.length - 1
         );
     }
 
@@ -191,7 +191,7 @@ contract Bullseye is AccessControl {
             assetPrice,
             game.depositAmount,
             currentGameId,
-            packedGuessData.length
+            packedGuessData.length - 1
         );
     }
 

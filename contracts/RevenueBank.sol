@@ -7,9 +7,9 @@ import {Nonces} from "@openzeppelin/contracts/utils/Nonces.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 
-interface IERC20Mint {
+interface IERC20Burn {
     function decimals() external view returns (uint256);
-    function mint(address to, uint256 value) external;
+    function burn(address account, uint256 amount) external;
 }
 
 interface ITreasury {
@@ -18,7 +18,18 @@ interface ITreasury {
 
 contract RevenueBank is AccessControl, EIP712, Nonces {
     using ECDSA for bytes32;
-    event NewSigner(address newSigner);
+
+    struct Data {
+        address to;
+        uint256 amount;
+        uint256 deadline;
+    }
+
+    event NewSigner(address signer);
+    event NewXyroToken(address xyroToken);
+    event NewApprovedToken(address approvedToken);
+    event NewTreasury(address treasury);
+
     bytes32 public constant ACCOUNTANT_ROLE = keccak256("ACCOUNTANT_ROLE");
     uint256 public constant FEE_DENOMINATOR = 10000;
     uint256 public buybackBalance;
@@ -30,11 +41,7 @@ contract RevenueBank is AccessControl, EIP712, Nonces {
     address public xyroToken;
     address public signer;
     address public treasury;
-    /**
-     * @param _approvedToken stable token used in games
-     * @param _xyroToken Xyro's token
-     * @param _treasury Xyro's treasury
-     */
+
     constructor(
         address _approvedToken,
         address _xyroToken,
@@ -54,12 +61,6 @@ contract RevenueBank is AccessControl, EIP712, Nonces {
         require(collectedFees >= amount, "Wrong amount");
         collectedFees -= amount;
         SafeERC20.safeTransfer(IERC20(approvedToken), to, amount);
-    }
-
-    struct Data {
-        address to;
-        uint256 amount;
-        uint256 deadline;
     }
 
     function verifyTransfer(Data memory data, bytes memory signature) public {
@@ -84,7 +85,7 @@ contract RevenueBank is AccessControl, EIP712, Nonces {
     }
 
     function collectFees(uint256 amount) public onlyRole(ACCOUNTANT_ROLE) {
-        ITreasury(treasury).withdrawFees(msg.sender, amount);
+        ITreasury(treasury).withdrawFees(address(this), amount);
         uint256 amountForBuyback = (amount * buybackPart) / FEE_DENOMINATOR;
         buybackBalance += amountForBuyback;
         uint256 amountForRewards = (amount * rewardsPart) / FEE_DENOMINATOR;
@@ -92,17 +93,61 @@ contract RevenueBank is AccessControl, EIP712, Nonces {
         collectedFees += amount - amountForRewards - amountForBuyback;
     }
 
-    function setSigner(address newSigner) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        signer = newSigner;
-        emit NewSigner(newSigner);
+    function buybackAndBurn(
+        uint256 amount,
+        uint24 pairFee,
+        address swapRouter
+    ) public onlyRole(ACCOUNTANT_ROLE) {
+        IERC20(approvedToken).approve(swapRouter, amount);
+
+        ISwapRouter02.ExactInputSingleParams memory params = ISwapRouter02
+            .ExactInputSingleParams({
+                tokenIn: approvedToken,
+                tokenOut: xyroToken,
+                fee: pairFee,
+                recipient: address(this),
+                amountIn: amount,
+                amountOutMinimum: 0,
+                sqrtPriceLimitX96: 0
+            });
+
+        uint256 amountOut = ISwapRouter02(swapRouter).exactInputSingle(params);
+        IERC20(xyroToken).approve(address(this), amountOut);
+        IERC20Burn(xyroToken).burn(address(this), amountOut);
+    }
+
+    function setSigner(address _signer) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        signer = _signer;
+        emit NewSigner(_signer);
+    }
+
+    function setTreasury(
+        address _treasury
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        treasury = _treasury;
+        emit NewTreasury(_treasury);
+    }
+
+    function setXyroToken(
+        address _xyroToken
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        xyroToken = _xyroToken;
+        emit NewXyroToken(_xyroToken);
+    }
+
+    function setApprovedToken(
+        address _approvedToken
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        approvedToken = _approvedToken;
+        emit NewApprovedToken(_approvedToken);
     }
 
     function setFeeDistribution(
-        uint256 newBuyBackPart,
-        uint256 newRewardPart
+        uint256 _buybackPart,
+        uint256 _rewardsPart
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        buybackPart = newBuyBackPart;
-        rewardsPart = newRewardPart;
+        buybackPart = _buybackPart;
+        rewardsPart = _rewardsPart;
     }
 
     function nonces(
@@ -110,4 +155,20 @@ contract RevenueBank is AccessControl, EIP712, Nonces {
     ) public view virtual override(Nonces) returns (uint256) {
         return super.nonces(owner);
     }
+}
+
+interface ISwapRouter02 {
+    struct ExactInputSingleParams {
+        address tokenIn;
+        address tokenOut;
+        uint24 fee;
+        address recipient;
+        uint256 amountIn;
+        uint256 amountOutMinimum;
+        uint160 sqrtPriceLimitX96;
+    }
+
+    function exactInputSingle(
+        ExactInputSingleParams calldata params
+    ) external payable returns (uint256 amountOut);
 }

@@ -43,6 +43,7 @@ describe("RevenueBank", () => {
       await Treasury.ACCOUNTANT_ROLE(),
       await Bank.getAddress()
     );
+    await Bank.grantRole(await Bank.ACCOUNTANT_ROLE(), owner.address);
     await USDT.mint(await Treasury.getAddress(), parse18("100000"));
     await XyroToken.approve(await Bank.getAddress(), ethers.MaxUint256);
     await XyroToken.transfer(await Bank.getAddress(), bankAmount);
@@ -95,18 +96,58 @@ describe("RevenueBank", () => {
   });
 
   it("should withdraw fees", async function () {
-    const oldOwnerBalance = await USDT.balanceOf(owner.address);
+    const oldOwnerBalance = await USDT.balanceOf(await Bank.getAddress());
 
     //mock game to earn fees
     await Treasury.calculateUpDownRate(500, 500, 9000);
 
     expect(await Treasury.collectedFee()).to.be.equal(parse18("900"));
     const amount = 100;
-    await Bank.collectFees(amount);
+    await Bank.connect(owner).collectFees(amount);
     expect(await Treasury.collectedFee()).to.be.equal(parse18("800"));
-    const newOwnerBalance = await USDT.balanceOf(owner.address);
+    const newOwnerBalance = await USDT.balanceOf(await Bank.getAddress());
     expect(newOwnerBalance - oldOwnerBalance).to.be.equal(
       parse18(amount.toString())
     );
+  });
+
+  it("should change signer", async function () {
+    let tx = await Bank.setSigner(alice.address);
+    let receipt = await tx.wait();
+    let logs = receipt?.logs[0]?.args;
+    expect(logs[0]).to.be.equal(alice.address);
+    expect(await Bank.signer()).to.be.equal(alice.address);
+  });
+
+  it("should change Treasury", async function () {
+    let tx = await Bank.setTreasury(ethers.ZeroAddress);
+    let receipt = await tx.wait();
+    let logs = receipt?.logs[0]?.args;
+    expect(logs[0]).to.be.equal(ethers.ZeroAddress);
+    expect(await Bank.treasury()).to.be.equal(ethers.ZeroAddress);
+  });
+
+  it("should change XYRO Token", async function () {
+    let tx = await Bank.setXyroToken(ethers.ZeroAddress);
+    let receipt = await tx.wait();
+    let logs = receipt?.logs[0]?.args;
+    expect(logs[0]).to.be.equal(ethers.ZeroAddress);
+    expect(await Bank.xyroToken()).to.be.equal(ethers.ZeroAddress);
+  });
+
+  it("should change approved token", async function () {
+    let tx = await Bank.setApprovedToken(ethers.ZeroAddress);
+    let receipt = await tx.wait();
+    let logs = receipt?.logs[0]?.args;
+    expect(logs[0]).to.be.equal(ethers.ZeroAddress);
+    expect(await Bank.approvedToken()).to.be.equal(ethers.ZeroAddress);
+  });
+
+  it("should change fee distribution", async function () {
+    const newBuybackPart = 100;
+    const newRewardsPart = 500;
+    await Bank.setFeeDistribution(newBuybackPart, newRewardsPart);
+    expect(await Bank.buybackPart()).to.be.equal(newBuybackPart);
+    expect(await Bank.rewardsPart()).to.be.equal(newRewardsPart);
   });
 });

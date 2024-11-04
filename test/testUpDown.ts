@@ -30,6 +30,7 @@ const requirePastEndTime = "Too early to finish";
 const requireStartingPrice = "Starting price must be set";
 const requireNewPlayer = "Already participating";
 const requireSufficentDepositAmount = "Insufficent deposit amount";
+const requireHigherDepositAmount = "Wrong deposit amount";
 
 describe("UpDown", () => {
   let owner: HardhatEthersSigner;
@@ -87,7 +88,7 @@ describe("UpDown", () => {
     it("should create updown game", async function () {
       const endTime = (await time.latest()) + fortyFiveMinutes;
       const stopPredictAt = (await time.latest()) + fifteenMinutes;
-      await Game.startGame(endTime, stopPredictAt, feedNumber);
+      await Game.startGame(endTime, stopPredictAt, usdtAmount, feedNumber);
       let game = await Game.decodeData();
       expect(game.endTime).to.be.equal(endTime);
       expect(game.stopPredictAt).to.be.equal(stopPredictAt);
@@ -99,6 +100,7 @@ describe("UpDown", () => {
         Game.startGame(
           (await time.latest()) + fortyFiveMinutes,
           (await time.latest()) + fifteenMinutes,
+          usdtAmount,
           feedNumber
         )
       ).to.be.revertedWith(requireFinishedGame);
@@ -166,6 +168,18 @@ describe("UpDown", () => {
       await expect(Game.play(true, maxUint32)).to.be.revertedWith(
         requireOpenedGame
       );
+    });
+
+    it("should fail - wrong deposit amount play()", async function () {
+      await expect(Game.play(true, usdtAmount - 1)).to.be.revertedWith(
+        requireHigherDepositAmount
+      );
+    });
+
+    it("should fail - wrong deposit amount playWithDeposit()", async function () {
+      await expect(
+        Game.playWithDeposit(true, usdtAmount - 1)
+      ).to.be.revertedWith(requireHigherDepositAmount);
     });
 
     it("should fail - overflow deposit amount playWithDeposit()", async function () {
@@ -236,6 +250,7 @@ describe("UpDown", () => {
       await Game.startGame(
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
+        usdtAmount,
         feedNumber
       );
       await expect(
@@ -274,6 +289,7 @@ describe("UpDown", () => {
       await Game.startGame(
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
+        usdtAmount,
         feedNumber
       );
       await Game.connect(alice).play(true, usdtAmount);
@@ -314,7 +330,7 @@ describe("UpDown", () => {
     it("should fail - too early to finish", async function () {
       const endTime = (await time.latest()) + fortyFiveMinutes;
       const stopPredictAt = (await time.latest()) + fifteenMinutes;
-      await Game.startGame(endTime, stopPredictAt, feedNumber);
+      await Game.startGame(endTime, stopPredictAt, usdtAmount, feedNumber);
       await Game.connect(alice).play(true, usdtAmount);
       await Game.connect(opponent).play(false, usdtAmount);
       await expect(
@@ -371,6 +387,7 @@ describe("UpDown", () => {
       await Game.startGame(
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
+        usdtAmount,
         feedNumber
       );
       await Game.connect(alice).play(true, usdtAmount);
@@ -406,6 +423,7 @@ describe("UpDown", () => {
       await Game.startGame(
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
+        usdtAmount,
         feedNumber
       );
       await USDT.connect(opponent).approve(
@@ -447,6 +465,7 @@ describe("UpDown", () => {
       await Game.startGame(
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
+        usdtAmount,
         feedNumber
       );
       await USDT.connect(opponent).approve(
@@ -492,6 +511,7 @@ describe("UpDown", () => {
       await Game.startGame(
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
+        usdtAmount,
         feedNumber
       );
       const maxUint32 = 4394967295;
@@ -514,6 +534,25 @@ describe("UpDown", () => {
         })
       ).to.be.revertedWith(requireOpenedGame);
       await Treasury.withdraw(maxUint32);
+    });
+
+    it("should fail - play with permit with wrong deposit amount", async function () {
+      const deadline = (await time.latest()) + fortyFiveMinutes;
+      let result = await getPermitSignature(
+        owner,
+        USDT,
+        await Treasury.getAddress(),
+        parse18((usdtAmount - 1).toString()),
+        BigInt(deadline)
+      );
+      await expect(
+        Game.playWithPermit(false, usdtAmount - 1, {
+          deadline: deadline,
+          v: result.v,
+          r: result.r,
+          s: result.s,
+        })
+      ).to.be.revertedWith(requireHigherDepositAmount);
     });
 
     it("should play down with permit", async function () {

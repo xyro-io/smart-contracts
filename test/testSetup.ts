@@ -30,6 +30,7 @@ const isParticipating = "You are already in the game";
 const dontExist = "Game doesn't exist";
 const cantEnd = "Can't end";
 const youLost = "You lost";
+const disabledGame = "Game is disabled";
 const requireSufficentDepositAmount = "Insufficent deposit amount";
 const Status = {
   Created: 0,
@@ -181,6 +182,28 @@ describe("Setup Game", () => {
           )
         )
       ).to.be.revertedWith(wrongPrice);
+    });
+
+    it("should fail - game is disabled", async function () {
+      const startTime = await time.latest();
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const isLong = false;
+      await Game.toggleActive();
+      await expect(
+        Game.createSetup(
+          isLong,
+          endTime,
+          slPrice,
+          tpPrice,
+          feedNumber,
+          abiEncodeInt192WithTimestamp(
+            assetPrice.toString(),
+            feedNumber,
+            startTime
+          )
+        )
+      ).to.be.revertedWith(disabledGame);
+      await Game.toggleActive();
     });
 
     it("should fail - wrong sl price (long)", async function () {
@@ -1180,6 +1203,14 @@ describe("Setup Game", () => {
       //return treasury back
       await Game.setTreasury(await Treasury.getAddress());
       expect(await Game.treasury()).to.equal(await Treasury.getAddress());
+    });
+
+    it("should toggle game creation", async function () {
+      expect(await Game.isActive()).to.be.equal(true);
+      await Game.toggleActive();
+      expect(await Game.isActive()).to.be.equal(false);
+      await Game.toggleActive();
+      expect(await Game.isActive()).to.be.equal(true);
     });
 
     it("should change min and max game duration", async function () {

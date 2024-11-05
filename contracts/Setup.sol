@@ -6,6 +6,7 @@ import {ITreasury} from "./interfaces/ITreasury.sol";
 import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 
 contract Setup is AccessControl {
+    event NewFee(uint256 newFee);
     event NewTreasury(address newTreasury);
     event SetupNewPlayer(
         bytes32 gameId,
@@ -619,5 +620,6 @@ contract Setup is AccessControl {
      */
     function setFee(uint256 newFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
         fee = newFee;
+        emit NewFee(newFee);
     }
 }

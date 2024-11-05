@@ -2,8 +2,6 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { time } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { XyroToken } from "../typechain-types/contracts/XyroToken";
-import { XyroToken__factory } from "../typechain-types/factories/contracts/XyroToken__factory";
 import { MockToken } from "../typechain-types/contracts/mock/MockERC20.sol/MockToken";
 import { MockToken__factory } from "../typechain-types/factories/contracts/mock/MockERC20.sol/MockToken__factory";
 import { Treasury } from "../typechain-types/contracts/Treasury.sol/Treasury";
@@ -106,7 +104,16 @@ describe("Bullseye", () => {
 
   describe("Play game", async function () {
     it("should play", async function () {
-      await Game.connect(opponent).play(guessPriceOpponent);
+      let tx = await Game.connect(opponent).play(guessPriceOpponent);
+      let receipt = await tx.wait();
+      let newPlayerLog = receipt?.logs[1]?.args;
+
+      expect(newPlayerLog[0]).to.be.equal(opponent.address);
+      expect(newPlayerLog[1]).to.be.equal(guessPriceOpponent);
+      expect(newPlayerLog[2]).to.be.equal(usdtAmount);
+      expect(newPlayerLog[3]).to.be.equal(await Game.currentGameId());
+      expect(newPlayerLog[4]).to.be.equal(0);
+
       expect(await USDT.balanceOf(Treasury.getAddress())).to.equal(
         parse18(usdtAmount.toString())
       );
@@ -117,7 +124,16 @@ describe("Bullseye", () => {
 
     it("should play with deposited amount", async function () {
       await Treasury.connect(alice).deposit(usdtAmount);
-      await Game.connect(alice).playWithDeposit(guessPriceAlice);
+      let tx = await Game.connect(alice).playWithDeposit(guessPriceAlice);
+      let receipt = await tx.wait();
+      let newPlayerLog = receipt?.logs[0]?.args;
+
+      expect(newPlayerLog[0]).to.be.equal(alice.address);
+      expect(newPlayerLog[1]).to.be.equal(guessPriceAlice);
+      expect(newPlayerLog[2]).to.be.equal(usdtAmount);
+      expect(newPlayerLog[3]).to.be.equal(await Game.currentGameId());
+      expect(newPlayerLog[4]).to.be.equal(1);
+
       expect(await USDT.balanceOf(Treasury.getAddress())).to.equal(
         parse18((usdtAmount * 2).toString())
       );

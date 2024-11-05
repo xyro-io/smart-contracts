@@ -24,7 +24,7 @@ const requireFinishedGame = "Finish previous game first";
 const requireOpenedGame = "Game is closed for new players";
 const requireStartedGame = "Start the game first";
 const requirePastEndTime = "Too early to finish";
-const requireNewPlayer = "You are already in the game";
+const requireValidChainlinkReport = "Old chainlink report";
 const requireSufficentDepositAmount = "Insufficent deposit amount";
 
 describe("Bullseye", () => {
@@ -192,8 +192,44 @@ describe("Bullseye", () => {
           )
         )
       ).to.be.revertedWith(requirePastEndTime);
+      await Game.closeGame();
     });
+
+    it("should fail - old chainlink report", async function () {
+      await Game.startGame(
+        (await time.latest()) + fortyFiveMinutes,
+        (await time.latest()) + fifteenMinutes,
+        usdtAmount,
+        feedNumber
+      );
+      await Game.connect(opponent).play(guessPriceAlice);
+      await Game.connect(alice).play(guessPriceAlice);
+      await time.increase(fortyFiveMinutes * 2);
+      await expect(
+        Game.finalizeGame(
+          abiEncodeInt192WithTimestamp(
+            finalPriceExact.toString(),
+            feedNumber,
+            await time.latest()
+          )
+        )
+      ).to.be.revertedWith(requireValidChainlinkReport);
+      await Game.closeGame();
+      await Treasury.connect(opponent).withdraw(
+        (await Treasury.deposits(opponent.address)) / BigInt(Math.pow(10, 18))
+      );
+      await Treasury.connect(alice).withdraw(
+        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+      );
+    });
+
     it("should close game and refund (finalzieGame)", async function () {
+      await Game.startGame(
+        (await time.latest()) + fortyFiveMinutes,
+        (await time.latest()) + fifteenMinutes,
+        usdtAmount,
+        feedNumber
+      );
       let oldBalance = await USDT.balanceOf(alice.getAddress());
       await Game.connect(alice).play(guessPriceAlice);
       await time.increase(fortyFiveMinutes);

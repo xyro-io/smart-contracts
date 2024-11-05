@@ -326,9 +326,42 @@ describe("UpDown", () => {
           )
         )
       ).to.be.revertedWith(requirePastEndTime);
+      await Game.closeGame();
+    });
+
+    it("should fail - old chainlink report", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = (await time.latest()) + fifteenMinutes;
+      await Game.startGame(endTime, stopPredictAt, feedNumber);
+      await Game.connect(alice).play(true, usdtAmount);
+      await Game.connect(opponent).play(false, usdtAmount);
+      await time.increase(fifteenMinutes);
+      await Game.setStartingPrice(
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          await time.latest()
+        )
+      );
+      await time.increase(fifteenMinutes * 3);
+      await expect(
+        Game.finalizeGame(
+          abiEncodeInt192WithTimestamp(
+            finalPriceUp.toString(),
+            feedNumber,
+            await time.latest()
+          )
+        )
+      ).to.be.revertedWith(requireValidChainlinkReport);
+      await Game.closeGame();
     });
 
     it("should fail - startring price should be set", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = (await time.latest()) + fifteenMinutes;
+      await Game.startGame(endTime, stopPredictAt, feedNumber);
+      await Game.connect(alice).play(true, usdtAmount);
+      await Game.connect(opponent).play(false, usdtAmount);
       await time.increase(fortyFiveMinutes);
       await expect(
         Game.finalizeGame(
@@ -339,9 +372,15 @@ describe("UpDown", () => {
           )
         )
       ).to.be.revertedWith(requireStartingPrice);
+      await Game.closeGame();
     });
 
     it("should end updown game (up wins)", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = (await time.latest()) + fifteenMinutes;
+      await Game.startGame(endTime, stopPredictAt, feedNumber);
+      await Game.connect(alice).play(true, usdtAmount);
+      await Game.connect(opponent).play(false, usdtAmount);
       let oldBalance = await USDT.balanceOf(alice.getAddress());
       await time.increase(fifteenMinutes);
       await Game.setStartingPrice(
@@ -351,7 +390,7 @@ describe("UpDown", () => {
           await time.latest()
         )
       );
-      await time.increase(fortyFiveMinutes);
+      await time.increase(fifteenMinutes * 2);
       await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
           finalPriceUp.toString(),
@@ -383,7 +422,7 @@ describe("UpDown", () => {
           await time.latest()
         )
       );
-      await time.increase(fortyFiveMinutes);
+      await time.increase(fifteenMinutes * 2);
       await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
           assetPrice.toString(),
@@ -420,7 +459,7 @@ describe("UpDown", () => {
         ethers.MaxUint256
       );
       await Game.connect(alice).play(true, usdtAmount);
-      await time.increase(fortyFiveMinutes);
+      await time.increase(fifteenMinutes);
       await Game.setStartingPrice(
         abiEncodeInt192WithTimestamp(
           assetPrice.toString(),
@@ -428,6 +467,7 @@ describe("UpDown", () => {
           await time.latest()
         )
       );
+      await time.increase(fifteenMinutes * 2);
       await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
           finalPriceDown.toString(),
@@ -461,7 +501,7 @@ describe("UpDown", () => {
         ethers.MaxUint256
       );
       await Game.connect(alice).play(false, usdtAmount);
-      await time.increase(fortyFiveMinutes);
+      await time.increase(fifteenMinutes);
       await Game.setStartingPrice(
         abiEncodeInt192WithTimestamp(
           assetPrice.toString(),
@@ -469,6 +509,7 @@ describe("UpDown", () => {
           await time.latest()
         )
       );
+      await time.increase(fifteenMinutes * 2);
       await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
           finalPriceDown.toString(),

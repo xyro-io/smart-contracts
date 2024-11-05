@@ -259,10 +259,8 @@ contract UpDown is AccessControl {
         (int192 finalPrice, uint32 priceTimestamp) = IDataStreamsVerifier(
             upkeep
         ).verifyReportWithTimestamp(unverifiedReport, game.feedNumber);
-        //block.timestamp must be > priceTimestamp
         require(
-            priceTimestamp - game.endTime <= 1 minutes ||
-                block.timestamp - priceTimestamp <= 1 minutes,
+            priceTimestamp - game.endTime <= 1 minutes,
             "Old chainlink report"
         );
         GameInfo memory _game = game;

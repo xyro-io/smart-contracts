@@ -29,7 +29,9 @@ const requireSameAssetPrice = "Same asset prices";
 const requireOnlyCertainAccount = "Only certain account can accept";
 const requireWrongSender = "Wrong sender";
 const requireEarlyFinish = "Too early to finish";
+const requireChainlinkReport = "Old chainlink report";
 const requireUniqueOpponent = "Wrong opponent";
+const requireCreationEnabled = "Game is disabled";
 const Status = {
   Default: 0,
   Created: 1,
@@ -119,6 +121,34 @@ describe("OneVsOneExactPrice", () => {
       expect(game.gameStatus).to.be.equal(Status.Created);
       expect(game.feedNumber).to.be.equal(feedNumber);
       expect(game.depositAmount).to.be.equal(usdtAmount);
+    });
+
+    it("should fail - game creation disabled", async function () {
+      await Game.toggleActive();
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      await expect(
+        Game.createGame(
+          feedNumber,
+          opponent.address,
+          endTime,
+          initiatorPrice,
+          usdtAmount
+        )
+      ).to.be.revertedWith(requireCreationEnabled);
+    });
+
+    it("should fail - game creation with deposit disabled", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      await expect(
+        Game.createGameWithDeposit(
+          feedNumber,
+          opponent.address,
+          endTime,
+          initiatorPrice,
+          usdtAmount
+        )
+      ).to.be.revertedWith(requireCreationEnabled);
+      await Game.toggleActive();
     });
 
     it("should fail - wrong min bet duration", async function () {
@@ -283,6 +313,49 @@ describe("OneVsOneExactPrice", () => {
       );
     });
 
+    it("should close game accepted game if 3 days passed without finish", async function () {
+      const threeDaysUnix = 259205;
+      const tx = await Game.createGame(
+        feedNumber,
+        opponent.address,
+        (await time.latest()) + fortyFiveMinutes,
+        initiatorPrice,
+        usdtAmount
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt!.logs[1]!.args[0];
+      await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
+      await time.increase(threeDaysUnix + fortyFiveMinutes);
+      await Game.closeGame(currentGameId);
+      expect((await Game.decodeData(currentGameId)).gameStatus).to.equal(
+        Status.Cancelled
+      );
+      await Treasury.connect(owner).withdraw(
+        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
+      );
+      await Treasury.connect(opponent).withdraw(
+        (await Treasury.deposits(opponent.address)) / BigInt(Math.pow(10, 18))
+      );
+    });
+
+    it("should fail - attempt to close an accepted game after 2 days past endTime", async function () {
+      const twoDaysUnix = 172800;
+      const tx = await Game.createGame(
+        feedNumber,
+        opponent.address,
+        (await time.latest()) + fortyFiveMinutes,
+        initiatorPrice,
+        usdtAmount
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt!.logs[1]!.args[0];
+      await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
+      await time.increase(twoDaysUnix + fortyFiveMinutes);
+      await expect(Game.closeGame(currentGameId)).to.be.revertedWith(
+        requireWrongStatus
+      );
+    });
+
     it("should create and liquidate game", async function () {
       const tx = await Game.createGame(
         feedNumber,
@@ -344,6 +417,7 @@ describe("OneVsOneExactPrice", () => {
       ).to.be.revertedWith(requireWrongSender);
     });
   });
+
   describe("Finalize game", async function () {
     it("should end the game", async function () {
       const tx = await Game.createGame(
@@ -677,6 +751,30 @@ describe("OneVsOneExactPrice", () => {
         )
       ).to.be.revertedWith(requireEarlyFinish);
     });
+
+    it("should fail - old chainlink report", async function () {
+      const tx = await Game.createGame(
+        feedNumber,
+        opponent.address,
+        (await time.latest()) + fortyFiveMinutes,
+        initiatorPrice,
+        usdtAmount
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt!.logs[1]!.args[0];
+      await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
+      await time.increase(fortyFiveMinutes + 60);
+      await expect(
+        Game.finalizeGame(
+          currentGameId,
+          abiEncodeInt192WithTimestamp(
+            finalPrice.toString(),
+            feedNumber,
+            await time.latest()
+          )
+        )
+      ).to.be.revertedWith(requireChainlinkReport);
+    });
   });
 
   describe("Permit", async function () {
@@ -834,6 +932,34 @@ describe("OneVsOneExactPrice", () => {
       expect(game.gameStatus).to.be.equal(Status.Created);
       expect(game.feedNumber).to.be.equal(feedNumber);
       expect(game.depositAmount).to.be.equal(usdtAmount);
+    });
+
+    it("should fail - game creation disabled", async function () {
+      await Game.toggleActive();
+      const deadline = (await time.latest()) + fortyFiveMinutes;
+      let ownerPermit = await getPermitSignature(
+        owner,
+        USDT,
+        await Treasury.getAddress(),
+        parse18(usdtAmount.toString()),
+        BigInt(deadline)
+      );
+      await expect(
+        Game.createGameWithPermit(
+          feedNumber,
+          opponent.address,
+          (await time.latest()) + fortyFiveMinutes,
+          initiatorPrice,
+          usdtAmount,
+          {
+            deadline: deadline,
+            v: ownerPermit.v,
+            r: ownerPermit.r,
+            s: ownerPermit.s,
+          }
+        )
+      ).to.be.revertedWith(requireCreationEnabled);
+      await Game.toggleActive();
     });
 
     it("should fail - wrong min bet duration", async function () {
@@ -1079,5 +1205,13 @@ describe("OneVsOneExactPrice", () => {
     );
     expect(await Game.minDuration()).to.be.equal(thirtyMins + BigInt(60));
     expect(await Game.maxDuration()).to.be.equal(fourWeeks + BigInt(60));
+  });
+
+  it("should toggle game creation", async function () {
+    expect(await Game.isActive()).to.be.equal(true);
+    await Game.toggleActive();
+    expect(await Game.isActive()).to.be.equal(false);
+    await Game.toggleActive();
+    expect(await Game.isActive()).to.be.equal(true);
   });
 });

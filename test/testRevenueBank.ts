@@ -29,8 +29,9 @@ describe("RevenueBank", () => {
     USDT = await new MockToken__factory(owner).deploy(
       parse18((1e13).toString())
     );
-    Treasury = await new Treasury__factory(owner).deploy(
-      await USDT.getAddress()
+    Treasury = await upgrades.deployProxy(
+      await ethers.getContractFactory("Treasury"),
+      [await USDT.getAddress()]
     );
     await Treasury.grantRole(await Treasury.DISTRIBUTOR_ROLE(), owner.address);
     const bankAmount = parse18((1e7).toString());

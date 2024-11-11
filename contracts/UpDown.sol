@@ -6,6 +6,7 @@ import {ITreasury} from "./interfaces/ITreasury.sol";
 import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 
 contract UpDown is AccessControl {
+    event NewFee(uint256 newFee);
     event NewTreasury(address newTreasury);
     event UpDownCreated(
         uint256 startTime,
@@ -42,6 +43,7 @@ contract UpDown is AccessControl {
     mapping(address => uint256) public depositAmounts;
     bytes32 public currentGameId;
     address public treasury;
+    uint256 public minDepositAmount;
     uint256 public maxPlayers = 100;
     uint256 public fee = 1500;
 
@@ -56,6 +58,7 @@ contract UpDown is AccessControl {
     function startGame(
         uint32 endTime,
         uint32 stopPredictAt,
+        uint256 depositAmount,
         uint8 feedNumber
     ) public onlyRole(GAME_MASTER_ROLE) {
         require(packedData == 0, "Finish previous game first");
@@ -67,6 +70,7 @@ contract UpDown is AccessControl {
         currentGameId = keccak256(
             abi.encodePacked(endTime, block.timestamp, address(this))
         );
+        minDepositAmount = depositAmount;
         emit UpDownCreated(
             block.timestamp,
             stopPredictAt,
@@ -82,6 +86,7 @@ contract UpDown is AccessControl {
      * @param depositAmount amount to deposit in game
      */
     function play(bool isLong, uint256 depositAmount) public {
+        require(depositAmount >= minDepositAmount, "Wrong deposit amount");
         require(!isParticipating[msg.sender], "Already participating");
         require(
             DownPlayers.length + UpPlayers.length + 1 <= maxPlayers,
@@ -119,6 +124,7 @@ contract UpDown is AccessControl {
      * @param depositAmount amount to deposit in game
      */
     function playWithDeposit(bool isLong, uint256 depositAmount) public {
+        require(depositAmount >= minDepositAmount, "Wrong deposit amount");
         require(!isParticipating[msg.sender], "Already participating");
         require(
             DownPlayers.length + UpPlayers.length + 1 <= maxPlayers,
@@ -158,6 +164,7 @@ contract UpDown is AccessControl {
         uint256 depositAmount,
         ITreasury.PermitData calldata permitData
     ) public {
+        require(depositAmount >= minDepositAmount, "Wrong deposit amount");
         require(!isParticipating[msg.sender], "Already participating");
         require(
             DownPlayers.length + UpPlayers.length + 1 <= maxPlayers,
@@ -259,10 +266,8 @@ contract UpDown is AccessControl {
         (int192 finalPrice, uint32 priceTimestamp) = IDataStreamsVerifier(
             upkeep
         ).verifyReportWithTimestamp(unverifiedReport, game.feedNumber);
-        //block.timestamp must be > priceTimestamp
         require(
-            priceTimestamp - game.endTime <= 1 minutes ||
-                block.timestamp - priceTimestamp <= 1 minutes,
+            priceTimestamp - game.endTime <= 1 minutes,
             "Old chainlink report"
         );
         GameInfo memory _game = game;
@@ -405,5 +410,6 @@ contract UpDown is AccessControl {
      */
     function setFee(uint256 newFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
         fee = newFee;
+        emit NewFee(newFee);
     }
 }

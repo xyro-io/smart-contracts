@@ -26,7 +26,10 @@ const requireSameAssetPrice = "Same asset prices";
 const requireOnlyCertainAccount = "Only certain account can accept";
 const requireWrongSender = "Wrong sender";
 const requireEarlyFinish = "Too early to finish";
+const requireChainlinkReport = "Old chainlink report";
 const requireUniqueOpponent = "Wrong opponent";
+const requireCreationEnabled = "Game is disabled";
+const requireApprovedFeedNumber = "Wrong feed number";
 const Status = {
   Default: 0,
   Created: 1,
@@ -82,6 +85,19 @@ describe("OneVsOneExactPrice", () => {
       await Treasury.getAddress(),
       ethers.MaxUint256
     );
+    //set mock feed ids
+    const feedIds = [
+      "0x00037da06d56d083fe599397a4769a042d63aa73dc4ef57709d31e9971a5b439",
+      "0x000359843a543ee2fe414dc14c7e7920ef10f4372990b79d6361cdc0dd1ba782",
+      "0x000387d7c042a9d5c97c15354b531bd01bf6d3a351e190f2394403cf2f79bde9",
+      "0x00036fe43f87884450b4c7e093cd5ed99cac6640d8c2000e6afc02c8838d0265",
+      "0x0003c915006ba88731510bb995c190e80b5c9cfe8cd8a19aaf00e0ed61d0b3bc",
+      "0x0003d64b0bdb0046a65e4ebb0a9866215044634524673c65bff4096a197fcff5",
+      "0x0003d338ea2ac3be9e026033b1aa601673c37bab5e13851c59966f9f820754d6",
+      "0x00032b6edb94b883e95693b8fdae3deeedab2c48dd699cafa43a8d134d344813",
+      "0x00035e3ddda6345c3c8ce45639d4449451f1d5828d7a70845e446f04905937cd",
+    ];
+    await Upkeep.setfeedNumberBatch(feedIds);
   });
 
   describe("Create game", async function () {
@@ -117,6 +133,34 @@ describe("OneVsOneExactPrice", () => {
       expect(game.depositAmount).to.be.equal(usdtAmount);
     });
 
+    it("should fail - game creation disabled", async function () {
+      await Game.toggleActive();
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      await expect(
+        Game.createGame(
+          feedNumber,
+          opponent.address,
+          endTime,
+          initiatorPrice,
+          usdtAmount
+        )
+      ).to.be.revertedWith(requireCreationEnabled);
+    });
+
+    it("should fail - game creation with deposit disabled", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      await expect(
+        Game.createGameWithDeposit(
+          feedNumber,
+          opponent.address,
+          endTime,
+          initiatorPrice,
+          usdtAmount
+        )
+      ).to.be.revertedWith(requireCreationEnabled);
+      await Game.toggleActive();
+    });
+
     it("should fail - wrong min bet duration", async function () {
       await expect(
         Game.createGame(
@@ -127,6 +171,32 @@ describe("OneVsOneExactPrice", () => {
           usdtAmount
         )
       ).to.be.revertedWith(requireMinBetDuration);
+    });
+
+    it("should fail - wrong feedNumber createGame", async function () {
+      const wrongFeedNumber = 9;
+      await expect(
+        Game.createGame(
+          wrongFeedNumber,
+          opponent.address,
+          (await time.latest()) + 1,
+          initiatorPrice,
+          usdtAmount
+        )
+      ).to.be.revertedWith(requireApprovedFeedNumber);
+    });
+
+    it("should fail - wrong feedNumber createGameWithDepisit", async function () {
+      const wrongFeedNumber = 9;
+      await expect(
+        Game.createGameWithDeposit(
+          wrongFeedNumber,
+          opponent.address,
+          (await time.latest()) + 1,
+          initiatorPrice,
+          usdtAmount
+        )
+      ).to.be.revertedWith(requireApprovedFeedNumber);
     });
 
     it("should fail - wrong max bet duration", async function () {
@@ -279,6 +349,49 @@ describe("OneVsOneExactPrice", () => {
       );
     });
 
+    it("should close game accepted game if 3 days passed without finish", async function () {
+      const threeDaysUnix = 259205;
+      const tx = await Game.createGame(
+        feedNumber,
+        opponent.address,
+        (await time.latest()) + fortyFiveMinutes,
+        initiatorPrice,
+        usdtAmount
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt!.logs[1]!.args[0];
+      await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
+      await time.increase(threeDaysUnix + fortyFiveMinutes);
+      await Game.closeGame(currentGameId);
+      expect((await Game.decodeData(currentGameId)).gameStatus).to.equal(
+        Status.Cancelled
+      );
+      await Treasury.connect(owner).withdraw(
+        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
+      );
+      await Treasury.connect(opponent).withdraw(
+        (await Treasury.deposits(opponent.address)) / BigInt(Math.pow(10, 18))
+      );
+    });
+
+    it("should fail - attempt to close an accepted game after 2 days past endTime", async function () {
+      const twoDaysUnix = 172800;
+      const tx = await Game.createGame(
+        feedNumber,
+        opponent.address,
+        (await time.latest()) + fortyFiveMinutes,
+        initiatorPrice,
+        usdtAmount
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt!.logs[1]!.args[0];
+      await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
+      await time.increase(twoDaysUnix + fortyFiveMinutes);
+      await expect(Game.closeGame(currentGameId)).to.be.revertedWith(
+        requireWrongStatus
+      );
+    });
+
     it("should create and liquidate game", async function () {
       const tx = await Game.createGame(
         feedNumber,
@@ -340,6 +453,7 @@ describe("OneVsOneExactPrice", () => {
       ).to.be.revertedWith(requireWrongSender);
     });
   });
+
   describe("Finalize game", async function () {
     it("should end the game", async function () {
       const tx = await Game.createGame(
@@ -673,6 +787,30 @@ describe("OneVsOneExactPrice", () => {
         )
       ).to.be.revertedWith(requireEarlyFinish);
     });
+
+    it("should fail - old chainlink report", async function () {
+      const tx = await Game.createGame(
+        feedNumber,
+        opponent.address,
+        (await time.latest()) + fortyFiveMinutes,
+        initiatorPrice,
+        usdtAmount
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt!.logs[1]!.args[0];
+      await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
+      await time.increase(fortyFiveMinutes + 60);
+      await expect(
+        Game.finalizeGame(
+          currentGameId,
+          abiEncodeInt192WithTimestamp(
+            finalPrice.toString(),
+            feedNumber,
+            await time.latest()
+          )
+        )
+      ).to.be.revertedWith(requireChainlinkReport);
+    });
   });
 
   describe("Permit", async function () {
@@ -832,6 +970,34 @@ describe("OneVsOneExactPrice", () => {
       expect(game.depositAmount).to.be.equal(usdtAmount);
     });
 
+    it("should fail - game creation disabled", async function () {
+      await Game.toggleActive();
+      const deadline = (await time.latest()) + fortyFiveMinutes;
+      let ownerPermit = await getPermitSignature(
+        owner,
+        USDT,
+        await Treasury.getAddress(),
+        parse18(usdtAmount.toString()),
+        BigInt(deadline)
+      );
+      await expect(
+        Game.createGameWithPermit(
+          feedNumber,
+          opponent.address,
+          (await time.latest()) + fortyFiveMinutes,
+          initiatorPrice,
+          usdtAmount,
+          {
+            deadline: deadline,
+            v: ownerPermit.v,
+            r: ownerPermit.r,
+            s: ownerPermit.s,
+          }
+        )
+      ).to.be.revertedWith(requireCreationEnabled);
+      await Game.toggleActive();
+    });
+
     it("should fail - wrong min bet duration", async function () {
       const deadline = (await time.latest()) + fortyFiveMinutes;
       let ownerPermit = await getPermitSignature(
@@ -856,6 +1022,33 @@ describe("OneVsOneExactPrice", () => {
           }
         )
       ).to.be.revertedWith(requireMinBetDuration);
+    });
+
+    it("should fail - wrong feedNumber createGameWithPermit", async function () {
+      const deadline = (await time.latest()) + fortyFiveMinutes;
+      let ownerPermit = await getPermitSignature(
+        owner,
+        USDT,
+        await Treasury.getAddress(),
+        parse18(usdtAmount.toString()),
+        BigInt(deadline)
+      );
+      const wrongFeedNumber = 9;
+      await expect(
+        Game.createGameWithPermit(
+          wrongFeedNumber,
+          opponent.address,
+          (await time.latest()) + 1,
+          initiatorPrice,
+          usdtAmount,
+          {
+            deadline: deadline,
+            v: ownerPermit.v,
+            r: ownerPermit.r,
+            s: ownerPermit.s,
+          }
+        )
+      ).to.be.revertedWith(requireApprovedFeedNumber);
     });
 
     it("should fail - wrong max bet duration", async function () {
@@ -1075,5 +1268,13 @@ describe("OneVsOneExactPrice", () => {
     );
     expect(await Game.minDuration()).to.be.equal(thirtyMins + BigInt(60));
     expect(await Game.maxDuration()).to.be.equal(fourWeeks + BigInt(60));
+  });
+
+  it("should toggle game creation", async function () {
+    expect(await Game.isActive()).to.be.equal(true);
+    await Game.toggleActive();
+    expect(await Game.isActive()).to.be.equal(false);
+    await Game.toggleActive();
+    expect(await Game.isActive()).to.be.equal(true);
   });
 });

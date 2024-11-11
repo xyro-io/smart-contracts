@@ -125,7 +125,7 @@ contract Bullseye is AccessControl {
             assetPrice,
             game.depositAmount,
             currentGameId,
-            packedGuessData.length
+            packedGuessData.length - 1
         );
     }
 
@@ -153,7 +153,7 @@ contract Bullseye is AccessControl {
             assetPrice,
             game.depositAmount,
             currentGameId,
-            packedGuessData.length
+            packedGuessData.length - 1
         );
     }
 
@@ -191,7 +191,7 @@ contract Bullseye is AccessControl {
             assetPrice,
             game.depositAmount,
             currentGameId,
-            packedGuessData.length
+            packedGuessData.length - 1
         );
     }
 
@@ -226,8 +226,7 @@ contract Bullseye is AccessControl {
         ).verifyReportWithTimestamp(unverifiedReport, game.feedNumber);
         finalPrice /= 1e14;
         require(
-            priceTimestamp - game.endTime <= 1 minutes ||
-                block.timestamp - priceTimestamp <= 1 minutes,
+            priceTimestamp - game.endTime <= 1 minutes,
             "Old chainlink report"
         );
         if (packedGuessData.length == 2) {

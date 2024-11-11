@@ -10,4 +10,6 @@ interface IDataStreamsVerifier {
         bytes memory unverifiedReport,
         uint8 feedNumber
     ) external returns (int192, uint32);
+
+    function assetId(uint8 index) external view returns (bytes32);
 }

@@ -84,6 +84,12 @@ contract OneVsOneExactPrice is AccessControl {
         uint32 initiatorPrice,
         uint16 depositAmount
     ) public {
+        require(
+            IDataStreamsVerifier(ITreasury(treasury).upkeep()).assetId(
+                feedNumber
+            ) != bytes32(0),
+            "Wrong feed number"
+        );
         require(opponent != msg.sender, "Wrong opponent");
         require(
             endTime - block.timestamp >= minDuration,
@@ -135,6 +141,12 @@ contract OneVsOneExactPrice is AccessControl {
         uint32 initiatorPrice,
         uint16 depositAmount
     ) public {
+        require(
+            IDataStreamsVerifier(ITreasury(treasury).upkeep()).assetId(
+                feedNumber
+            ) != bytes32(0),
+            "Wrong feed number"
+        );
         require(opponent != msg.sender, "Wrong opponent");
         require(
             endTime - block.timestamp >= minDuration,
@@ -187,6 +199,12 @@ contract OneVsOneExactPrice is AccessControl {
         uint16 depositAmount,
         ITreasury.PermitData calldata permitData
     ) public {
+        require(
+            IDataStreamsVerifier(ITreasury(treasury).upkeep()).assetId(
+                feedNumber
+            ) != bytes32(0),
+            "Wrong feed number"
+        );
         require(opponent != msg.sender, "Wrong opponent");
         require(
             endTime - block.timestamp >= minDuration,

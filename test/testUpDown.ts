@@ -348,7 +348,7 @@ describe("UpDown", () => {
     it("should fail - old chainlink report", async function () {
       const endTime = (await time.latest()) + fortyFiveMinutes;
       const stopPredictAt = (await time.latest()) + fifteenMinutes;
-      await Game.startGame(endTime, stopPredictAt, feedNumber);
+      await Game.startGame(endTime, stopPredictAt, usdtAmount, feedNumber);
       await Game.connect(alice).play(true, usdtAmount);
       await Game.connect(opponent).play(false, usdtAmount);
       await time.increase(fifteenMinutes);
@@ -375,7 +375,7 @@ describe("UpDown", () => {
     it("should fail - startring price should be set", async function () {
       const endTime = (await time.latest()) + fortyFiveMinutes;
       const stopPredictAt = (await time.latest()) + fifteenMinutes;
-      await Game.startGame(endTime, stopPredictAt, feedNumber);
+      await Game.startGame(endTime, stopPredictAt, usdtAmount, feedNumber);
       await Game.connect(alice).play(true, usdtAmount);
       await Game.connect(opponent).play(false, usdtAmount);
       await time.increase(fortyFiveMinutes);
@@ -394,7 +394,7 @@ describe("UpDown", () => {
     it("should end updown game (up wins)", async function () {
       const endTime = (await time.latest()) + fortyFiveMinutes;
       const stopPredictAt = (await time.latest()) + fifteenMinutes;
-      await Game.startGame(endTime, stopPredictAt, feedNumber);
+      await Game.startGame(endTime, stopPredictAt, usdtAmount, feedNumber);
       await Game.connect(alice).play(true, usdtAmount);
       await Game.connect(opponent).play(false, usdtAmount);
       let oldBalance = await USDT.balanceOf(alice.getAddress());

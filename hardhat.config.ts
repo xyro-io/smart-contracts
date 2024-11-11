@@ -4,6 +4,7 @@ import { HardhatUserConfig } from "hardhat/config";
 import "hardhat-gas-reporter";
 // import "@nomicfoundation/hardhat-ethers";
 // import "@typechain/hardhat";
+import "@openzeppelin/hardhat-upgrades";
 import "solidity-coverage";
 import "@nomicfoundation/hardhat-toolbox";
 import "./scripts/task.ts";

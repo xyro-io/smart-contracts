@@ -2,12 +2,9 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { time } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { XyroToken } from "../typechain-types/contracts/XyroToken";
-import { XyroToken__factory } from "../typechain-types/factories/contracts/XyroToken__factory";
 import { MockToken } from "../typechain-types/contracts/mock/MockERC20.sol/MockToken";
 import { MockToken__factory } from "../typechain-types/factories/contracts/mock/MockERC20.sol/MockToken__factory";
 import { Treasury } from "../typechain-types/contracts/Treasury.sol/Treasury";
-import { Treasury__factory } from "../typechain-types/factories/contracts/Treasury.sol/Treasury__factory";
 import { UpDown } from "../typechain-types/contracts/UpDown";
 import { UpDown__factory } from "../typechain-types/factories/contracts/UpDown__factory";
 import { MockVerifier } from "../typechain-types/contracts/mock/MockVerifier";
@@ -18,6 +15,7 @@ import {
 } from "../scripts/helper";
 
 const parse18 = ethers.parseEther;
+const DENOMENATOR = BigInt(10000);
 const fortyFiveMinutes = 2700;
 const fifteenMinutes = 900;
 const requireFinishedGame = "Finish previous game first";
@@ -38,7 +36,6 @@ describe("UpDown", () => {
   let alice: HardhatEthersSigner;
   let bob: HardhatEthersSigner;
   let USDT: MockToken;
-  let XyroToken: XyroToken;
   let Treasury: Treasury;
   let Game: UpDown;
   let Upkeep: MockVerifier;
@@ -52,9 +49,9 @@ describe("UpDown", () => {
     USDT = await new MockToken__factory(owner).deploy(
       parse18((1e13).toString())
     );
-    XyroToken = await new XyroToken__factory(owner).deploy(parse18("5000"));
-    Treasury = await new Treasury__factory(owner).deploy(
-      await USDT.getAddress()
+    Treasury = await upgrades.deployProxy(
+      await ethers.getContractFactory("Treasury"),
+      [await USDT.getAddress()]
     );
     Game = await new UpDown__factory(owner).deploy();
     Upkeep = await new MockVerifier__factory(owner).deploy();
@@ -392,12 +389,15 @@ describe("UpDown", () => {
     });
 
     it("should end updown game (up wins)", async function () {
+      let oldDeposit = await Treasury.deposits(alice.address);
+
       const endTime = (await time.latest()) + fortyFiveMinutes;
       const stopPredictAt = (await time.latest()) + fifteenMinutes;
       await Game.startGame(endTime, stopPredictAt, usdtAmount, feedNumber);
       await Game.connect(alice).play(true, usdtAmount);
       await Game.connect(opponent).play(false, usdtAmount);
       let oldBalance = await USDT.balanceOf(alice.getAddress());
+
       await time.increase(fifteenMinutes);
       await Game.setStartingPrice(
         abiEncodeInt192WithTimestamp(
@@ -414,11 +414,15 @@ describe("UpDown", () => {
           await time.latest()
         )
       );
+      let newDeposit = await Treasury.deposits(alice.address);
+      let wonAmount =
+        parse18((2 * usdtAmount).toString()) -
+        (parse18((2 * usdtAmount).toString()) * (await Game.fee())) /
+          DENOMENATOR;
+      expect(newDeposit - oldDeposit).to.be.equal(wonAmount);
       await Treasury.connect(alice).withdraw(
         (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
       );
-      let newBalance = await USDT.balanceOf(alice.getAddress());
-      expect(newBalance).to.be.above(oldBalance);
     });
 
     it("should refund if starting price and final price are equal", async function () {

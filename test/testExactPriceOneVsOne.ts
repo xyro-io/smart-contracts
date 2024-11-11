@@ -2,10 +2,7 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { time } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { XyroToken } from "../typechain-types/contracts/XyroToken";
-import { XyroToken__factory } from "../typechain-types/factories/contracts/XyroToken__factory";
 import { Treasury } from "../typechain-types/contracts/Treasury.sol/Treasury";
-import { Treasury__factory } from "../typechain-types/factories/contracts/Treasury.sol/Treasury__factory";
 import { OneVsOneExactPrice } from "../typechain-types/contracts/OneVsOneExactPrice";
 import { OneVsOneExactPrice__factory } from "../typechain-types/factories/contracts/OneVsOneExactPrice__factory";
 import { MockToken } from "../typechain-types/contracts/mock/MockERC20.sol/MockToken";
@@ -46,7 +43,6 @@ describe("OneVsOneExactPrice", () => {
   let owner: HardhatEthersSigner;
   let alice: HardhatEthersSigner;
   let USDT: MockToken;
-  let XyroToken: XyroToken;
   let Treasury: Treasury;
   let Game: OneVsOneExactPrice;
   let Upkeep: MockVerifier;
@@ -66,9 +62,9 @@ describe("OneVsOneExactPrice", () => {
     USDT = await new MockToken__factory(owner).deploy(
       parse18((1e13).toString())
     );
-    XyroToken = await new XyroToken__factory(owner).deploy(parse18("10"));
-    Treasury = await new Treasury__factory(owner).deploy(
-      await USDT.getAddress()
+    Treasury = await upgrades.deployProxy(
+      await ethers.getContractFactory("Treasury"),
+      [await USDT.getAddress()]
     );
     Game = await new OneVsOneExactPrice__factory(owner).deploy();
     Upkeep = await new MockVerifier__factory(owner).deploy();

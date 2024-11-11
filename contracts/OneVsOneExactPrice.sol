@@ -65,6 +65,7 @@ contract OneVsOneExactPrice is AccessControl {
     uint256 public refundFee = 1000;
     uint256 public minDuration = 280;
     uint256 public maxDuration = 4 weeks;
+    bool public isActive = true;
 
     constructor() {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -84,6 +85,7 @@ contract OneVsOneExactPrice is AccessControl {
         uint32 initiatorPrice,
         uint16 depositAmount
     ) public {
+        require(isActive, "Game is disabled");
         require(
             IDataStreamsVerifier(ITreasury(treasury).upkeep()).assetId(
                 feedNumber
@@ -141,6 +143,7 @@ contract OneVsOneExactPrice is AccessControl {
         uint32 initiatorPrice,
         uint16 depositAmount
     ) public {
+        require(isActive, "Game is disabled");
         require(
             IDataStreamsVerifier(ITreasury(treasury).upkeep()).assetId(
                 feedNumber
@@ -199,6 +202,7 @@ contract OneVsOneExactPrice is AccessControl {
         uint16 depositAmount,
         ITreasury.PermitData calldata permitData
     ) public {
+        require(isActive, "Game is disabled");
         require(
             IDataStreamsVerifier(ITreasury(treasury).upkeep()).assetId(
                 feedNumber
@@ -368,7 +372,15 @@ contract OneVsOneExactPrice is AccessControl {
     function closeGame(bytes32 gameId) public {
         GameInfo memory game = decodeData(gameId);
         require(game.initiator == msg.sender, "Wrong sender");
-        require(game.gameStatus == Status.Created, "Wrong status!");
+        require(
+            game.gameStatus == Status.Created ||
+                (
+                    block.timestamp > game.endTime
+                        ? block.timestamp - game.endTime >= 3 days
+                        : false
+                ),
+            "Wrong status!"
+        );
         ITreasury(treasury).refund(game.depositAmount, game.initiator);
         //rewrites status
         games[gameId].packedData2 =
@@ -383,7 +395,7 @@ contract OneVsOneExactPrice is AccessControl {
      */
     function liquidateGame(bytes32 gameId) public onlyRole(GAME_MASTER_ROLE) {
         GameInfo memory game = decodeData(gameId);
-        require(block.timestamp - game.endTime >= 1 weeks, "Too early");
+        require(block.timestamp - game.endTime >= 3 days, "Too early");
         require(game.gameStatus == Status.Created, "Wrong status!");
         ITreasury(treasury).refundWithFees(
             game.depositAmount,
@@ -414,8 +426,7 @@ contract OneVsOneExactPrice is AccessControl {
         require(game.gameStatus == Status.Started, "Wrong status!");
         require(block.timestamp >= game.endTime, "Too early to finish");
         require(
-            priceTimestamp - game.endTime <= 1 minutes ||
-                block.timestamp - priceTimestamp <= 1 minutes,
+            priceTimestamp - game.endTime <= 1 minutes,
             "Old chainlink report"
         );
         uint256 diff1 = game.initiatorPrice > uint192(finalPrice) / 1e14
@@ -526,5 +537,12 @@ contract OneVsOneExactPrice is AccessControl {
         uint256 newRefundFee
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         refundFee = newRefundFee;
+    }
+
+    /**
+     * Turns game on/off
+     */
+    function toggleActive() public onlyRole(DEFAULT_ADMIN_ROLE) {
+        isActive = !isActive;
     }
 }

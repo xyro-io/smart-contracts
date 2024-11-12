@@ -42,7 +42,7 @@ describe("UpDown", () => {
   const assetPrice = parse18("2310");
   const finalPriceDown = parse18("2000");
   const finalPriceUp = parse18("3000");
-  const usdtAmount = 100;
+  const usdtAmount = parse18("100");
   const feedNumber = 4;
   before(async () => {
     [owner, opponent, alice, bob] = await ethers.getSigners();
@@ -116,12 +116,8 @@ describe("UpDown", () => {
       const newTreasuryBalance = await USDT.balanceOf(
         await Treasury.getAddress()
       );
-      expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(
-        parse18(usdtAmount.toString())
-      );
-      expect(oldBobBalance - newBobBalance).to.be.equal(
-        parse18(usdtAmount.toString())
-      );
+      expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(usdtAmount);
+      expect(oldBobBalance - newBobBalance).to.be.equal(usdtAmount);
     });
 
     it("should play down", async function () {
@@ -134,12 +130,8 @@ describe("UpDown", () => {
       const newTreasuryBalance = await USDT.balanceOf(
         await Treasury.getAddress()
       );
-      expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(
-        parse18(usdtAmount.toString())
-      );
-      expect(oldOpponentBalance - newOpponentBalance).to.be.equal(
-        parse18(usdtAmount.toString())
-      );
+      expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(usdtAmount);
+      expect(oldOpponentBalance - newOpponentBalance).to.be.equal(usdtAmount);
     });
 
     it("should play up", async function () {
@@ -152,40 +144,20 @@ describe("UpDown", () => {
       const newTreasuryBalance = await USDT.balanceOf(
         await Treasury.getAddress()
       );
-      expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(
-        parse18(usdtAmount.toString())
-      );
-      expect(oldAliceBalance - newAliceBalance).to.be.equal(
-        parse18(usdtAmount.toString())
-      );
-    });
-
-    it("should fail - overflow deposit amount play()", async function () {
-      const maxUint32 = 4394967295;
-      await expect(Game.play(true, maxUint32)).to.be.revertedWith(
-        requireOpenedGame
-      );
+      expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(usdtAmount);
+      expect(oldAliceBalance - newAliceBalance).to.be.equal(usdtAmount);
     });
 
     it("should fail - wrong deposit amount play()", async function () {
-      await expect(Game.play(true, usdtAmount - 1)).to.be.revertedWith(
-        requireHigherDepositAmount
-      );
+      await expect(
+        Game.play(true, usdtAmount - parse18("1"))
+      ).to.be.revertedWith(requireHigherDepositAmount);
     });
 
     it("should fail - wrong deposit amount playWithDeposit()", async function () {
       await expect(
-        Game.playWithDeposit(true, usdtAmount - 1)
+        Game.playWithDeposit(true, usdtAmount - parse18("1"))
       ).to.be.revertedWith(requireHigherDepositAmount);
-    });
-
-    it("should fail - overflow deposit amount playWithDeposit()", async function () {
-      const maxUint32 = 4394967295;
-      await Treasury.deposit(maxUint32);
-      await expect(Game.playWithDeposit(true, maxUint32)).to.be.revertedWith(
-        requireOpenedGame
-      );
-      await Treasury.withdraw(maxUint32);
     });
 
     it("should fail - insufficent deposit amount", async function () {
@@ -239,10 +211,10 @@ describe("UpDown", () => {
     it("should fail - too early", async function () {
       await Game.closeGame();
       await Treasury.connect(alice).withdraw(
-        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(alice.address)
       );
       await Treasury.connect(opponent).withdraw(
-        (await Treasury.deposits(opponent.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(opponent.address)
       );
       await Game.startGame(
         (await time.latest()) + fortyFiveMinutes,
@@ -294,10 +266,10 @@ describe("UpDown", () => {
 
       await Game.closeGame();
       await Treasury.connect(opponent).withdraw(
-        (await Treasury.deposits(opponent.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(opponent.address)
       );
       await Treasury.connect(alice).withdraw(
-        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(alice.address)
       );
       const newOpponentBalance = await USDT.balanceOf(opponent.address);
       const newAliceBalance = await USDT.balanceOf(alice.address);
@@ -390,13 +362,11 @@ describe("UpDown", () => {
 
     it("should end updown game (up wins)", async function () {
       let oldDeposit = await Treasury.deposits(alice.address);
-
       const endTime = (await time.latest()) + fortyFiveMinutes;
       const stopPredictAt = (await time.latest()) + fifteenMinutes;
       await Game.startGame(endTime, stopPredictAt, usdtAmount, feedNumber);
       await Game.connect(alice).play(true, usdtAmount);
       await Game.connect(opponent).play(false, usdtAmount);
-      let oldBalance = await USDT.balanceOf(alice.getAddress());
 
       await time.increase(fifteenMinutes);
       await Game.setStartingPrice(
@@ -416,15 +386,13 @@ describe("UpDown", () => {
       );
       let newDeposit = await Treasury.deposits(alice.address);
       let wonAmount =
-        parse18((2 * usdtAmount).toString()) -
-        (parse18((2 * usdtAmount).toString()) * (await Game.fee())) /
-          DENOMENATOR;
+        BigInt(2) * usdtAmount -
+        (BigInt(2) * usdtAmount * (await Game.fee())) / DENOMENATOR;
       expect(newDeposit - oldDeposit).to.be.equal(wonAmount);
       await Treasury.connect(alice).withdraw(
-        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(alice.address)
       );
     });
-
     it("should refund if starting price and final price are equal", async function () {
       let oldBalance = await USDT.balanceOf(alice.getAddress());
       await Game.startGame(
@@ -452,10 +420,10 @@ describe("UpDown", () => {
         )
       );
       await Treasury.connect(alice).withdraw(
-        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(alice.address)
       );
       await Treasury.connect(opponent).withdraw(
-        (await Treasury.deposits(opponent.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(opponent.address)
       );
       let newBalance = await USDT.balanceOf(alice.getAddress());
       expect(newBalance).to.be.equal(oldBalance);
@@ -498,7 +466,7 @@ describe("UpDown", () => {
         )
       );
       await Treasury.connect(opponent).withdraw(
-        (await Treasury.deposits(opponent.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(opponent.address)
       );
       currntBalance = await USDT.balanceOf(opponent.getAddress());
       expect(oldBalance).to.be.equal(currntBalance);
@@ -541,10 +509,10 @@ describe("UpDown", () => {
         )
       );
       await Treasury.connect(alice).withdraw(
-        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(alice.address)
       );
       await Treasury.connect(opponent).withdraw(
-        (await Treasury.deposits(opponent.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(opponent.address)
       );
       currntBalance = await USDT.balanceOf(opponent.getAddress());
       expect(oldBalance).to.be.equal(currntBalance);
@@ -552,46 +520,23 @@ describe("UpDown", () => {
   });
 
   describe("Permit", () => {
-    it("should fail - overflow deposit amount playWithDeposit()", async function () {
+    it("should fail - play with permit with wrong deposit amount", async function () {
       await Game.startGame(
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
         feedNumber
       );
-      const maxUint32 = 4394967295;
-
       const deadline = (await time.latest()) + fortyFiveMinutes;
       let result = await getPermitSignature(
         owner,
         USDT,
         await Treasury.getAddress(),
-        parse18(maxUint32.toString()),
-        BigInt(deadline)
-      );
-      await Treasury.deposit(maxUint32);
-      await expect(
-        Game.playWithPermit(true, maxUint32, {
-          deadline: deadline,
-          v: result.v,
-          r: result.r,
-          s: result.s,
-        })
-      ).to.be.revertedWith(requireOpenedGame);
-      await Treasury.withdraw(maxUint32);
-    });
-
-    it("should fail - play with permit with wrong deposit amount", async function () {
-      const deadline = (await time.latest()) + fortyFiveMinutes;
-      let result = await getPermitSignature(
-        owner,
-        USDT,
-        await Treasury.getAddress(),
-        parse18((usdtAmount - 1).toString()),
+        parse18((usdtAmount - parse18("1")).toString()),
         BigInt(deadline)
       );
       await expect(
-        Game.playWithPermit(false, usdtAmount - 1, {
+        Game.playWithPermit(false, usdtAmount - parse18("1"), {
           deadline: deadline,
           v: result.v,
           r: result.r,
@@ -606,7 +551,7 @@ describe("UpDown", () => {
         owner,
         USDT,
         await Treasury.getAddress(),
-        parse18(usdtAmount.toString()),
+        usdtAmount,
         BigInt(deadline)
       );
       await Game.playWithPermit(false, usdtAmount, {
@@ -624,7 +569,7 @@ describe("UpDown", () => {
         alice,
         USDT,
         await Treasury.getAddress(),
-        parse18(usdtAmount.toString()),
+        usdtAmount,
         BigInt(deadline)
       );
       await Game.connect(alice).playWithPermit(true, usdtAmount, {

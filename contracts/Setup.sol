@@ -59,8 +59,6 @@ contract Setup is AccessControl {
         Status gameStatus;
         uint256 startTime;
         uint256 endTime;
-        uint256 totalDepositsSL;
-        uint256 totalDepositsTP;
         uint256 SLplayers;
         uint256 TPplayers;
         uint256 takeProfitPrice;
@@ -72,6 +70,8 @@ contract Setup is AccessControl {
     struct GameInfoPacked {
         uint256 packedData;
         uint256 packedData2;
+        uint256 totalDepositsSL;
+        uint256 totalDepositsTP;
         uint256 finalRate;
     }
 
@@ -187,9 +187,7 @@ contract Setup is AccessControl {
         require(data.gameStatus == Status.Created, "Wrong status!");
         require(
             data.startTime + (data.endTime - data.startTime) / 3 >
-                block.timestamp &&
-                (data.totalDepositsSL + depositAmount <= type(uint32).max ||
-                    data.totalDepositsTP + depositAmount <= type(uint32).max),
+                block.timestamp,
             "Game is closed for new players"
         );
         require(
@@ -200,20 +198,16 @@ contract Setup is AccessControl {
         depositAmounts[gameId][msg.sender] = depositAmount;
         if (isLong) {
             withdrawStatus[gameId][msg.sender] = UserStatus.TP;
-            //rewrites totalDepositsTP
             games[gameId].packedData2 =
-                ((games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 113)) &
-                    ~(uint256(0xFFFFFFFF) << 177)) |
-                ((depositAmount + data.totalDepositsTP) << 113) |
+                (games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 177)) |
                 ((data.TPplayers + 1) << 177);
+            games[gameId].totalDepositsTP += depositAmount;
         } else {
             withdrawStatus[gameId][msg.sender] = UserStatus.SL;
-            //rewrites totalDepositsSL
             games[gameId].packedData2 =
-                ((games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 81)) &
-                    ~(uint256(0xFFFFFFFF) << 209)) |
-                ((depositAmount + data.totalDepositsSL) << 81) |
+                (games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 209)) |
                 ((data.SLplayers + 1) << 209);
+            games[gameId].totalDepositsSL += depositAmount;
         }
         emit SetupNewPlayer(gameId, isLong, depositAmount, msg.sender);
     }
@@ -233,9 +227,7 @@ contract Setup is AccessControl {
         require(data.gameStatus == Status.Created, "Wrong status!");
         require(
             data.startTime + (data.endTime - data.startTime) / 3 >
-                block.timestamp &&
-                (data.totalDepositsSL + depositAmount <= type(uint32).max ||
-                    data.totalDepositsTP + depositAmount <= type(uint32).max),
+                block.timestamp,
             "Game is closed for new players"
         );
         require(
@@ -246,20 +238,16 @@ contract Setup is AccessControl {
         depositAmounts[gameId][msg.sender] = depositAmount;
         if (isLong) {
             withdrawStatus[gameId][msg.sender] = UserStatus.TP;
-            //rewrites totalDepositsTP
             games[gameId].packedData2 =
-                ((games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 113)) &
-                    ~(uint256(0xFFFFFFFF) << 177)) |
-                ((depositAmount + data.totalDepositsTP) << 113) |
+                (games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 177)) |
                 ((data.TPplayers + 1) << 177);
+            games[gameId].totalDepositsTP += depositAmount;
         } else {
             withdrawStatus[gameId][msg.sender] = UserStatus.SL;
-            //rewrites totalDepositsSL
             games[gameId].packedData2 =
-                ((games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 81)) &
-                    ~(uint256(0xFFFFFFFF) << 209)) |
-                ((depositAmount + data.totalDepositsSL) << 81) |
+                (games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 209)) |
                 ((data.SLplayers + 1) << 209);
+            games[gameId].totalDepositsSL += depositAmount;
         }
         emit SetupNewPlayer(gameId, isLong, depositAmount, msg.sender);
     }
@@ -284,17 +272,6 @@ contract Setup is AccessControl {
                 block.timestamp,
             "Game is closed for new players"
         );
-        if (isLong) {
-            require(
-                data.totalDepositsTP + depositAmount <= type(uint32).max,
-                "Game is closed for new TP players"
-            );
-        } else {
-            require(
-                data.totalDepositsSL + depositAmount <= type(uint32).max,
-                "Game is closed for new SL players"
-            );
-        }
         require(
             depositAmounts[gameId][msg.sender] == 0,
             "You are already in the game"
@@ -310,20 +287,16 @@ contract Setup is AccessControl {
         depositAmounts[gameId][msg.sender] = depositAmount;
         if (isLong) {
             withdrawStatus[gameId][msg.sender] = UserStatus.TP;
-            //rewrites totalDepositsTP
             games[gameId].packedData2 =
-                ((games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 113)) &
-                    ~(uint256(0xFFFFFFFF) << 177)) |
-                ((depositAmount + data.totalDepositsTP) << 113) |
+                (games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 177)) |
                 ((data.TPplayers + 1) << 177);
+            games[gameId].totalDepositsTP += depositAmount;
         } else {
             withdrawStatus[gameId][msg.sender] = UserStatus.SL;
-            //rewrites totalDepositsSL
             games[gameId].packedData2 =
-                ((games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 81)) &
-                    ~(uint256(0xFFFFFFFF) << 209)) |
-                ((depositAmount + data.totalDepositsSL) << 81) |
+                (games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 209)) |
                 ((data.SLplayers + 1) << 209);
+            games[gameId].totalDepositsSL += depositAmount;
         }
         emit SetupNewPlayer(gameId, isLong, depositAmount, msg.sender);
     }
@@ -408,8 +381,8 @@ contract Setup is AccessControl {
                 // tp team wins
                 (finalRate, initiatorFee) = ITreasury(treasury)
                     .calculateSetupRate(
-                        data.totalDepositsSL,
-                        data.totalDepositsTP,
+                        games[gameId].totalDepositsSL,
+                        games[gameId].totalDepositsTP,
                         fee,
                         data.initiator
                     );
@@ -425,8 +398,8 @@ contract Setup is AccessControl {
                 // sl team wins
                 (finalRate, initiatorFee) = ITreasury(treasury)
                     .calculateSetupRate(
-                        data.totalDepositsTP,
-                        data.totalDepositsSL,
+                        games[gameId].totalDepositsTP,
+                        games[gameId].totalDepositsSL,
                         fee,
                         data.initiator
                     );
@@ -449,8 +422,8 @@ contract Setup is AccessControl {
                 // sl team wins
                 (finalRate, initiatorFee) = ITreasury(treasury)
                     .calculateSetupRate(
-                        data.totalDepositsTP,
-                        data.totalDepositsSL,
+                        games[gameId].totalDepositsTP,
+                        games[gameId].totalDepositsSL,
                         fee,
                         data.initiator
                     );
@@ -465,8 +438,8 @@ contract Setup is AccessControl {
             } else if (uint192(finalPrice) / 1e14 <= data.takeProfitPrice) {
                 (finalRate, initiatorFee) = ITreasury(treasury)
                     .calculateSetupRate(
-                        data.totalDepositsSL,
-                        data.totalDepositsTP,
+                        games[gameId].totalDepositsSL,
+                        games[gameId].totalDepositsTP,
                         fee,
                         data.initiator
                     );
@@ -584,8 +557,6 @@ contract Setup is AccessControl {
         gameData.feedNumber = uint8(packedData2 >> 64);
         gameData.gameStatus = Status(uint8(packedData2 >> 72));
         gameData.isLong = packedData2 >> 250 == 1;
-        gameData.totalDepositsSL = uint256(uint32(packedData2 >> 81));
-        gameData.totalDepositsTP = uint256(uint32(packedData2 >> 113));
         gameData.finalPrice = uint256(uint32(packedData2 >> 145));
         gameData.TPplayers = uint256(uint32(packedData2 >> 177));
         gameData.SLplayers = uint256(uint32(packedData2 >> 209));

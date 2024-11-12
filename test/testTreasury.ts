@@ -26,7 +26,7 @@ describe("Treasury", () => {
   let Treasury: Treasury;
   let Game: OneVsOneExactPrice;
   let Upkeep: MockVerifier;
-  const depositAmount = 100;
+  const depositAmount = parse18("100");
   const DENOMINATOR = 10000;
   before(async () => {
     [owner, mockContract, alice, mockDAO] = await ethers.getSigners();
@@ -97,9 +97,7 @@ describe("Treasury", () => {
   it("Should deposit", async function () {
     expect(await Treasury.deposits(alice.address)).to.be.equal(0);
     await Treasury.connect(alice).deposit(depositAmount);
-    expect(await Treasury.deposits(alice.address)).to.be.equal(
-      parse18(depositAmount.toString())
-    );
+    expect(await Treasury.deposits(alice.address)).to.be.equal(depositAmount);
   });
 
   it("Should deposit and lock", async function () {
@@ -108,9 +106,7 @@ describe("Treasury", () => {
       depositAmount,
       alice.address
     );
-    expect(await Treasury.locked(alice.address)).to.be.equal(
-      parse18(depositAmount.toString())
-    );
+    expect(await Treasury.locked(alice.address)).to.be.equal(depositAmount);
   });
 
   it("Should deposit with permit", async function () {});
@@ -121,9 +117,7 @@ describe("Treasury", () => {
     const oldBalance = await USDT.balanceOf(alice.address);
     await Treasury.connect(alice).withdraw(depositAmount);
     const newBalance = await USDT.balanceOf(alice.address);
-    expect(newBalance - oldBalance).to.be.equal(
-      parse18(depositAmount.toString())
-    );
+    expect(newBalance - oldBalance).to.be.equal(depositAmount);
   });
 
   it("Should lock", async function () {
@@ -131,9 +125,7 @@ describe("Treasury", () => {
     await Treasury.connect(alice).deposit(depositAmount);
     await Treasury.connect(mockContract).lock(depositAmount, alice.address);
     const newLockedBalance = await Treasury.locked(alice.address);
-    expect(newLockedBalance - oldLockedBalance).to.be.equal(
-      parse18(depositAmount.toString())
-    );
+    expect(newLockedBalance - oldLockedBalance).to.be.equal(depositAmount);
   });
 
   it("Should fail - not enough deposited tokens", async function () {
@@ -165,7 +157,7 @@ describe("Treasury", () => {
     const gameFee = 100;
 
     await Treasury.connect(mockContract).distribute(
-      depositAmount * 2, //won amount
+      depositAmount * BigInt(2), //won amount
       alice.address,
       gameFee
     );
@@ -203,10 +195,7 @@ describe("Treasury", () => {
   it("Should withdraw collected fees", async function () {
     const collectedFees = await Treasury.collectedFee();
     const oldOwnerBalance = await USDT.balanceOf(owner.address);
-    await Treasury.withdrawFees(
-      owner.address,
-      collectedFees / BigInt(Math.pow(10, 18))
-    );
+    await Treasury.withdrawFees(owner.address, collectedFees);
     const newOwnerBalance = await USDT.balanceOf(owner.address);
     expect(newOwnerBalance - oldOwnerBalance).to.be.equal(collectedFees);
   });
@@ -216,8 +205,7 @@ describe("Treasury", () => {
     const initiatorFee = await Treasury.setupInitiatorFee();
     const oldAliceDepositBalance = await Treasury.deposits(alice.address);
     const collectedFee =
-      (parse18(depositAmount.toString()) * BigInt(setupFee)) /
-      BigInt(DENOMINATOR);
+      (depositAmount * BigInt(setupFee)) / BigInt(DENOMINATOR);
     const oldFeeAmount = await Treasury.collectedFee();
     await Treasury.connect(mockContract).calculateSetupRate(
       depositAmount,
@@ -227,8 +215,7 @@ describe("Treasury", () => {
     );
     const newAliceDepositBalance = await Treasury.deposits(alice.address);
     const initiatorFeeEarned =
-      (parse18((depositAmount * 2).toString()) * BigInt(initiatorFee)) /
-      BigInt(DENOMINATOR);
+      (depositAmount * BigInt(2) * BigInt(initiatorFee)) / BigInt(DENOMINATOR);
     expect(newAliceDepositBalance - oldAliceDepositBalance).to.be.equal(
       initiatorFeeEarned
     );
@@ -239,8 +226,7 @@ describe("Treasury", () => {
   it("Should calculate UpDown rate", async function () {
     const updownFee = 1500;
     const collectedFee =
-      (parse18((depositAmount * 2).toString()) * BigInt(updownFee)) /
-      BigInt(DENOMINATOR);
+      (depositAmount * BigInt(2) * BigInt(updownFee)) / BigInt(DENOMINATOR);
     const oldFeeAmount = await Treasury.collectedFee();
     await Treasury.connect(mockContract).calculateUpDownRate(
       depositAmount,
@@ -275,23 +261,30 @@ describe("Treasury", () => {
 
   it("Should fail - wrong amount refund", async function () {
     await expect(
-      Treasury.connect(mockContract).refund(100000, alice.address)
+      Treasury.connect(mockContract).refund(ethers.MaxUint256, alice.address)
     ).to.be.revertedWith(wrongAmount);
   });
 
   it("Should fail - wrong amount withdraw", async function () {
-    await expect(Treasury.withdraw(100000)).to.be.revertedWith(wrongAmount);
+    await Treasury.withdraw(await Treasury.deposits(owner.address));
+    await expect(Treasury.withdraw(depositAmount)).to.be.revertedWith(
+      wrongAmount
+    );
   });
 
   it("Should fail - wrong amount refundWithFee", async function () {
     await expect(
-      Treasury.connect(mockContract).refundWithFees(100000, alice.address, 100)
+      Treasury.connect(mockContract).refundWithFees(
+        ethers.MaxUint256,
+        owner.address,
+        100
+      )
     ).to.be.revertedWith(wrongAmount);
   });
 
   it("Should fail - wrong amount withdrawFees", async function () {
     await expect(
-      Treasury.withdrawFees(alice.address, 1000000)
+      Treasury.withdrawFees(alice.address, ethers.MaxUint256)
     ).to.be.revertedWith(wrongAmount);
   });
 

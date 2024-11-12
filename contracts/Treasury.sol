@@ -5,6 +5,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "hardhat/console.sol";
 
 interface IERC20Mint {
     function decimals() external view returns (uint256);
@@ -34,7 +35,7 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         approvedToken = newApprovedToken;
         setupInitiatorFee = 1000;
-        minDepositAmount = 1;
+        minDepositAmount = 10 ** IERC20Mint(approvedToken).decimals();
     }
 
     /**
@@ -65,19 +66,11 @@ contract Treasury is Initializable, AccessControlUpgradeable {
             IERC20(approvedToken),
             msg.sender,
             address(this),
-            amount * 10 ** IERC20Mint(approvedToken).decimals()
+            amount
         );
         uint256 newBalance = IERC20(approvedToken).balanceOf(address(this));
-        require(
-            newBalance ==
-                oldBalance +
-                    amount *
-                    10 ** IERC20Mint(approvedToken).decimals(),
-            "Token with fee"
-        );
-        deposits[msg.sender] +=
-            amount *
-            10 ** IERC20Mint(approvedToken).decimals();
+        require(newBalance == oldBalance + amount, "Token with fee");
+        deposits[msg.sender] += amount;
     }
 
     /**
@@ -95,17 +88,11 @@ contract Treasury is Initializable, AccessControlUpgradeable {
             IERC20(approvedToken),
             from,
             address(this),
-            amount * 10 ** IERC20Mint(approvedToken).decimals()
+            amount
         );
         uint256 newBalance = IERC20(approvedToken).balanceOf(address(this));
-        require(
-            newBalance ==
-                oldBalance +
-                    amount *
-                    10 ** IERC20Mint(approvedToken).decimals(),
-            "Token with fee"
-        );
-        locked[from] += amount * 10 ** IERC20Mint(approvedToken).decimals();
+        require(newBalance == oldBalance + amount, "Token with fee");
+        locked[from] += amount;
     }
 
     /**
@@ -124,7 +111,7 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         IERC20Permit(approvedToken).permit(
             msg.sender,
             address(this),
-            amount * 10 ** IERC20Mint(approvedToken).decimals(),
+            amount,
             deadline,
             v,
             r,
@@ -134,16 +121,10 @@ contract Treasury is Initializable, AccessControlUpgradeable {
             IERC20(approvedToken),
             msg.sender,
             address(this),
-            amount * 10 ** IERC20Mint(approvedToken).decimals()
+            amount
         );
         uint256 newBalance = IERC20(approvedToken).balanceOf(address(this));
-        require(
-            newBalance ==
-                oldBalance +
-                    amount *
-                    10 ** IERC20Mint(approvedToken).decimals(),
-            "Token with fee"
-        );
+        require(newBalance == oldBalance + amount, "Token with fee");
         deposits[msg.sender] += amount;
     }
 
@@ -165,7 +146,7 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         IERC20Permit(approvedToken).permit(
             from,
             address(this),
-            amount * 10 ** IERC20Mint(approvedToken).decimals(),
+            amount,
             deadline,
             v,
             r,
@@ -175,36 +156,20 @@ contract Treasury is Initializable, AccessControlUpgradeable {
             IERC20(approvedToken),
             from,
             address(this),
-            amount * 10 ** IERC20Mint(approvedToken).decimals()
+            amount
         );
         uint256 newBalance = IERC20(approvedToken).balanceOf(address(this));
-        require(
-            newBalance ==
-                oldBalance +
-                    amount *
-                    10 ** IERC20Mint(approvedToken).decimals(),
-            "Token with fee"
-        );
-        locked[from] += amount * 10 ** IERC20Mint(approvedToken).decimals();
+        require(newBalance == oldBalance + amount, "Token with fee");
+        locked[from] += amount;
     }
 
     /**
      * Withdraw all tokens from user deposit
      */
     function withdraw(uint256 amount) public {
-        require(
-            deposits[msg.sender] >=
-                amount * 10 ** IERC20Mint(approvedToken).decimals(),
-            "Wrong amount"
-        );
-        deposits[msg.sender] -=
-            amount *
-            10 ** IERC20Mint(approvedToken).decimals();
-        SafeERC20.safeTransfer(
-            IERC20(approvedToken),
-            msg.sender,
-            amount * 10 ** IERC20Mint(approvedToken).decimals()
-        );
+        require(deposits[msg.sender] >= amount, "Wrong amount");
+        deposits[msg.sender] -= amount;
+        SafeERC20.safeTransfer(IERC20(approvedToken), msg.sender, amount);
     }
 
     /**
@@ -214,13 +179,9 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         uint256 amount,
         address from
     ) public onlyRole(DISTRIBUTOR_ROLE) {
-        require(
-            deposits[from] >=
-                amount * 10 ** IERC20Mint(approvedToken).decimals(),
-            "Insufficent deposit amount"
-        );
-        deposits[from] -= amount * 10 ** IERC20Mint(approvedToken).decimals();
-        locked[from] += amount * 10 ** IERC20Mint(approvedToken).decimals();
+        require(deposits[from] >= amount, "Insufficent deposit amount");
+        deposits[from] -= amount;
+        locked[from] += amount;
     }
 
     /**
@@ -232,13 +193,10 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         uint256 amount,
         address to
     ) public onlyRole(DISTRIBUTOR_ROLE) {
-        require(
-            locked[to] >= amount * 10 ** IERC20Mint(approvedToken).decimals(),
-            "Wrong amount"
-        );
-        locked[to] -= amount * 10 ** IERC20Mint(approvedToken).decimals();
-        deposits[to] += amount * 10 ** IERC20Mint(approvedToken).decimals();
-        emit Refunded(to, amount * 10 ** IERC20Mint(approvedToken).decimals());
+        require(locked[to] >= amount, "Wrong amount");
+        locked[to] -= amount;
+        deposits[to] += amount;
+        emit Refunded(to, amount);
     }
 
     /**
@@ -251,7 +209,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         address to,
         uint256 refundFee
     ) public onlyRole(DISTRIBUTOR_ROLE) {
-        amount *= 10 ** IERC20Mint(approvedToken).decimals();
         require(locked[to] >= amount, "Wrong amount");
         uint256 withdrawnFees = (amount * refundFee) / FEE_DENOMINATOR;
         collectedFee += withdrawnFees;
@@ -272,7 +229,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
                 hasRole(DEFAULT_ADMIN_ROLE, msg.sender),
             "Invalid role"
         );
-        amount *= 10 ** IERC20Mint(approvedToken).decimals();
         require(collectedFee >= amount, "Wrong amount");
         collectedFee -= amount;
         SafeERC20.safeTransfer(IERC20(approvedToken), to, amount);
@@ -289,7 +245,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         address to,
         uint256 gameFee
     ) public onlyRole(DISTRIBUTOR_ROLE) {
-        amount *= 10 ** IERC20Mint(approvedToken).decimals();
         uint256 withdrawnFees = (amount * gameFee) / FEE_DENOMINATOR;
         uint256 wonAmount = amount - withdrawnFees;
         collectedFee += withdrawnFees;
@@ -329,7 +284,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         uint256 usedFee,
         uint256 initialDeposit
     ) public onlyRole(DISTRIBUTOR_ROLE) {
-        initialDeposit *= 10 ** IERC20Mint(approvedToken).decimals();
         uint256 withdrawnFees = (initialDeposit * usedFee) / FEE_DENOMINATOR;
         uint256 wonAmount = (initialDeposit - withdrawnFees) +
             ((initialDeposit - withdrawnFees) * rate) /
@@ -350,8 +304,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         uint256 setupFee,
         address initiator
     ) external onlyRole(DISTRIBUTOR_ROLE) returns (uint256, uint256) {
-        lostTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
-        wonTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
         uint256 withdrawnFees = (lostTeamTotal * setupFee) / FEE_DENOMINATOR;
         collectedFee += withdrawnFees;
         emit FeeCollected(withdrawnFees, collectedFee);
@@ -379,8 +331,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         uint256 wonTeamTotal,
         uint256 updownFee
     ) external onlyRole(DISTRIBUTOR_ROLE) returns (uint256 rate) {
-        lostTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
-        wonTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
         uint256 lostTeamFee = (lostTeamTotal * updownFee) / FEE_DENOMINATOR;
         uint256 wonTeamFee = (wonTeamTotal * updownFee) / FEE_DENOMINATOR;
         collectedFee += lostTeamFee + wonTeamFee;

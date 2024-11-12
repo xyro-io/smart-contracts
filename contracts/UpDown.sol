@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ITreasury} from "./interfaces/ITreasury.sol";
 import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
+import "hardhat/console.sol";
 
 contract UpDown is AccessControl {
     event NewFee(uint256 newFee);
@@ -30,8 +31,6 @@ contract UpDown is AccessControl {
         uint256 endTime;
         uint256 stopPredictAt;
         uint256 startingPrice;
-        uint256 totalDepositsUp;
-        uint256 totalDepositsDown;
         uint8 feedNumber;
     }
 
@@ -44,6 +43,8 @@ contract UpDown is AccessControl {
     bytes32 public currentGameId;
     address public treasury;
     uint256 public minDepositAmount;
+    uint256 public totalDepositsUp;
+    uint256 public totalDepositsDown;
     uint256 public maxPlayers = 100;
     uint256 public fee = 1500;
 
@@ -94,22 +95,16 @@ contract UpDown is AccessControl {
         );
         GameInfo memory game = decodeData();
         require(
-            game.stopPredictAt > block.timestamp &&
-                (game.totalDepositsDown + depositAmount <= type(uint32).max ||
-                    game.totalDepositsUp + depositAmount <= type(uint32).max),
+            game.stopPredictAt > block.timestamp,
             "Game is closed for new players"
         );
         if (isLong) {
             //rewrites totalDepositsUp
-            packedData =
-                (packedData & ~(uint256(0xFFFFFFFF) << 168)) |
-                ((depositAmount + game.totalDepositsUp) << 168);
+            totalDepositsUp += depositAmount;
             UpPlayers.push(msg.sender);
         } else {
             //rewrites totalDepositsDown
-            packedData =
-                (packedData & ~(uint256(0xFFFFFFFF) << 136)) |
-                ((depositAmount + game.totalDepositsDown) << 136);
+            totalDepositsDown += depositAmount;
             DownPlayers.push(msg.sender);
         }
         depositAmounts[msg.sender] = depositAmount;
@@ -132,22 +127,16 @@ contract UpDown is AccessControl {
         );
         GameInfo memory game = decodeData();
         require(
-            game.stopPredictAt > block.timestamp &&
-                (game.totalDepositsDown + depositAmount <= type(uint32).max ||
-                    game.totalDepositsUp + depositAmount <= type(uint32).max),
+            game.stopPredictAt > block.timestamp,
             "Game is closed for new players"
         );
         if (isLong) {
             //rewrites totalDepositsUp
-            packedData =
-                (packedData & ~(uint256(0xFFFFFFFF) << 168)) |
-                ((depositAmount + game.totalDepositsUp) << 168);
+            totalDepositsUp += depositAmount;
             UpPlayers.push(msg.sender);
         } else {
             //rewrites totalDepositsDown
-            packedData =
-                (packedData & ~(uint256(0xFFFFFFFF) << 136)) |
-                ((depositAmount + game.totalDepositsDown) << 136);
+            totalDepositsDown += depositAmount;
             DownPlayers.push(msg.sender);
         }
         depositAmounts[msg.sender] = depositAmount;
@@ -172,22 +161,16 @@ contract UpDown is AccessControl {
         );
         GameInfo memory game = decodeData();
         require(
-            game.stopPredictAt > block.timestamp &&
-                (game.totalDepositsDown + depositAmount <= type(uint32).max ||
-                    game.totalDepositsUp + depositAmount <= type(uint32).max),
+            game.stopPredictAt > block.timestamp,
             "Game is closed for new players"
         );
         if (isLong) {
             //rewrites totalDepositsUp
-            packedData =
-                (packedData & ~(uint256(0xFFFFFFFF) << 168)) |
-                ((depositAmount + game.totalDepositsUp) << 168);
+            totalDepositsUp += depositAmount;
             UpPlayers.push(msg.sender);
         } else {
             //rewrites totalDepositsDown
-            packedData =
-                (packedData & ~(uint256(0xFFFFFFFF) << 136)) |
-                ((depositAmount + game.totalDepositsDown) << 136);
+            totalDepositsDown += depositAmount;
             DownPlayers.push(msg.sender);
         }
         depositAmounts[msg.sender] = depositAmount;
@@ -258,6 +241,8 @@ contract UpDown is AccessControl {
             }
             emit UpDownCancelled(currentGameId);
             packedData = 0;
+            totalDepositsUp = 0;
+            totalDepositsDown = 0;
             currentGameId = bytes32(0);
             return;
         }
@@ -273,8 +258,8 @@ contract UpDown is AccessControl {
         GameInfo memory _game = game;
         if (uint192(finalPrice / 1e14) > _game.startingPrice) {
             uint256 finalRate = ITreasury(treasury).calculateUpDownRate(
-                _game.totalDepositsDown,
-                _game.totalDepositsUp,
+                totalDepositsDown,
+                totalDepositsUp,
                 fee
             );
             for (uint i = 0; i < UpPlayers.length; i++) {
@@ -288,8 +273,8 @@ contract UpDown is AccessControl {
             emit UpDownFinalized(finalPrice, true, currentGameId);
         } else if (uint192(finalPrice / 1e14) < _game.startingPrice) {
             uint256 finalRate = ITreasury(treasury).calculateUpDownRate(
-                _game.totalDepositsUp,
-                _game.totalDepositsDown,
+                totalDepositsUp,
+                totalDepositsDown,
                 fee
             );
             for (uint i = 0; i < DownPlayers.length; i++) {
@@ -337,6 +322,8 @@ contract UpDown is AccessControl {
         delete UpPlayers;
         currentGameId = bytes32(0);
         packedData = 0;
+        totalDepositsUp = 0;
+        totalDepositsDown = 0;
     }
 
     function closeGame() public onlyRole(GAME_MASTER_ROLE) {
@@ -362,6 +349,8 @@ contract UpDown is AccessControl {
         emit UpDownCancelled(currentGameId);
         currentGameId = bytes32(0);
         packedData = 0;
+        totalDepositsUp = 0;
+        totalDepositsDown = 0;
     }
 
     /**
@@ -373,8 +362,6 @@ contract UpDown is AccessControl {
         data.endTime = uint256(uint32(packedData >> 64));
         data.feedNumber = uint8(packedData >> 96);
         data.startingPrice = uint256(uint32(packedData >> 104));
-        data.totalDepositsDown = uint256(uint32(packedData >> 136));
-        data.totalDepositsUp = uint256(uint32(packedData >> 168));
     }
 
     /**

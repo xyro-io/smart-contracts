@@ -7,7 +7,6 @@ import { XyroToken__factory } from "../typechain-types/factories/contracts/XyroT
 import { MockToken } from "../typechain-types/contracts/mock/MockERC20.sol/MockToken";
 import { MockToken__factory } from "../typechain-types/factories/contracts/mock/MockERC20.sol/MockToken__factory";
 import { Treasury } from "../typechain-types/contracts/Treasury.sol/Treasury";
-import { Treasury__factory } from "../typechain-types/factories/contracts/Treasury.sol/Treasury__factory";
 import { Setup } from "../typechain-types/contracts/Setup";
 import { Setup__factory } from "../typechain-types/factories/contracts/Setup__factory";
 import { MockVerifier } from "../typechain-types/contracts/mock/MockVerifier";
@@ -52,7 +51,7 @@ describe("Setup Game", () => {
   let receipt: any;
   const tpPrice = 650000000;
   const slPrice = 620000000;
-  const usdtAmount = 100;
+  const usdtAmount = parse18("100");
   const finalPriceTP = parse18("66000");
   const finalPriceSL = parse18("61000");
   const feedNumber = 1;
@@ -323,13 +322,10 @@ describe("Setup Game", () => {
       );
       let game = await Game.decodeData(currentGameId);
 
-      expect(oldUserBalance - newUserBalance).to.be.equal(
-        parse18(usdtAmount.toString())
-      );
-      expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(
-        parse18(usdtAmount.toString())
-      );
-      expect(game.totalDepositsSL).to.be.equal(usdtAmount);
+      expect(oldUserBalance - newUserBalance).to.be.equal(usdtAmount);
+      expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(usdtAmount);
+      let data = await Game.games(currentGameId);
+      expect(data.totalDepositsSL).to.be.equal(usdtAmount);
     });
 
     it("should play TP game", async function () {
@@ -343,13 +339,10 @@ describe("Setup Game", () => {
         await Treasury.getAddress()
       );
       let game = await Game.decodeData(currentGameId);
-      expect(oldUserBalance - newUserBalance).to.be.equal(
-        parse18(usdtAmount.toString())
-      );
-      expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(
-        parse18(usdtAmount.toString())
-      );
-      expect(game.totalDepositsTP).to.equal(usdtAmount);
+      expect(oldUserBalance - newUserBalance).to.be.equal(usdtAmount);
+      expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(usdtAmount);
+      let data = await Game.games(currentGameId);
+      expect(data.totalDepositsTP).to.equal(usdtAmount);
     });
 
     it("should play with deposited amount", async function () {
@@ -368,20 +361,10 @@ describe("Setup Game", () => {
         await Treasury.getAddress()
       );
       let game = await Game.decodeData(currentGameId);
-      expect(oldUserBalance - newUserBalance).to.be.equal(
-        parse18(usdtAmount.toString())
-      );
-      expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(
-        parse18(usdtAmount.toString())
-      );
-      expect(game.totalDepositsTP).to.equal(usdtAmount * 2);
-    });
-
-    it("should fail - totalDepositTP > max uint32", async function () {
-      const maxUint32 = 4294967295;
-      await expect(
-        Game.connect(owner).play(true, maxUint32, currentGameId)
-      ).to.be.revertedWith(gameClosed);
+      expect(oldUserBalance - newUserBalance).to.be.equal(usdtAmount);
+      expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(usdtAmount);
+      let data = await Game.games(currentGameId);
+      expect(data.totalDepositsTP).to.equal(usdtAmount * BigInt(2));
     });
 
     it("should fail - insufficent deposit amount", async function () {
@@ -401,13 +384,10 @@ describe("Setup Game", () => {
         await Treasury.getAddress()
       );
       let game = await Game.decodeData(currentGameId);
-      expect(oldUserBalance - newUserBalance).to.be.equal(
-        parse18(usdtAmount.toString())
-      );
-      expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(
-        parse18(usdtAmount.toString())
-      );
-      expect(game.totalDepositsTP).to.equal(usdtAmount * 3);
+      expect(oldUserBalance - newUserBalance).to.be.equal(usdtAmount);
+      expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(usdtAmount);
+      let data = await Game.games(currentGameId);
+      expect(data.totalDepositsTP).to.equal(usdtAmount * BigInt(3));
     });
 
     it("should fail - can't enter twice", async function () {
@@ -512,14 +492,10 @@ describe("Setup Game", () => {
         await Treasury.getAddress()
       );
 
-      expect(oldOwnerBalance - newOwnerBalance).to.be.equal(
-        parse18(usdtAmount.toString())
-      );
-      expect(oldBobBalance - newBobBalance).to.be.equal(
-        parse18(usdtAmount.toString())
-      );
+      expect(oldOwnerBalance - newOwnerBalance).to.be.equal(usdtAmount);
+      expect(oldBobBalance - newBobBalance).to.be.equal(usdtAmount);
       expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(
-        parse18((usdtAmount * 2).toString())
+        usdtAmount * BigInt(2)
       );
 
       await time.increase(fortyFiveMinutes);
@@ -527,10 +503,10 @@ describe("Setup Game", () => {
       await Game.connect(owner).getRefund(currentGameId);
       await Game.connect(bob).getRefund(currentGameId);
       await Treasury.connect(owner).withdraw(
-        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(owner.address)
       );
       await Treasury.connect(bob).withdraw(
-        (await Treasury.deposits(bob.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(bob.address)
       );
       newOwnerBalance = await USDT.balanceOf(owner.address);
       newBobBalance = await USDT.balanceOf(bob.address);
@@ -573,14 +549,10 @@ describe("Setup Game", () => {
         await Treasury.getAddress()
       );
 
-      expect(oldOwnerBalance - newOwnerBalance).to.be.equal(
-        parse18(usdtAmount.toString())
-      );
-      expect(oldBobBalance - newBobBalance).to.be.equal(
-        parse18(usdtAmount.toString())
-      );
+      expect(oldOwnerBalance - newOwnerBalance).to.be.equal(usdtAmount);
+      expect(oldBobBalance - newBobBalance).to.be.equal(usdtAmount);
       expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(
-        parse18((usdtAmount * 2).toString())
+        usdtAmount * BigInt(2)
       );
 
       await time.increase(fortyFiveMinutes);
@@ -588,10 +560,10 @@ describe("Setup Game", () => {
       await Game.connect(owner).getRefund(currentGameId);
       await Game.connect(bob).getRefund(currentGameId);
       await Treasury.connect(owner).withdraw(
-        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(owner.address)
       );
       await Treasury.connect(bob).withdraw(
-        (await Treasury.deposits(bob.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(bob.address)
       );
       newOwnerBalance = await USDT.balanceOf(owner.address);
       newBobBalance = await USDT.balanceOf(bob.address);
@@ -672,13 +644,13 @@ describe("Setup Game", () => {
         Game.connect(bob).retrieveRewards(currentGameId)
       ).to.be.revertedWith(youLost);
       await Treasury.connect(owner).withdraw(
-        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(owner.address)
       );
       await Treasury.connect(bob).withdraw(
-        (await Treasury.deposits(bob.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(bob.address)
       );
       await Treasury.connect(alice).withdraw(
-        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(alice.address)
       );
       const finalAliceBalance = await USDT.balanceOf(alice);
       const finalOwnerBalance = await USDT.balanceOf(owner);
@@ -749,13 +721,13 @@ describe("Setup Game", () => {
       ).to.be.revertedWith(youLost);
       await Game.connect(bob).retrieveRewards(currentGameId);
       await Treasury.connect(owner).withdraw(
-        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(owner.address)
       );
       await Treasury.connect(bob).withdraw(
-        (await Treasury.deposits(bob.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(bob.address)
       );
       await Treasury.connect(alice).withdraw(
-        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(alice.address)
       );
       const finalAliceBalance = await USDT.balanceOf(alice);
       const finalOwnerBalance = await USDT.balanceOf(owner);
@@ -860,13 +832,13 @@ describe("Setup Game", () => {
       ).to.be.revertedWith(youLost);
       await Game.connect(bob).retrieveRewards(currentGameId);
       await Treasury.connect(owner).withdraw(
-        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(owner.address)
       );
       await Treasury.connect(bob).withdraw(
-        (await Treasury.deposits(bob.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(bob.address)
       );
       await Treasury.connect(alice).withdraw(
-        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(alice.address)
       );
       const finalAliceBalance = await USDT.balanceOf(alice);
       const finalOwnerBalance = await USDT.balanceOf(owner);
@@ -937,13 +909,13 @@ describe("Setup Game", () => {
         Game.connect(bob).retrieveRewards(currentGameId)
       ).to.be.revertedWith(youLost);
       await Treasury.connect(owner).withdraw(
-        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(owner.address)
       );
       await Treasury.connect(bob).withdraw(
-        (await Treasury.deposits(bob.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(bob.address)
       );
       await Treasury.connect(alice).withdraw(
-        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(alice.address)
       );
       const finalAliceBalance = await USDT.balanceOf(alice);
       const finalOwnerBalance = await USDT.balanceOf(owner);
@@ -1084,10 +1056,10 @@ describe("Setup Game", () => {
       await Game.connect(alice).getRefund(currentGameId);
       await Game.connect(owner).getRefund(currentGameId);
       await Treasury.connect(owner).withdraw(
-        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(owner.address)
       );
       await Treasury.connect(alice).withdraw(
-        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(alice.address)
       );
       expect(oldAliceBalance).to.be.equal(await USDT.balanceOf(alice));
       expect(oldOwnerBalance).to.be.equal(await USDT.balanceOf(owner));
@@ -1123,10 +1095,10 @@ describe("Setup Game", () => {
       await Game.connect(alice).getRefund(currentGameId);
       await Game.connect(owner).getRefund(currentGameId);
       await Treasury.connect(owner).withdraw(
-        (await Treasury.deposits(owner.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(owner.address)
       );
       await Treasury.connect(alice).withdraw(
-        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(alice.address)
       );
       expect(oldAliceBalance).to.be.equal(await USDT.balanceOf(alice));
       expect(oldOwnerBalance).to.be.equal(await USDT.balanceOf(owner));
@@ -1156,14 +1128,14 @@ describe("Setup Game", () => {
         owner,
         USDT,
         await Treasury.getAddress(),
-        parse18(usdtAmount.toString()),
+        usdtAmount,
         BigInt(deadline)
       );
       let alicePermit = await getPermitSignature(
         alice,
         USDT,
         await Treasury.getAddress(),
-        parse18(usdtAmount.toString()),
+        usdtAmount,
         BigInt(deadline)
       );
       await Game.playWithPermit(false, usdtAmount, currentGameId, {
@@ -1187,7 +1159,7 @@ describe("Setup Game", () => {
         await Treasury.getAddress()
       );
       expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(
-        parse18((usdtAmount * 2).toString())
+        usdtAmount * BigInt(2)
       );
     });
   });

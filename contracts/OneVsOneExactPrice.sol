@@ -16,7 +16,7 @@ contract OneVsOneExactPrice is AccessControl {
         uint32 endTime,
         address initiator,
         uint32 initiatorPrice,
-        uint32 depositAmount
+        uint256 depositAmount
     );
     event ExactPriceAccepted(
         bytes32 gameId,
@@ -46,7 +46,6 @@ contract OneVsOneExactPrice is AccessControl {
         uint256 startTime;
         uint256 endTime;
         address opponent;
-        uint256 depositAmount;
         uint256 initiatorPrice;
         uint256 opponentPrice;
         uint256 finalPrice;
@@ -56,6 +55,7 @@ contract OneVsOneExactPrice is AccessControl {
     struct GameInfoPacked {
         uint256 packedData;
         uint256 packedData2;
+        uint256 depositAmount;
     }
 
     bytes32 public constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
@@ -83,7 +83,7 @@ contract OneVsOneExactPrice is AccessControl {
         address opponent,
         uint32 endTime,
         uint32 initiatorPrice,
-        uint16 depositAmount
+        uint256 depositAmount
     ) public {
         require(isActive, "Game is disabled");
         require(
@@ -112,9 +112,9 @@ contract OneVsOneExactPrice is AccessControl {
         packedData |= uint256(endTime) << 160;
         packedData |= uint256(initiatorPrice) << 192;
         packedData2 |= block.timestamp << 160;
-        packedData2 |= uint256(depositAmount) << 192;
         packedData2 |= uint256(Status.Created) << 208;
         packedData2 |= uint256(feedNumber) << 216;
+        games[gameId].depositAmount = depositAmount;
         games[gameId].packedData = packedData;
         games[gameId].packedData2 = packedData2;
         emit ExactPriceCreated(
@@ -141,7 +141,7 @@ contract OneVsOneExactPrice is AccessControl {
         address opponent,
         uint32 endTime,
         uint32 initiatorPrice,
-        uint16 depositAmount
+        uint256 depositAmount
     ) public {
         require(isActive, "Game is disabled");
         require(
@@ -170,9 +170,9 @@ contract OneVsOneExactPrice is AccessControl {
         packedData |= uint256(endTime) << 160;
         packedData |= uint256(initiatorPrice) << 192;
         packedData2 |= block.timestamp << 160;
-        packedData2 |= uint256(depositAmount) << 192;
         packedData2 |= uint256(Status.Created) << 208;
         packedData2 |= uint256(feedNumber) << 216;
+        games[gameId].depositAmount = depositAmount;
         games[gameId].packedData = packedData;
         games[gameId].packedData2 = packedData2;
         emit ExactPriceCreated(
@@ -199,7 +199,7 @@ contract OneVsOneExactPrice is AccessControl {
         address opponent,
         uint32 endTime,
         uint32 initiatorPrice,
-        uint16 depositAmount,
+        uint256 depositAmount,
         ITreasury.PermitData calldata permitData
     ) public {
         require(isActive, "Game is disabled");
@@ -235,9 +235,9 @@ contract OneVsOneExactPrice is AccessControl {
         packedData |= uint256(endTime) << 160;
         packedData |= uint256(initiatorPrice) << 192;
         packedData2 |= block.timestamp << 160;
-        packedData2 |= uint256(depositAmount) << 192;
         packedData2 |= uint256(Status.Created) << 208;
         packedData2 |= uint256(feedNumber) << 216;
+        games[gameId].depositAmount = depositAmount;
         games[gameId].packedData = packedData;
         games[gameId].packedData2 = packedData2;
         emit ExactPriceCreated(
@@ -277,7 +277,10 @@ contract OneVsOneExactPrice is AccessControl {
             games[gameId].packedData |= uint256(uint160(msg.sender));
         }
         games[gameId].packedData |= uint256(opponentPrice) << 224;
-        ITreasury(treasury).depositAndLock(game.depositAmount, msg.sender);
+        ITreasury(treasury).depositAndLock(
+            games[gameId].depositAmount,
+            msg.sender
+        );
         //rewrites status
         games[gameId].packedData2 =
             (games[gameId].packedData2 & ~(uint256(0xFF) << 208)) |
@@ -313,7 +316,7 @@ contract OneVsOneExactPrice is AccessControl {
             games[gameId].packedData |= uint256(uint160(msg.sender));
         }
         games[gameId].packedData |= uint256(opponentPrice) << 224;
-        ITreasury(treasury).lock(game.depositAmount, msg.sender);
+        ITreasury(treasury).lock(games[gameId].depositAmount, msg.sender);
         //rewrites status
         games[gameId].packedData2 =
             (games[gameId].packedData2 & ~(uint256(0xFF) << 208)) |
@@ -351,7 +354,7 @@ contract OneVsOneExactPrice is AccessControl {
         }
         games[gameId].packedData |= uint256(opponentPrice) << 224;
         ITreasury(treasury).depositAndLockWithPermit(
-            game.depositAmount,
+            games[gameId].depositAmount,
             msg.sender,
             permitData.deadline,
             permitData.v,
@@ -381,7 +384,7 @@ contract OneVsOneExactPrice is AccessControl {
                 ),
             "Wrong status!"
         );
-        ITreasury(treasury).refund(game.depositAmount, game.initiator);
+        ITreasury(treasury).refund(games[gameId].depositAmount, game.initiator);
         //rewrites status
         games[gameId].packedData2 =
             (games[gameId].packedData2 & ~(uint256(0xFF) << 208)) |
@@ -398,7 +401,7 @@ contract OneVsOneExactPrice is AccessControl {
         require(block.timestamp - game.endTime >= 3 days, "Too early");
         require(game.gameStatus == Status.Created, "Wrong status!");
         ITreasury(treasury).refundWithFees(
-            game.depositAmount,
+            games[gameId].depositAmount,
             game.initiator,
             refundFee
         );
@@ -437,7 +440,7 @@ contract OneVsOneExactPrice is AccessControl {
             : uint192(finalPrice) / 1e14 - game.opponentPrice;
         if (diff1 < diff2) {
             ITreasury(treasury).distribute(
-                game.depositAmount * 2,
+                games[gameId].depositAmount * 2,
                 game.initiator,
                 fee
             );
@@ -450,7 +453,7 @@ contract OneVsOneExactPrice is AccessControl {
             );
         } else if (diff1 > diff2) {
             ITreasury(treasury).distribute(
-                game.depositAmount * 2,
+                games[gameId].depositAmount * 2,
                 game.opponent,
                 fee
             );
@@ -462,8 +465,14 @@ contract OneVsOneExactPrice is AccessControl {
                 Status.Finished
             );
         } else {
-            ITreasury(treasury).refund(game.depositAmount, game.initiator);
-            ITreasury(treasury).refund(game.depositAmount, game.opponent);
+            ITreasury(treasury).refund(
+                games[gameId].depositAmount,
+                game.initiator
+            );
+            ITreasury(treasury).refund(
+                games[gameId].depositAmount,
+                game.opponent
+            );
             emit ExactPriceCancelled(gameId);
         }
         //rewrites status
@@ -489,7 +498,6 @@ contract OneVsOneExactPrice is AccessControl {
 
         gameData.initiator = address(uint160(packedData2));
         gameData.startTime = uint256(uint32(packedData2 >> 160));
-        gameData.depositAmount = uint256(uint16(packedData2 >> 192));
         gameData.gameStatus = Status(uint8(packedData2 >> 208));
         gameData.feedNumber = uint8(packedData2 >> 216);
         gameData.finalPrice = uint256(uint32(packedData2 >> 224));

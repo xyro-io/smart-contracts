@@ -37,7 +37,7 @@ describe("Bullseye", () => {
   let Game: Bullseye;
   let Upkeep: MockVerifier;
   const feedNumber = 4;
-  const usdtAmount = 100;
+  const usdtAmount = parse18("100");
   const guessPriceOpponent = 630000000;
   const guessPriceAlice = 580000000;
   const guessBobPrice = 570000000;
@@ -88,7 +88,7 @@ describe("Bullseye", () => {
       let game = await Game.decodeData();
       expect(game.endTime).to.be.equal(endTime);
       expect(game.stopPredictAt).to.be.equal(stopPredictAt);
-      expect(game.depositAmount).to.equal(usdtAmount);
+      expect(await Game.depositAmount()).to.equal(usdtAmount);
     });
 
     it("should fail - start new game without finishing previous", async function () {
@@ -115,9 +115,7 @@ describe("Bullseye", () => {
       expect(newPlayerLog[3]).to.be.equal(await Game.currentGameId());
       expect(newPlayerLog[4]).to.be.equal(0);
 
-      expect(await USDT.balanceOf(Treasury.getAddress())).to.equal(
-        parse18(usdtAmount.toString())
-      );
+      expect(await USDT.balanceOf(Treasury.getAddress())).to.equal(usdtAmount);
       const playerGuessData = await Game.decodeGuess(0);
       expect(playerGuessData.player).to.be.equal(opponent.address);
       expect(playerGuessData.assetPrice).to.be.equal(guessPriceOpponent);
@@ -136,7 +134,7 @@ describe("Bullseye", () => {
       expect(newPlayerLog[4]).to.be.equal(1);
 
       expect(await USDT.balanceOf(Treasury.getAddress())).to.equal(
-        parse18((usdtAmount * 2).toString())
+        usdtAmount * BigInt(2)
       );
       const playerGuessData = await Game.decodeGuess(1);
       expect(playerGuessData.player).to.be.equal(alice.address);
@@ -172,7 +170,7 @@ describe("Bullseye", () => {
       await expect(Game.closeGame()).to.emit(Game, "BullseyeCancelled");
       expect(await Game.getTotalPlayers()).to.be.equal(0);
       await Treasury.connect(alice).withdraw(
-        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(alice.address)
       );
       let newBalance = await USDT.balanceOf(alice.getAddress());
       expect(newBalance).to.be.above(oldBalance);
@@ -233,10 +231,10 @@ describe("Bullseye", () => {
       ).to.be.revertedWith(requireValidChainlinkReport);
       await Game.closeGame();
       await Treasury.connect(opponent).withdraw(
-        (await Treasury.deposits(opponent.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(opponent.address)
       );
       await Treasury.connect(alice).withdraw(
-        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(alice.address)
       );
     });
 
@@ -260,7 +258,7 @@ describe("Bullseye", () => {
         )
       ).to.emit(Game, "BullseyeCancelled");
       await Treasury.connect(alice).withdraw(
-        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(alice.address)
       );
       let newBalance = await USDT.balanceOf(alice.getAddress());
       expect(newBalance).to.be.equal(oldBalance);
@@ -290,14 +288,12 @@ describe("Bullseye", () => {
       let newAliceBalance = await Treasury.deposits(alice.address);
       let newOpponentBalance = await Treasury.deposits(opponent.address);
       const wonAmountAlice =
-        (parse18((2 * usdtAmount).toString()) * (await Game.rates(0, 1))) /
-        BigInt(10000);
+        (usdtAmount * BigInt(2) * (await Game.rates(0, 1))) / BigInt(10000);
       const withdrawnFeesAlice =
         (wonAmountAlice * (await Game.fee())) / BigInt(10000);
 
       const wonAmountOpponent =
-        (parse18((2 * usdtAmount).toString()) * (await Game.rates(0, 0))) /
-        BigInt(10000);
+        (usdtAmount * BigInt(2) * (await Game.rates(0, 0))) / BigInt(10000);
       const withdrawnFeesOpponent =
         (wonAmountOpponent * (await Game.fee())) / BigInt(10000);
       expect(
@@ -334,7 +330,7 @@ describe("Bullseye", () => {
 
       let newAliceBalance = await Treasury.deposits(alice.address);
       let newOpponentBalance = await Treasury.deposits(opponent.address);
-      const wonAmountAlice = parse18((2 * usdtAmount).toString());
+      const wonAmountAlice = usdtAmount * BigInt(2);
       const withdrawnFeesAlice =
         (wonAmountAlice * (await Game.fee())) / BigInt(10000);
 
@@ -370,7 +366,7 @@ describe("Bullseye", () => {
 
       let newAliceBalance = await Treasury.deposits(alice.address);
       let newOpponentBalance = await Treasury.deposits(opponent.address);
-      const wonAmountAlice = parse18((2 * usdtAmount).toString());
+      const wonAmountAlice = usdtAmount * BigInt(2);
       const withdrawnFeesAlice =
         (wonAmountAlice * (await Game.fee())) / BigInt(10000);
 
@@ -414,7 +410,7 @@ describe("Bullseye", () => {
       expect(finalizeEventLog[1][2]).to.be.equal(1);
       expect(finalizeEventLog[2]).to.be.equal(finalPriceExact / BigInt(1e14));
       expect(finalizeEventLog[3]).to.be.equal(true);
-      let wonAmountAlice = parse18((3 * usdtAmount).toString());
+      let wonAmountAlice = usdtAmount * BigInt(3);
       let newAliceDeposit = await Treasury.deposits(alice.address);
       const withdrawnFeesAlice =
         (wonAmountAlice * (await Game.fee())) / BigInt(10000);
@@ -461,11 +457,9 @@ describe("Bullseye", () => {
       expect(finalizeEventLog[3]).to.be.equal(false);
 
       let wonAmountBob =
-        (parse18((3 * usdtAmount).toString()) * (await Game.rates(0, 0))) /
-        BigInt(10000);
+        (usdtAmount * BigInt(3) * (await Game.rates(0, 0))) / BigInt(10000);
       let wonAmountOpponent =
-        (parse18((3 * usdtAmount).toString()) * (await Game.rates(0, 1))) /
-        BigInt(10000);
+        (usdtAmount * BigInt(3) * (await Game.rates(0, 1))) / BigInt(10000);
 
       let newBobDeposit = await Treasury.deposits(bob.address);
       let newOpponentDeposit = await Treasury.deposits(opponent.address);
@@ -528,11 +522,9 @@ describe("Bullseye", () => {
       expect(finalizeEventLog[3]).to.be.equal(true);
 
       let wonAmountAlice =
-        (parse18((6 * usdtAmount).toString()) * (await Game.rates(3, 0))) /
-        BigInt(10000);
+        (usdtAmount * BigInt(6) * (await Game.rates(3, 0))) / BigInt(10000);
       let wonAmountOwner =
-        (parse18((6 * usdtAmount).toString()) * (await Game.rates(3, 1))) /
-        BigInt(10000);
+        (usdtAmount * BigInt(6) * (await Game.rates(3, 1))) / BigInt(10000);
 
       let newBobDeposit = await Treasury.deposits(bob.address);
       let newOpponentDeposit = await Treasury.deposits(opponent.address);
@@ -601,11 +593,9 @@ describe("Bullseye", () => {
       expect(finalizeEventLog[3]).to.be.equal(false);
 
       let wonAmountBob =
-        (parse18((6 * usdtAmount).toString()) * (await Game.rates(2, 1))) /
-        BigInt(10000);
+        (usdtAmount * BigInt(6) * (await Game.rates(2, 1))) / BigInt(10000);
       let wonAmountOwner =
-        (parse18((6 * usdtAmount).toString()) * (await Game.rates(2, 0))) /
-        BigInt(10000);
+        (usdtAmount * BigInt(6) * (await Game.rates(2, 0))) / BigInt(10000);
 
       let newBobDeposit = await Treasury.deposits(bob.address);
       let newOpponentDeposit = await Treasury.deposits(opponent.address);
@@ -683,14 +673,11 @@ describe("Bullseye", () => {
       expect(finalizeEventLog[3]).to.be.equal(false);
 
       let wonAmountBob =
-        (parse18((12 * usdtAmount).toString()) * (await Game.rates(4, 1))) /
-        BigInt(10000);
+        (usdtAmount * BigInt(12) * (await Game.rates(4, 1))) / BigInt(10000);
       let wonAmountOwner =
-        (parse18((12 * usdtAmount).toString()) * (await Game.rates(4, 0))) /
-        BigInt(10000);
+        (usdtAmount * BigInt(12) * (await Game.rates(4, 0))) / BigInt(10000);
       let wonAmountOpponent =
-        (parse18((12 * usdtAmount).toString()) * (await Game.rates(4, 2))) /
-        BigInt(10000);
+        (usdtAmount * BigInt(12) * (await Game.rates(4, 2))) / BigInt(10000);
 
       let newBobDeposit = await Treasury.deposits(bob.address);
       let newOpponentDeposit = await Treasury.deposits(opponent.address);
@@ -774,14 +761,11 @@ describe("Bullseye", () => {
       expect(finalizeEventLog[3]).to.be.equal(true);
 
       let wonAmountBob =
-        (parse18((12 * usdtAmount).toString()) * (await Game.rates(5, 2))) /
-        BigInt(10000);
+        (usdtAmount * BigInt(12) * (await Game.rates(5, 2))) / BigInt(10000);
       let wonAmountOwner =
-        (parse18((12 * usdtAmount).toString()) * (await Game.rates(5, 1))) /
-        BigInt(10000);
+        (usdtAmount * BigInt(12) * (await Game.rates(5, 1))) / BigInt(10000);
       let wonAmountAlice =
-        (parse18((12 * usdtAmount).toString()) * (await Game.rates(5, 0))) /
-        BigInt(10000);
+        (usdtAmount * BigInt(12) * (await Game.rates(5, 0))) / BigInt(10000);
 
       let newBobDeposit = await Treasury.deposits(bob.address);
       let newOpponentDeposit = await Treasury.deposits(opponent.address);
@@ -830,7 +814,7 @@ describe("Bullseye", () => {
         owner,
         USDT,
         await Treasury.getAddress(),
-        parse18(usdtAmount.toString()),
+        usdtAmount,
         BigInt(deadline)
       );
 
@@ -841,7 +825,7 @@ describe("Bullseye", () => {
         s: result.s,
       });
       await Treasury.connect(alice).withdraw(
-        (await Treasury.deposits(alice.address)) / BigInt(Math.pow(10, 18))
+        await Treasury.deposits(alice.address)
       );
       let newBalance = await USDT.balanceOf(alice.getAddress());
       expect(oldBalance).to.be.above(newBalance);

@@ -28,6 +28,7 @@ contract Bullseye is AccessControl {
         uint32 endTime,
         uint256 depositAmount,
         uint8 feedNumber,
+        address gameToken,
         bytes32 gameId
     );
     event BullseyeNewPlayer(
@@ -65,6 +66,7 @@ contract Bullseye is AccessControl {
     uint256 public depositAmount;
     bytes32 public currentGameId;
     address public treasury;
+    address public gameToken;
 
     constructor() {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -79,10 +81,12 @@ contract Bullseye is AccessControl {
         uint32 endTime,
         uint32 stopPredictAt,
         uint256 depositAmount_,
-        uint8 feedNumber
+        uint8 feedNumber,
+        address token
     ) public onlyRole(GAME_MASTER_ROLE) {
         require(packedData == 0, "Finish previous game first");
         require(endTime > block.timestamp, "Wrong ending time");
+        require(token != address(0), "Token must be set");
         packedData = (block.timestamp |
             (uint256(stopPredictAt) << 32) |
             (uint256(endTime) << 64) |
@@ -91,12 +95,14 @@ contract Bullseye is AccessControl {
             abi.encodePacked(endTime, block.timestamp, address(this))
         );
         depositAmount = depositAmount_;
+        gameToken = token;
         emit BullseyeStart(
             block.timestamp,
             stopPredictAt,
             endTime,
             depositAmount_,
             feedNumber,
+            token,
             currentGameId
         );
     }
@@ -119,7 +125,11 @@ contract Bullseye is AccessControl {
             (block.timestamp << 160) |
             (uint256(assetPrice) << 192);
         packedGuessData.push(packedGuess);
-        ITreasury(treasury).depositAndLock(depositAmount, msg.sender);
+        ITreasury(treasury).depositAndLock(
+            depositAmount,
+            msg.sender,
+            gameToken
+        );
         emit BullseyeNewPlayer(
             msg.sender,
             assetPrice,
@@ -147,7 +157,7 @@ contract Bullseye is AccessControl {
             (block.timestamp << 160) |
             (uint256(assetPrice) << 192);
         packedGuessData.push(packedGuess);
-        ITreasury(treasury).lock(depositAmount, msg.sender);
+        ITreasury(treasury).lock(depositAmount, msg.sender, gameToken);
         emit BullseyeNewPlayer(
             msg.sender,
             assetPrice,
@@ -180,6 +190,7 @@ contract Bullseye is AccessControl {
         packedGuessData.push(packedGuess);
         ITreasury(treasury).depositAndLockWithPermit(
             depositAmount,
+            gameToken,
             msg.sender,
             permitData.deadline,
             permitData.v,
@@ -211,7 +222,8 @@ contract Bullseye is AccessControl {
                 emit BullseyeCancelled(currentGameId);
                 ITreasury(treasury).refund(
                     depositAmount,
-                    playerGuessData.player
+                    playerGuessData.player,
+                    gameToken
                 );
                 delete packedGuessData;
             }
@@ -249,6 +261,7 @@ contract Bullseye is AccessControl {
                     ITreasury(treasury).distributeBullseye(
                         wonAmountFirst,
                         playerOneGuessData.player,
+                        gameToken,
                         fee
                     );
                     uint256 wonAmountSecond = 2 *
@@ -257,12 +270,14 @@ contract Bullseye is AccessControl {
                     ITreasury(treasury).distributeBullseye(
                         wonAmountSecond,
                         playerTwoGuessData.player,
+                        gameToken,
                         fee
                     );
                 } else {
                     ITreasury(treasury).distributeBullseye(
                         2 * depositAmount,
                         playerOneGuessData.player,
+                        gameToken,
                         fee
                     );
                 }
@@ -285,6 +300,7 @@ contract Bullseye is AccessControl {
                     ITreasury(treasury).distributeBullseye(
                         wonAmountFirst,
                         playerTwoGuessData.player,
+                        gameToken,
                         fee
                     );
                     uint256 wonAmountSecond = 2 *
@@ -293,12 +309,14 @@ contract Bullseye is AccessControl {
                     ITreasury(treasury).distributeBullseye(
                         wonAmountSecond,
                         playerOneGuessData.player,
+                        gameToken,
                         fee
                     );
                 } else {
                     ITreasury(treasury).distributeBullseye(
                         2 * depositAmount,
                         playerTwoGuessData.player,
+                        gameToken,
                         fee
                     );
                 }
@@ -383,6 +401,7 @@ contract Bullseye is AccessControl {
                             ITreasury(treasury).distributeBullseye(
                                 (totalDeposited * wonAmount[i]) / DENOMINATOR,
                                 topPlayers[i],
+                                gameToken,
                                 fee
                             );
                         } else {
@@ -393,6 +412,7 @@ contract Bullseye is AccessControl {
                                         (totalDeposited * wonAmount[1]) /
                                         DENOMINATOR),
                                 topPlayers[i],
+                                gameToken,
                                 fee
                             );
                         }
@@ -420,7 +440,11 @@ contract Bullseye is AccessControl {
         uint256 deposit = depositAmount;
         for (uint i; i < packedGuessData.length; i++) {
             GuessStruct memory playerGuessData = decodeGuess(i);
-            ITreasury(treasury).refund(deposit, playerGuessData.player);
+            ITreasury(treasury).refund(
+                deposit,
+                playerGuessData.player,
+                gameToken
+            );
         }
         emit BullseyeCancelled(currentGameId);
         packedData = 0;

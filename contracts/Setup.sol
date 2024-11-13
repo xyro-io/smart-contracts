@@ -50,6 +50,7 @@ contract Setup is AccessControl {
         uint32 stopLossPrice;
         bool isLong;
         address creator;
+        address token;
     }
 
     struct GameInfo {
@@ -73,6 +74,7 @@ contract Setup is AccessControl {
         uint256 totalDepositsSL;
         uint256 totalDepositsTP;
         uint256 finalRate;
+        address gameToken;
     }
 
     bytes32 public constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
@@ -105,6 +107,7 @@ contract Setup is AccessControl {
         uint32 takeProfitPrice,
         uint32 stopLossPrice,
         uint8 feedNumber,
+        address token,
         bytes memory unverifiedReport
     ) public {
         require(isActive, "Game is disabled");
@@ -116,6 +119,7 @@ contract Setup is AccessControl {
             endTime - block.timestamp <= maxDuration,
             "Max game duration must be lower"
         );
+        require(token != address(0), "Token must be set");
         bytes32 gameId = keccak256(
             abi.encodePacked(
                 block.timestamp,
@@ -160,6 +164,7 @@ contract Setup is AccessControl {
         if (isLong) {
             data.packedData2 |= uint256(1) << 250;
         }
+        data.gameToken = token;
         games[gameId] = data;
         emit SetupCreated(
             CreateSetup(
@@ -171,7 +176,8 @@ contract Setup is AccessControl {
                 takeProfitPrice,
                 stopLossPrice,
                 isLong,
-                msg.sender
+                msg.sender,
+                token
             )
         );
     }
@@ -194,7 +200,11 @@ contract Setup is AccessControl {
             depositAmounts[gameId][msg.sender] == 0,
             "You are already in the game"
         );
-        ITreasury(treasury).depositAndLock(depositAmount, msg.sender);
+        ITreasury(treasury).depositAndLock(
+            depositAmount,
+            msg.sender,
+            games[gameId].gameToken
+        );
         depositAmounts[gameId][msg.sender] = depositAmount;
         if (isLong) {
             withdrawStatus[gameId][msg.sender] = UserStatus.TP;
@@ -234,7 +244,11 @@ contract Setup is AccessControl {
             depositAmounts[gameId][msg.sender] == 0,
             "You are already in the game"
         );
-        ITreasury(treasury).lock(depositAmount, msg.sender);
+        ITreasury(treasury).lock(
+            depositAmount,
+            msg.sender,
+            games[gameId].gameToken
+        );
         depositAmounts[gameId][msg.sender] = depositAmount;
         if (isLong) {
             withdrawStatus[gameId][msg.sender] = UserStatus.TP;
@@ -278,6 +292,7 @@ contract Setup is AccessControl {
         );
         ITreasury(treasury).depositAndLockWithPermit(
             depositAmount,
+            games[gameId].gameToken,
             msg.sender,
             permitData.deadline,
             permitData.v,
@@ -333,7 +348,8 @@ contract Setup is AccessControl {
         withdrawStatus[gameId][msg.sender] = UserStatus.Claimed;
         ITreasury(treasury).refund(
             depositAmounts[gameId][msg.sender],
-            msg.sender
+            msg.sender,
+            games[gameId].gameToken
         );
         emit SetupRetrieved(
             gameId,
@@ -383,6 +399,7 @@ contract Setup is AccessControl {
                     .calculateSetupRate(
                         games[gameId].totalDepositsSL,
                         games[gameId].totalDepositsTP,
+                        games[gameId].gameToken,
                         fee,
                         data.initiator
                     );
@@ -400,6 +417,7 @@ contract Setup is AccessControl {
                     .calculateSetupRate(
                         games[gameId].totalDepositsTP,
                         games[gameId].totalDepositsSL,
+                        games[gameId].gameToken,
                         fee,
                         data.initiator
                     );
@@ -424,6 +442,7 @@ contract Setup is AccessControl {
                     .calculateSetupRate(
                         games[gameId].totalDepositsTP,
                         games[gameId].totalDepositsSL,
+                        games[gameId].gameToken,
                         fee,
                         data.initiator
                     );
@@ -440,6 +459,7 @@ contract Setup is AccessControl {
                     .calculateSetupRate(
                         games[gameId].totalDepositsSL,
                         games[gameId].totalDepositsTP,
+                        games[gameId].gameToken,
                         fee,
                         data.initiator
                     );
@@ -486,6 +506,7 @@ contract Setup is AccessControl {
                 ITreasury(treasury).distributeWithoutFee(
                     games[gameId].finalRate,
                     msg.sender,
+                    games[gameId].gameToken,
                     fee,
                     depositAmounts[gameId][msg.sender]
                 );
@@ -499,6 +520,7 @@ contract Setup is AccessControl {
                 ITreasury(treasury).distributeWithoutFee(
                     games[gameId].finalRate,
                     msg.sender,
+                    games[gameId].gameToken,
                     fee,
                     depositAmounts[gameId][msg.sender]
                 );
@@ -514,6 +536,7 @@ contract Setup is AccessControl {
                 ITreasury(treasury).distributeWithoutFee(
                     games[gameId].finalRate,
                     msg.sender,
+                    games[gameId].gameToken,
                     fee,
                     depositAmounts[gameId][msg.sender]
                 );
@@ -526,6 +549,7 @@ contract Setup is AccessControl {
                 ITreasury(treasury).distributeWithoutFee(
                     games[gameId].finalRate,
                     msg.sender,
+                    games[gameId].gameToken,
                     fee,
                     depositAmounts[gameId][msg.sender]
                 );

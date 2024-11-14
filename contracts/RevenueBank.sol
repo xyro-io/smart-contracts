@@ -26,6 +26,8 @@ contract RevenueBank is AccessControl, EIP712, Nonces {
     }
 
     event NewSigner(address signer);
+    event NewWallet(address wallet);
+    event NewSwapRouter(address swapRouter);
     event NewXyroToken(address xyroToken);
     event NewApprovedToken(address approvedToken);
     event NewTreasury(address treasury);
@@ -36,28 +38,34 @@ contract RevenueBank is AccessControl, EIP712, Nonces {
     uint256 public rewardsBalance;
     uint256 public collectedFees;
     uint256 public buybackPart = 2500;
-    uint256 public rewardsPart = 500;
+    uint256 public rewardsPart = 1000;
     address public approvedToken;
     address public xyroToken;
-    address public signer;
+    mapping(address => bool) public signers;
     address public treasury;
+    address public wallet;
+    address public swapRouter;
 
     constructor(
         address _approvedToken,
         address _xyroToken,
-        address _treasury
+        address _treasury,
+        address _wallet,
+        address _swapRouter
     ) EIP712("XYRO", "1") {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         approvedToken = _approvedToken;
         xyroToken = _xyroToken;
-        signer = msg.sender;
+        signers[msg.sender] = true;
         treasury = _treasury;
+        swapRouter = _swapRouter;
+        wallet = _wallet;
     }
 
     function withdraw(
         uint256 amount,
         address to
-    ) public onlyRole(ACCOUNTANT_ROLE) {
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(collectedFees >= amount, "Wrong amount");
         collectedFees -= amount;
         SafeERC20.safeTransfer(IERC20(approvedToken), to, amount);
@@ -80,45 +88,49 @@ contract RevenueBank is AccessControl, EIP712, Nonces {
         );
         address recoveredSigner = ECDSA.recover(hash, signature);
 
-        require(recoveredSigner == signer, "Wrong signer");
-        SafeERC20.safeTransfer(IERC20(xyroToken), data.to, data.amount);
+        require(signers[recoveredSigner], "Wrong signer");
+        require(rewardsBalance >= data.amount, "Not enough rewards");
+        rewardsBalance -= data.amount;
+        SafeERC20.safeTransfer(IERC20(approvedToken), data.to, data.amount);
     }
 
     function collectFees(uint256 amount) public onlyRole(ACCOUNTANT_ROLE) {
         ITreasury(treasury).withdrawFees(address(this), amount);
         uint256 amountForBuyback = (amount * buybackPart) / FEE_DENOMINATOR;
-        buybackBalance += amountForBuyback;
+        buybackBalance +=
+            amountForBuyback *
+            10 ** IERC20Burn(approvedToken).decimals();
         uint256 amountForRewards = (amount * rewardsPart) / FEE_DENOMINATOR;
-        rewardsBalance += amountForRewards;
+        rewardsBalance +=
+            amountForRewards *
+            10 ** IERC20Burn(approvedToken).decimals();
         collectedFees += amount - amountForRewards - amountForBuyback;
     }
 
-    function buybackAndBurn(
-        uint256 amount,
-        uint24 pairFee,
-        address swapRouter
-    ) public onlyRole(ACCOUNTANT_ROLE) {
-        IERC20(approvedToken).approve(swapRouter, amount);
+    function buybackAndBurn() public onlyRole(ACCOUNTANT_ROLE) {
+        IERC20(approvedToken).approve(swapRouter, buybackBalance);
 
         ISwapRouter02.ExactInputSingleParams memory params = ISwapRouter02
             .ExactInputSingleParams({
                 tokenIn: approvedToken,
                 tokenOut: xyroToken,
-                fee: pairFee,
+                fee: 3000,
                 recipient: address(this),
-                amountIn: amount,
+                amountIn: buybackBalance,
                 amountOutMinimum: 0,
                 sqrtPriceLimitX96: 0
             });
-
+        buybackBalance = 0;
         uint256 amountOut = ISwapRouter02(swapRouter).exactInputSingle(params);
-        IERC20(xyroToken).approve(address(this), amountOut);
-        IERC20Burn(xyroToken).burn(address(this), amountOut);
+        SafeERC20.safeTransfer(IERC20(xyroToken), wallet, amountOut);
     }
 
-    function setSigner(address _signer) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        signer = _signer;
-        emit NewSigner(_signer);
+    function setSigner(
+        address signer,
+        bool status
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        signers[signer] = status;
+        emit NewSigner(signer);
     }
 
     function setTreasury(
@@ -126,6 +138,18 @@ contract RevenueBank is AccessControl, EIP712, Nonces {
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         treasury = _treasury;
         emit NewTreasury(_treasury);
+    }
+
+    function setWallet(address _wallet) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        wallet = _wallet;
+        emit NewWallet(_wallet);
+    }
+
+    function setSwapRouter(
+        address _swapRouter
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        swapRouter = _swapRouter;
+        emit NewSwapRouter(_swapRouter);
     }
 
     function setXyroToken(

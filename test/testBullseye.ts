@@ -5,11 +5,13 @@ import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { MockToken } from "../typechain-types/contracts/mock/MockERC20.sol/MockToken";
 import { MockToken__factory } from "../typechain-types/factories/contracts/mock/MockERC20.sol/MockToken__factory";
 import { Treasury } from "../typechain-types/contracts/Treasury.sol/Treasury";
-import { Treasury__factory } from "../typechain-types/factories/contracts/Treasury.sol/Treasury__factory";
 import { Bullseye } from "../typechain-types/contracts/Bullseye.sol/Bullseye";
 import { Bullseye__factory } from "../typechain-types/factories/contracts/Bullseye.sol/Bullseye__factory";
 import { MockVerifier } from "../typechain-types/contracts/mock/MockVerifier";
 import { MockVerifier__factory } from "../typechain-types/factories/contracts/mock/MockVerifier__factory";
+import { XyroTokenERC677 } from "../typechain-types/contracts/XyroTokenWithMint.sol/XyroTokenERC677";
+import { XyroTokenERC677__factory } from "../typechain-types/factories/contracts/XyroTokenWithMint.sol/XyroTokenERC677__factory";
+
 import {
   abiEncodeInt192WithTimestamp,
   getPermitSignature,
@@ -24,6 +26,7 @@ const requireStartedGame = "Start the game first";
 const requirePastEndTime = "Too early to finish";
 const requireValidChainlinkReport = "Old chainlink report";
 const requireSufficentDepositAmount = "Insufficent deposit amount";
+const requireApprovedToken = "Unapproved token";
 
 describe("Bullseye", () => {
   let owner: HardhatEthersSigner;
@@ -33,11 +36,14 @@ describe("Bullseye", () => {
   let john: HardhatEthersSigner;
   let max: HardhatEthersSigner;
   let USDT: MockToken;
+  let XyroToken: XyroTokenERC677;
   let Treasury: Treasury;
   let Game: Bullseye;
   let Upkeep: MockVerifier;
+  let players: any;
+  let usdtAmount: bigint;
+  let xyroAmount: bigint;
   const feedNumber = 4;
-  const usdtAmount = parse18("100");
   const guessPriceOpponent = 630000000;
   const guessPriceAlice = 580000000;
   const guessBobPrice = 570000000;
@@ -48,9 +54,17 @@ describe("Bullseye", () => {
   const finalPriceCloser = parse18("63500");
   before(async () => {
     [owner, opponent, alice, bob, john, max] = await ethers.getSigners();
+    players = [owner, opponent, alice, bob, john, max];
     USDT = await new MockToken__factory(owner).deploy(
       parse18((1e13).toString())
     );
+    usdtAmount =
+      BigInt(100) * BigInt(Math.pow(10, Number(await USDT.decimals())));
+    XyroToken = await new XyroTokenERC677__factory(owner).deploy(
+      parse18((1e13).toString())
+    );
+    xyroAmount =
+      BigInt(100) * BigInt(Math.pow(10, Number(await XyroToken.decimals())));
     Treasury = await upgrades.deployProxy(
       await ethers.getContractFactory("Treasury"),
       [await USDT.getAddress()]
@@ -60,11 +74,20 @@ describe("Bullseye", () => {
     await Game.setTreasury(await Treasury.getAddress());
     await Treasury.setUpkeep(await Upkeep.getAddress());
     await Game.grantRole(await Game.GAME_MASTER_ROLE(), owner.address);
-    await USDT.mint(await opponent.getAddress(), parse18("10000000"));
-    await USDT.mint(await alice.getAddress(), parse18("10000000"));
-    await USDT.mint(await bob.getAddress(), parse18("10000000"));
-    await USDT.mint(await john.getAddress(), parse18("10000000"));
-    await USDT.mint(await max.getAddress(), parse18("10000000"));
+    for (let i = 0; i < players.length; i++) {
+      await USDT.mint(players[i].address, parse18("10000000"));
+      await USDT.connect(players[i]).approve(
+        Treasury.getAddress(),
+        ethers.MaxUint256
+      );
+      await XyroToken.approve(players[i].address, ethers.MaxUint256);
+      await XyroToken.transfer(players[i].address, parse18("10000"));
+      await XyroToken.connect(players[i]).approve(
+        Treasury.getAddress(),
+        ethers.MaxUint256
+      );
+    }
+
     await Treasury.grantRole(
       await Treasury.DISTRIBUTOR_ROLE(),
       await Game.getAddress()
@@ -74,10 +97,6 @@ describe("Bullseye", () => {
       Treasury.getAddress(),
       ethers.MaxUint256
     );
-    await USDT.connect(alice).approve(Treasury.getAddress(), ethers.MaxUint256);
-    await USDT.connect(bob).approve(Treasury.getAddress(), ethers.MaxUint256);
-    await USDT.connect(john).approve(Treasury.getAddress(), ethers.MaxUint256);
-    await USDT.connect(max).approve(Treasury.getAddress(), ethers.MaxUint256);
   });
 
   describe("Create game", async function () {
@@ -1054,6 +1073,108 @@ describe("Bullseye", () => {
       expect(oldMaxDeposit).to.be.equal(newMaxDeposit);
       expect(oldJohnDeposit).to.be.equal(newJohnDeposit);
       expect(oldOpponentDeposit).to.be.equal(newOpponentDeposit);
+    });
+  });
+
+  describe("Games with XyroToken", async function () {
+    it("should create bullseye game with XyroToken", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = (await time.latest()) + fifteenMinutes;
+      await Game.startGame(
+        endTime,
+        stopPredictAt,
+        xyroAmount,
+        feedNumber,
+        await XyroToken.getAddress()
+      );
+      let game = await Game.decodeData();
+      expect(game.endTime).to.be.equal(endTime);
+      expect(game.stopPredictAt).to.be.equal(stopPredictAt);
+      expect(await Game.depositAmount()).to.equal(xyroAmount);
+    });
+
+    it("should fail - attempt to play a game with unapproved token", async function () {
+      await expect(
+        Game.connect(opponent).play(guessPriceOpponent)
+      ).to.be.revertedWith(requireApprovedToken);
+    });
+
+    it("should play with XyroToken", async function () {
+      //approve XyroToken in Treasury
+      await Treasury.setToken(await XyroToken.getAddress(), true);
+      let tx = await Game.connect(opponent).play(guessPriceOpponent);
+      let receipt = await tx.wait();
+      let newPlayerLog = receipt?.logs[1]?.args;
+
+      expect(newPlayerLog[0]).to.be.equal(opponent.address);
+      expect(newPlayerLog[1]).to.be.equal(guessPriceOpponent);
+      expect(newPlayerLog[2]).to.be.equal(xyroAmount);
+      expect(newPlayerLog[3]).to.be.equal(await Game.currentGameId());
+      expect(newPlayerLog[4]).to.be.equal(0);
+
+      expect(await XyroToken.balanceOf(Treasury.getAddress())).to.equal(
+        xyroAmount
+      );
+      const playerGuessData = await Game.decodeGuess(0);
+      expect(playerGuessData.player).to.be.equal(opponent.address);
+      expect(playerGuessData.assetPrice).to.be.equal(guessPriceOpponent);
+      await Game.closeGame();
+    });
+
+    it("should end bullseye game (exact, 3 players) with XyroToken", async function () {
+      await Game.startGame(
+        (await time.latest()) + fortyFiveMinutes,
+        (await time.latest()) + fifteenMinutes,
+        xyroAmount,
+        feedNumber,
+        await XyroToken.getAddress()
+      );
+      await Game.connect(bob).play(guessBobPrice);
+      await Game.connect(opponent).play(guessPriceOpponent);
+      //alice should win exact
+      await Game.connect(alice).play(guessPriceAlice);
+      let oldAliceDeposit = await Treasury.deposits(
+        await XyroToken.getAddress(),
+        alice.address
+      );
+      await time.increase(fortyFiveMinutes);
+      const oldTreasuryFeeBalance = await Treasury.collectedFee(
+        await XyroToken.getAddress()
+      );
+      let tx = await Game.finalizeGame(
+        abiEncodeInt192WithTimestamp(
+          finalPriceExact.toString(),
+          feedNumber,
+          await time.latest()
+        )
+      );
+      let receipt = await tx.wait();
+      let finalizeEventLog = receipt?.logs[2]?.args;
+      expect(finalizeEventLog[0][0]).to.be.equal(alice.address);
+      expect(finalizeEventLog[0][1]).to.be.equal(bob.address);
+      expect(finalizeEventLog[0][2]).to.be.equal(opponent.address);
+      expect(finalizeEventLog[1][0]).to.be.equal(2);
+      expect(finalizeEventLog[1][1]).to.be.equal(0);
+      expect(finalizeEventLog[1][2]).to.be.equal(1);
+      expect(finalizeEventLog[2]).to.be.equal(finalPriceExact / BigInt(1e14));
+      expect(finalizeEventLog[3]).to.be.equal(true);
+      let wonAmountAlice = xyroAmount * BigInt(3);
+      let newAliceDeposit = await Treasury.deposits(
+        await XyroToken.getAddress(),
+        alice.address
+      );
+      const withdrawnFeesAlice =
+        (wonAmountAlice * (await Game.fee())) / BigInt(10000);
+      expect(
+        await Treasury.collectedFee(await XyroToken.getAddress())
+      ).to.be.equal(withdrawnFeesAlice);
+      expect(
+        (await Treasury.collectedFee(await XyroToken.getAddress())) -
+          oldTreasuryFeeBalance
+      ).to.be.equal(withdrawnFeesAlice);
+      expect(newAliceDeposit - oldAliceDeposit).to.be.equal(
+        wonAmountAlice - withdrawnFeesAlice
+      );
     });
   });
 

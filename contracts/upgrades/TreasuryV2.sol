@@ -11,44 +11,44 @@ interface IERC20Mint {
 }
 
 contract TreasuryV2 is Initializable, AccessControlUpgradeable {
-    event FeeCollected(uint256 feeEarned, uint256 totalFees);
-    event Distributed(address to, uint256 amount);
-    event Refunded(address to, uint256 amount);
+    event FeeCollected(uint256 feeEarned, uint256 totalFees, address token);
+    event Distributed(address to, uint256 amount, address token);
+    event Refunded(address to, uint256 amount, address token);
     event UpkeepChanged(address newUpkeep);
-    address public approvedToken;
+    mapping(address => bool) public approvedTokens;
     address public upkeep;
     uint256 public setupInitiatorFee;
     uint256 public constant FEE_DENOMINATOR = 10000;
     uint256 public constant PRECISION_AMPLIFIER = 100000;
     bytes32 public constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
     bytes32 public constant ACCOUNTANT_ROLE = keccak256("ACCOUNTANT_ROLE");
-    uint256 public collectedFee;
-    uint256 public minDepositAmount;
-    mapping(address => uint256) public deposits;
-    mapping(address => uint256) public locked;
+    mapping(address => uint256) public collectedFee;
+    mapping(address => uint256) public minDepositAmount;
+    mapping(address => mapping(address => uint256)) public deposits;
+    mapping(address => mapping(address => uint256)) public locked;
 
     /**
-     * @param newApprovedToken stable token used in games
+     * @param approvedToken stable token used in games
      */
-    // constructor(address newApprovedToken) {
-    //     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-    //     approvedToken = newApprovedToken;
-    // }
-
-    function initialize(address newApprovedToken) public initializer {
+    function initialize(address approvedToken) public initializer {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        approvedToken = newApprovedToken;
+        approvedTokens[approvedToken] = true;
         setupInitiatorFee = 1000;
-        minDepositAmount = 1;
+        minDepositAmount[approvedToken] =
+            10 ** IERC20Mint(approvedToken).decimals();
     }
 
     /**
      * Set new token for in game usage
      * @param token new token address
+     * @param status true for approved token
      */
-    function setToken(address token) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setToken(
+        address token,
+        bool status
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(token != address(0), "Zero address");
-        approvedToken = token;
+        approvedTokens[token] = status;
     }
 
     /**
@@ -63,26 +63,19 @@ contract TreasuryV2 is Initializable, AccessControlUpgradeable {
      * Deposit token in treasury
      * @param amount token amount
      */
-    function deposit(uint256 amount) public {
-        require(amount >= minDepositAmount, "Wrong deposit amount");
-        uint256 oldBalance = IERC20(approvedToken).balanceOf(address(this));
+    function deposit(uint256 amount, address token) public {
+        require(amount >= minDepositAmount[token], "Wrong deposit amount");
+        require(approvedTokens[token], "Unapproved token");
+        uint256 oldBalance = IERC20(token).balanceOf(address(this));
         SafeERC20.safeTransferFrom(
-            IERC20(approvedToken),
+            IERC20(token),
             msg.sender,
             address(this),
-            amount * 10 ** IERC20Mint(approvedToken).decimals()
+            amount
         );
-        uint256 newBalance = IERC20(approvedToken).balanceOf(address(this));
-        require(
-            newBalance ==
-                oldBalance +
-                    amount *
-                    10 ** IERC20Mint(approvedToken).decimals(),
-            "Token with fee"
-        );
-        deposits[msg.sender] +=
-            amount *
-            10 ** IERC20Mint(approvedToken).decimals();
+        uint256 newBalance = IERC20(token).balanceOf(address(this));
+        require(newBalance == oldBalance + amount, "Token with fee");
+        deposits[token][msg.sender] += amount;
     }
 
     /**
@@ -92,25 +85,16 @@ contract TreasuryV2 is Initializable, AccessControlUpgradeable {
      */
     function depositAndLock(
         uint256 amount,
-        address from
+        address from,
+        address token
     ) public onlyRole(DISTRIBUTOR_ROLE) {
-        require(amount >= minDepositAmount, "Wrong deposit amount");
-        uint256 oldBalance = IERC20(approvedToken).balanceOf(address(this));
-        SafeERC20.safeTransferFrom(
-            IERC20(approvedToken),
-            from,
-            address(this),
-            amount * 10 ** IERC20Mint(approvedToken).decimals()
-        );
-        uint256 newBalance = IERC20(approvedToken).balanceOf(address(this));
-        require(
-            newBalance ==
-                oldBalance +
-                    amount *
-                    10 ** IERC20Mint(approvedToken).decimals(),
-            "Token with fee"
-        );
-        locked[from] += amount * 10 ** IERC20Mint(approvedToken).decimals();
+        require(amount >= minDepositAmount[token], "Wrong deposit amount");
+        require(approvedTokens[token], "Unapproved token");
+        uint256 oldBalance = IERC20(token).balanceOf(address(this));
+        SafeERC20.safeTransferFrom(IERC20(token), from, address(this), amount);
+        uint256 newBalance = IERC20(token).balanceOf(address(this));
+        require(newBalance == oldBalance + amount, "Token with fee");
+        locked[token][from] += amount;
     }
 
     /**
@@ -119,37 +103,33 @@ contract TreasuryV2 is Initializable, AccessControlUpgradeable {
      */
     function depositWithPermit(
         uint256 amount,
+        address token,
         uint256 deadline,
         uint8 v,
         bytes32 r,
         bytes32 s
     ) public {
-        require(amount >= minDepositAmount, "Wrong deposit amount");
-        uint256 oldBalance = IERC20(approvedToken).balanceOf(address(this));
-        IERC20Permit(approvedToken).permit(
+        require(amount >= minDepositAmount[token], "Wrong deposit amount");
+        require(approvedTokens[token], "Unapproved token");
+        uint256 oldBalance = IERC20(token).balanceOf(address(this));
+        IERC20Permit(token).permit(
             msg.sender,
             address(this),
-            amount * 10 ** IERC20Mint(approvedToken).decimals(),
+            amount,
             deadline,
             v,
             r,
             s
         );
         SafeERC20.safeTransferFrom(
-            IERC20(approvedToken),
+            IERC20(token),
             msg.sender,
             address(this),
-            amount * 10 ** IERC20Mint(approvedToken).decimals()
+            amount
         );
-        uint256 newBalance = IERC20(approvedToken).balanceOf(address(this));
-        require(
-            newBalance ==
-                oldBalance +
-                    amount *
-                    10 ** IERC20Mint(approvedToken).decimals(),
-            "Token with fee"
-        );
-        deposits[msg.sender] += amount;
+        uint256 newBalance = IERC20(token).balanceOf(address(this));
+        require(newBalance == oldBalance + amount, "Token with fee");
+        deposits[token][msg.sender] += amount;
     }
 
     /**
@@ -159,57 +139,39 @@ contract TreasuryV2 is Initializable, AccessControlUpgradeable {
      */
     function depositAndLockWithPermit(
         uint256 amount,
+        address token,
         address from,
         uint256 deadline,
         uint8 v,
         bytes32 r,
         bytes32 s
     ) public onlyRole(DISTRIBUTOR_ROLE) {
-        require(amount >= minDepositAmount, "Wrong deposit amount");
-        uint256 oldBalance = IERC20(approvedToken).balanceOf(address(this));
-        IERC20Permit(approvedToken).permit(
+        require(amount >= minDepositAmount[token], "Wrong deposit amount");
+        require(approvedTokens[token], "Unapproved token");
+        uint256 oldBalance = IERC20(token).balanceOf(address(this));
+        IERC20Permit(token).permit(
             from,
             address(this),
-            amount * 10 ** IERC20Mint(approvedToken).decimals(),
+            amount,
             deadline,
             v,
             r,
             s
         );
-        SafeERC20.safeTransferFrom(
-            IERC20(approvedToken),
-            from,
-            address(this),
-            amount * 10 ** IERC20Mint(approvedToken).decimals()
-        );
-        uint256 newBalance = IERC20(approvedToken).balanceOf(address(this));
-        require(
-            newBalance ==
-                oldBalance +
-                    amount *
-                    10 ** IERC20Mint(approvedToken).decimals(),
-            "Token with fee"
-        );
-        locked[from] += amount * 10 ** IERC20Mint(approvedToken).decimals();
+        SafeERC20.safeTransferFrom(IERC20(token), from, address(this), amount);
+        uint256 newBalance = IERC20(token).balanceOf(address(this));
+        require(newBalance == oldBalance + amount, "Token with fee");
+        locked[token][from] += amount;
     }
 
     /**
      * Withdraw all tokens from user deposit
      */
-    function withdraw(uint256 amount) public {
-        require(
-            deposits[msg.sender] >=
-                amount * 10 ** IERC20Mint(approvedToken).decimals(),
-            "Wrong amount"
-        );
-        deposits[msg.sender] -=
-            amount *
-            10 ** IERC20Mint(approvedToken).decimals();
-        SafeERC20.safeTransfer(
-            IERC20(approvedToken),
-            msg.sender,
-            amount * 10 ** IERC20Mint(approvedToken).decimals()
-        );
+    function withdraw(uint256 amount, address token) public {
+        require(approvedTokens[token], "Unapproved token");
+        require(deposits[token][msg.sender] >= amount, "Wrong amount");
+        deposits[token][msg.sender] -= amount;
+        SafeERC20.safeTransfer(IERC20(token), msg.sender, amount);
     }
 
     /**
@@ -217,15 +179,13 @@ contract TreasuryV2 is Initializable, AccessControlUpgradeable {
      */
     function lock(
         uint256 amount,
-        address from
+        address from,
+        address token
     ) public onlyRole(DISTRIBUTOR_ROLE) {
-        require(
-            deposits[from] >=
-                amount * 10 ** IERC20Mint(approvedToken).decimals(),
-            "Insufficent deposit amount"
-        );
-        deposits[from] -= amount * 10 ** IERC20Mint(approvedToken).decimals();
-        locked[from] += amount * 10 ** IERC20Mint(approvedToken).decimals();
+        require(approvedTokens[token], "Unapproved token");
+        require(deposits[token][from] >= amount, "Insufficent deposit amount");
+        deposits[token][from] -= amount;
+        locked[token][from] += amount;
     }
 
     /**
@@ -235,15 +195,14 @@ contract TreasuryV2 is Initializable, AccessControlUpgradeable {
      */
     function refund(
         uint256 amount,
-        address to
+        address to,
+        address token
     ) public onlyRole(DISTRIBUTOR_ROLE) {
-        require(
-            locked[to] >= amount * 10 ** IERC20Mint(approvedToken).decimals(),
-            "Wrong amount"
-        );
-        locked[to] -= amount * 10 ** IERC20Mint(approvedToken).decimals();
-        deposits[to] += amount * 10 ** IERC20Mint(approvedToken).decimals();
-        emit Refunded(to, amount * 10 ** IERC20Mint(approvedToken).decimals());
+        require(approvedTokens[token], "Unapproved token");
+        require(locked[token][to] >= amount, "Wrong amount");
+        locked[token][to] -= amount;
+        deposits[token][to] += amount;
+        emit Refunded(to, amount, token);
     }
 
     /**
@@ -254,16 +213,17 @@ contract TreasuryV2 is Initializable, AccessControlUpgradeable {
     function refundWithFees(
         uint256 amount,
         address to,
+        address token,
         uint256 refundFee
     ) public onlyRole(DISTRIBUTOR_ROLE) {
-        amount *= 10 ** IERC20Mint(approvedToken).decimals();
-        require(locked[to] >= amount, "Wrong amount");
+        require(approvedTokens[token], "Unapproved token");
+        require(locked[token][to] >= amount, "Wrong amount");
         uint256 withdrawnFees = (amount * refundFee) / FEE_DENOMINATOR;
-        collectedFee += withdrawnFees;
-        emit FeeCollected(withdrawnFees, collectedFee);
-        locked[to] -= amount;
-        deposits[to] += (amount - withdrawnFees);
-        emit Refunded(to, (amount - withdrawnFees));
+        collectedFee[token] += withdrawnFees;
+        emit FeeCollected(withdrawnFees, collectedFee[token], token);
+        locked[token][to] -= amount;
+        deposits[token][to] += (amount - withdrawnFees);
+        emit Refunded(to, (amount - withdrawnFees), token);
     }
 
     /**
@@ -271,16 +231,16 @@ contract TreasuryV2 is Initializable, AccessControlUpgradeable {
      * @param to account that will recieve fee
      */
 
-    function withdrawFees(address to, uint256 amount) public {
+    function withdrawFees(address to, uint256 amount, address token) public {
+        require(approvedTokens[token], "Unapproved token");
         require(
             hasRole(ACCOUNTANT_ROLE, msg.sender) ||
                 hasRole(DEFAULT_ADMIN_ROLE, msg.sender),
             "Invalid role"
         );
-        amount *= 10 ** IERC20Mint(approvedToken).decimals();
-        require(collectedFee >= amount, "Wrong amount");
-        collectedFee -= amount;
-        SafeERC20.safeTransfer(IERC20(approvedToken), to, amount);
+        require(collectedFee[token] >= amount, "Wrong amount");
+        collectedFee[token] -= amount;
+        SafeERC20.safeTransfer(IERC20(token), to, amount);
     }
 
     /**
@@ -292,15 +252,15 @@ contract TreasuryV2 is Initializable, AccessControlUpgradeable {
     function distribute(
         uint256 amount,
         address to,
+        address token,
         uint256 gameFee
     ) public onlyRole(DISTRIBUTOR_ROLE) {
-        amount *= 10 ** IERC20Mint(approvedToken).decimals();
         uint256 withdrawnFees = (amount * gameFee) / FEE_DENOMINATOR;
         uint256 wonAmount = amount - withdrawnFees;
-        collectedFee += withdrawnFees;
-        emit FeeCollected(withdrawnFees, collectedFee);
-        deposits[to] += wonAmount;
-        emit Distributed(to, wonAmount);
+        collectedFee[token] += withdrawnFees;
+        emit FeeCollected(withdrawnFees, collectedFee[token], token);
+        deposits[token][to] += wonAmount;
+        emit Distributed(to, wonAmount, token);
     }
 
     /**
@@ -312,14 +272,15 @@ contract TreasuryV2 is Initializable, AccessControlUpgradeable {
     function distributeBullseye(
         uint256 amount,
         address to,
+        address token,
         uint256 gameFee
     ) public onlyRole(DISTRIBUTOR_ROLE) {
         uint256 withdrawnFees = (amount * gameFee) / FEE_DENOMINATOR;
         uint256 wonAmount = amount - withdrawnFees;
-        collectedFee += withdrawnFees;
-        emit FeeCollected(withdrawnFees, collectedFee);
-        deposits[to] += wonAmount;
-        emit Distributed(to, wonAmount);
+        collectedFee[token] += withdrawnFees;
+        emit FeeCollected(withdrawnFees, collectedFee[token], token);
+        deposits[token][to] += wonAmount;
+        emit Distributed(to, wonAmount, token);
     }
 
     /**
@@ -331,16 +292,16 @@ contract TreasuryV2 is Initializable, AccessControlUpgradeable {
     function distributeWithoutFee(
         uint256 rate,
         address to,
+        address token,
         uint256 usedFee,
         uint256 initialDeposit
     ) public onlyRole(DISTRIBUTOR_ROLE) {
-        initialDeposit *= 10 ** IERC20Mint(approvedToken).decimals();
         uint256 withdrawnFees = (initialDeposit * usedFee) / FEE_DENOMINATOR;
         uint256 wonAmount = (initialDeposit - withdrawnFees) +
             ((initialDeposit - withdrawnFees) * rate) /
             (FEE_DENOMINATOR * PRECISION_AMPLIFIER);
-        deposits[to] += wonAmount;
-        emit Distributed(to, wonAmount);
+        deposits[token][to] += wonAmount;
+        emit Distributed(to, wonAmount, token);
     }
 
     /**
@@ -352,20 +313,19 @@ contract TreasuryV2 is Initializable, AccessControlUpgradeable {
     function calculateSetupRate(
         uint256 lostTeamTotal,
         uint256 wonTeamTotal,
+        address token,
         uint256 setupFee,
         address initiator
     ) external onlyRole(DISTRIBUTOR_ROLE) returns (uint256, uint256) {
-        lostTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
-        wonTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
         uint256 withdrawnFees = (lostTeamTotal * setupFee) / FEE_DENOMINATOR;
-        collectedFee += withdrawnFees;
-        emit FeeCollected(withdrawnFees, collectedFee);
+        collectedFee[token] += withdrawnFees;
+        emit FeeCollected(withdrawnFees, collectedFee[token], token);
         uint256 lostTeamFee = (lostTeamTotal * setupInitiatorFee) /
             FEE_DENOMINATOR;
         uint256 wonTeamFee = (wonTeamTotal * setupInitiatorFee) /
             FEE_DENOMINATOR;
-        deposits[initiator] += lostTeamFee + wonTeamFee;
-        emit Distributed(initiator, lostTeamFee + wonTeamFee);
+        deposits[token][initiator] += lostTeamFee + wonTeamFee;
+        emit Distributed(initiator, lostTeamFee + wonTeamFee, token);
         //collect dust
         uint256 rate = ((lostTeamTotal - withdrawnFees - lostTeamFee) *
             (FEE_DENOMINATOR * PRECISION_AMPLIFIER)) /
@@ -382,14 +342,13 @@ contract TreasuryV2 is Initializable, AccessControlUpgradeable {
     function calculateUpDownRate(
         uint256 lostTeamTotal,
         uint256 wonTeamTotal,
+        address token,
         uint256 updownFee
     ) external onlyRole(DISTRIBUTOR_ROLE) returns (uint256 rate) {
-        lostTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
-        wonTeamTotal *= 10 ** IERC20Mint(approvedToken).decimals();
         uint256 lostTeamFee = (lostTeamTotal * updownFee) / FEE_DENOMINATOR;
         uint256 wonTeamFee = (wonTeamTotal * updownFee) / FEE_DENOMINATOR;
-        collectedFee += lostTeamFee + wonTeamFee;
-        emit FeeCollected(lostTeamFee + wonTeamFee, collectedFee);
+        collectedFee[token] += lostTeamFee + wonTeamFee;
+        emit FeeCollected(lostTeamFee + wonTeamFee, collectedFee[token], token);
         //collect dust
         rate =
             ((lostTeamTotal - lostTeamFee) *
@@ -408,9 +367,11 @@ contract TreasuryV2 is Initializable, AccessControlUpgradeable {
     }
 
     function changeMinDepositAmount(
-        uint256 newMinAmount
+        uint256 newMinAmount,
+        address token
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        minDepositAmount = newMinAmount;
+        require(approvedTokens[token], "Unapproved token");
+        minDepositAmount[token] = newMinAmount;
     }
 
     function test() public pure returns (uint256) {

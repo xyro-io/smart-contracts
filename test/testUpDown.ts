@@ -85,7 +85,13 @@ describe("UpDown", () => {
     it("should create updown game", async function () {
       const endTime = (await time.latest()) + fortyFiveMinutes;
       const stopPredictAt = (await time.latest()) + fifteenMinutes;
-      await Game.startGame(endTime, stopPredictAt, usdtAmount, feedNumber);
+      await Game.startGame(
+        endTime,
+        stopPredictAt,
+        usdtAmount,
+        await USDT.getAddress(),
+        feedNumber
+      );
       let game = await Game.decodeData();
       expect(game.endTime).to.be.equal(endTime);
       expect(game.stopPredictAt).to.be.equal(stopPredictAt);
@@ -98,6 +104,7 @@ describe("UpDown", () => {
           (await time.latest()) + fortyFiveMinutes,
           (await time.latest()) + fifteenMinutes,
           usdtAmount,
+          await USDT.getAddress(),
           feedNumber
         )
       ).to.be.revertedWith(requireFinishedGame);
@@ -110,7 +117,7 @@ describe("UpDown", () => {
       const oldTreasuryBalance = await USDT.balanceOf(
         await Treasury.getAddress()
       );
-      await Treasury.connect(bob).deposit(usdtAmount);
+      await Treasury.connect(bob).deposit(usdtAmount, await USDT.getAddress());
       await Game.connect(bob).playWithDeposit(true, usdtAmount);
       const newBobBalance = await USDT.balanceOf(bob.address);
       const newTreasuryBalance = await USDT.balanceOf(
@@ -211,15 +218,18 @@ describe("UpDown", () => {
     it("should fail - too early", async function () {
       await Game.closeGame();
       await Treasury.connect(alice).withdraw(
-        await Treasury.deposits(alice.address)
+        await Treasury.deposits(await USDT.getAddress(), alice.address),
+        await USDT.getAddress()
       );
       await Treasury.connect(opponent).withdraw(
-        await Treasury.deposits(opponent.address)
+        await Treasury.deposits(await USDT.getAddress(), opponent.address),
+        await USDT.getAddress()
       );
       await Game.startGame(
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
+        await USDT.getAddress(),
         feedNumber
       );
       await expect(
@@ -259,6 +269,7 @@ describe("UpDown", () => {
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
+        await USDT.getAddress(),
         feedNumber
       );
       await Game.connect(alice).play(true, usdtAmount);
@@ -266,10 +277,12 @@ describe("UpDown", () => {
 
       await Game.closeGame();
       await Treasury.connect(opponent).withdraw(
-        await Treasury.deposits(opponent.address)
+        await Treasury.deposits(await USDT.getAddress(), opponent.address),
+        await USDT.getAddress()
       );
       await Treasury.connect(alice).withdraw(
-        await Treasury.deposits(alice.address)
+        await Treasury.deposits(await USDT.getAddress(), alice.address),
+        await USDT.getAddress()
       );
       const newOpponentBalance = await USDT.balanceOf(opponent.address);
       const newAliceBalance = await USDT.balanceOf(alice.address);
@@ -299,7 +312,13 @@ describe("UpDown", () => {
     it("should fail - too early to finish", async function () {
       const endTime = (await time.latest()) + fortyFiveMinutes;
       const stopPredictAt = (await time.latest()) + fifteenMinutes;
-      await Game.startGame(endTime, stopPredictAt, usdtAmount, feedNumber);
+      await Game.startGame(
+        endTime,
+        stopPredictAt,
+        usdtAmount,
+        await USDT.getAddress(),
+        feedNumber
+      );
       await Game.connect(alice).play(true, usdtAmount);
       await Game.connect(opponent).play(false, usdtAmount);
       await expect(
@@ -317,7 +336,13 @@ describe("UpDown", () => {
     it("should fail - old chainlink report", async function () {
       const endTime = (await time.latest()) + fortyFiveMinutes;
       const stopPredictAt = (await time.latest()) + fifteenMinutes;
-      await Game.startGame(endTime, stopPredictAt, usdtAmount, feedNumber);
+      await Game.startGame(
+        endTime,
+        stopPredictAt,
+        usdtAmount,
+        await USDT.getAddress(),
+        feedNumber
+      );
       await Game.connect(alice).play(true, usdtAmount);
       await Game.connect(opponent).play(false, usdtAmount);
       await time.increase(fifteenMinutes);
@@ -344,7 +369,13 @@ describe("UpDown", () => {
     it("should fail - startring price should be set", async function () {
       const endTime = (await time.latest()) + fortyFiveMinutes;
       const stopPredictAt = (await time.latest()) + fifteenMinutes;
-      await Game.startGame(endTime, stopPredictAt, usdtAmount, feedNumber);
+      await Game.startGame(
+        endTime,
+        stopPredictAt,
+        usdtAmount,
+        await USDT.getAddress(),
+        feedNumber
+      );
       await Game.connect(alice).play(true, usdtAmount);
       await Game.connect(opponent).play(false, usdtAmount);
       await time.increase(fortyFiveMinutes);
@@ -361,10 +392,19 @@ describe("UpDown", () => {
     });
 
     it("should end updown game (up wins)", async function () {
-      let oldDeposit = await Treasury.deposits(alice.address);
+      let oldDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
       const endTime = (await time.latest()) + fortyFiveMinutes;
       const stopPredictAt = (await time.latest()) + fifteenMinutes;
-      await Game.startGame(endTime, stopPredictAt, usdtAmount, feedNumber);
+      await Game.startGame(
+        endTime,
+        stopPredictAt,
+        usdtAmount,
+        await USDT.getAddress(),
+        feedNumber
+      );
       await Game.connect(alice).play(true, usdtAmount);
       await Game.connect(opponent).play(false, usdtAmount);
 
@@ -384,13 +424,17 @@ describe("UpDown", () => {
           await time.latest()
         )
       );
-      let newDeposit = await Treasury.deposits(alice.address);
+      let newDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
       let wonAmount =
         BigInt(2) * usdtAmount -
         (BigInt(2) * usdtAmount * (await Game.fee())) / DENOMENATOR;
       expect(newDeposit - oldDeposit).to.be.equal(wonAmount);
       await Treasury.connect(alice).withdraw(
-        await Treasury.deposits(alice.address)
+        await Treasury.deposits(await USDT.getAddress(), alice.address),
+        await USDT.getAddress()
       );
     });
     it("should refund if starting price and final price are equal", async function () {
@@ -399,6 +443,7 @@ describe("UpDown", () => {
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
+        await USDT.getAddress(),
         feedNumber
       );
       await Game.connect(alice).play(true, usdtAmount);
@@ -420,10 +465,12 @@ describe("UpDown", () => {
         )
       );
       await Treasury.connect(alice).withdraw(
-        await Treasury.deposits(alice.address)
+        await Treasury.deposits(await USDT.getAddress(), alice.address),
+        await USDT.getAddress()
       );
       await Treasury.connect(opponent).withdraw(
-        await Treasury.deposits(opponent.address)
+        await Treasury.deposits(await USDT.getAddress(), opponent.address),
+        await USDT.getAddress()
       );
       let newBalance = await USDT.balanceOf(alice.getAddress());
       expect(newBalance).to.be.equal(oldBalance);
@@ -435,6 +482,7 @@ describe("UpDown", () => {
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
+        await USDT.getAddress(),
         feedNumber
       );
       await USDT.connect(opponent).approve(
@@ -466,7 +514,8 @@ describe("UpDown", () => {
         )
       );
       await Treasury.connect(opponent).withdraw(
-        await Treasury.deposits(opponent.address)
+        await Treasury.deposits(await USDT.getAddress(), opponent.address),
+        await USDT.getAddress()
       );
       currntBalance = await USDT.balanceOf(opponent.getAddress());
       expect(oldBalance).to.be.equal(currntBalance);
@@ -478,6 +527,7 @@ describe("UpDown", () => {
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
+        await USDT.getAddress(),
         feedNumber
       );
       await USDT.connect(opponent).approve(
@@ -509,10 +559,12 @@ describe("UpDown", () => {
         )
       );
       await Treasury.connect(alice).withdraw(
-        await Treasury.deposits(alice.address)
+        await Treasury.deposits(await USDT.getAddress(), alice.address),
+        await USDT.getAddress()
       );
       await Treasury.connect(opponent).withdraw(
-        await Treasury.deposits(opponent.address)
+        await Treasury.deposits(await USDT.getAddress(), opponent.address),
+        await USDT.getAddress()
       );
       currntBalance = await USDT.balanceOf(opponent.getAddress());
       expect(oldBalance).to.be.equal(currntBalance);
@@ -525,6 +577,7 @@ describe("UpDown", () => {
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
+        await USDT.getAddress(),
         feedNumber
       );
       const deadline = (await time.latest()) + fortyFiveMinutes;

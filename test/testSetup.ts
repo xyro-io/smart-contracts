@@ -112,6 +112,7 @@ describe("Setup Game", () => {
         slPrice,
         tpPrice,
         feedNumber,
+        await USDT.getAddress(),
         abiEncodeInt192WithTimestamp(
           assetPrice.toString(),
           feedNumber,
@@ -145,6 +146,7 @@ describe("Setup Game", () => {
         tpPrice,
         slPrice,
         feedNumber,
+        await USDT.getAddress(),
         abiEncodeInt192WithTimestamp(
           assetPrice.toString(),
           feedNumber,
@@ -175,6 +177,7 @@ describe("Setup Game", () => {
           tpPrice,
           slPrice,
           feedNumber,
+          await USDT.getAddress(),
           abiEncodeInt192WithTimestamp(
             parse18("63000").toString(),
             feedNumber,
@@ -196,6 +199,7 @@ describe("Setup Game", () => {
           slPrice,
           tpPrice,
           feedNumber,
+          await USDT.getAddress(),
           abiEncodeInt192WithTimestamp(
             assetPrice.toString(),
             feedNumber,
@@ -214,6 +218,7 @@ describe("Setup Game", () => {
           tpPrice,
           slPrice,
           feedNumber,
+          await USDT.getAddress(),
           abiEncodeInt192WithTimestamp(
             parse18("50000").toString(),
             feedNumber,
@@ -231,6 +236,7 @@ describe("Setup Game", () => {
           tpPrice,
           slPrice,
           feedNumber,
+          await USDT.getAddress(),
           abiEncodeInt192WithTimestamp(
             parse18("66000").toString(),
             feedNumber,
@@ -248,6 +254,7 @@ describe("Setup Game", () => {
           slPrice,
           tpPrice,
           feedNumber,
+          await USDT.getAddress(),
           abiEncodeInt192WithTimestamp(
             parse18("50000").toString(),
             feedNumber,
@@ -265,6 +272,7 @@ describe("Setup Game", () => {
           slPrice,
           tpPrice,
           feedNumber,
+          await USDT.getAddress(),
           abiEncodeInt192WithTimestamp(
             parse18("63000").toString(),
             feedNumber,
@@ -282,6 +290,7 @@ describe("Setup Game", () => {
           tpPrice,
           slPrice,
           feedNumber,
+          await USDT.getAddress(),
           abiEncodeInt192WithTimestamp(
             assetPrice.toString(),
             feedNumber,
@@ -299,6 +308,7 @@ describe("Setup Game", () => {
           tpPrice,
           slPrice,
           feedNumber,
+          await USDT.getAddress(),
           abiEncodeInt192WithTimestamp(
             assetPrice.toString(),
             feedNumber,
@@ -350,7 +360,10 @@ describe("Setup Game", () => {
       const oldTreasuryBalance = await USDT.balanceOf(
         await Treasury.getAddress()
       );
-      await Treasury.connect(harry).deposit(usdtAmount);
+      await Treasury.connect(harry).deposit(
+        usdtAmount,
+        await USDT.getAddress()
+      );
       await Game.connect(harry).playWithDeposit(
         true,
         usdtAmount,
@@ -403,6 +416,7 @@ describe("Setup Game", () => {
         tpPrice,
         slPrice,
         feedNumber,
+        await USDT.getAddress(),
         abiEncodeInt192WithTimestamp(
           assetPrice.toString(),
           feedNumber,
@@ -425,6 +439,7 @@ describe("Setup Game", () => {
         tpPrice,
         slPrice,
         feedNumber,
+        await USDT.getAddress(),
         abiEncodeInt192WithTimestamp(
           assetPrice.toString(),
           feedNumber,
@@ -448,6 +463,7 @@ describe("Setup Game", () => {
         tpPrice,
         slPrice,
         feedNumber,
+        await USDT.getAddress(),
         abiEncodeInt192WithTimestamp(
           assetPrice.toString(),
           feedNumber,
@@ -474,6 +490,7 @@ describe("Setup Game", () => {
         tpPrice,
         slPrice,
         feedNumber,
+        await USDT.getAddress(),
         abiEncodeInt192WithTimestamp(
           assetPrice.toString(),
           feedNumber,
@@ -503,10 +520,12 @@ describe("Setup Game", () => {
       await Game.connect(owner).getRefund(currentGameId);
       await Game.connect(bob).getRefund(currentGameId);
       await Treasury.connect(owner).withdraw(
-        await Treasury.deposits(owner.address)
+        await Treasury.deposits(await USDT.getAddress(), owner.address),
+        await USDT.getAddress()
       );
       await Treasury.connect(bob).withdraw(
-        await Treasury.deposits(bob.address)
+        await Treasury.deposits(await USDT.getAddress(), bob.address),
+        await USDT.getAddress()
       );
       newOwnerBalance = await USDT.balanceOf(owner.address);
       newBobBalance = await USDT.balanceOf(bob.address);
@@ -532,6 +551,7 @@ describe("Setup Game", () => {
         tpPrice,
         slPrice,
         feedNumber,
+        await USDT.getAddress(),
         abiEncodeInt192WithTimestamp(
           assetPrice.toString(),
           feedNumber,
@@ -560,10 +580,12 @@ describe("Setup Game", () => {
       await Game.connect(owner).getRefund(currentGameId);
       await Game.connect(bob).getRefund(currentGameId);
       await Treasury.connect(owner).withdraw(
-        await Treasury.deposits(owner.address)
+        await Treasury.deposits(await USDT.getAddress(), owner.address),
+        await USDT.getAddress()
       );
       await Treasury.connect(bob).withdraw(
-        await Treasury.deposits(bob.address)
+        await Treasury.deposits(await USDT.getAddress(), bob.address),
+        await USDT.getAddress()
       );
       newOwnerBalance = await USDT.balanceOf(owner.address);
       newBobBalance = await USDT.balanceOf(bob.address);
@@ -603,6 +625,7 @@ describe("Setup Game", () => {
         tpPrice,
         slPrice,
         feedNumber,
+        await USDT.getAddress(),
         abiEncodeInt192WithTimestamp(
           assetPrice.toString(),
           feedNumber,
@@ -644,13 +667,16 @@ describe("Setup Game", () => {
         Game.connect(bob).retrieveRewards(currentGameId)
       ).to.be.revertedWith(youLost);
       await Treasury.connect(owner).withdraw(
-        await Treasury.deposits(owner.address)
+        await Treasury.deposits(await USDT.getAddress(), owner.address),
+        await USDT.getAddress()
       );
       await Treasury.connect(bob).withdraw(
-        await Treasury.deposits(bob.address)
+        await Treasury.deposits(await USDT.getAddress(), bob.address),
+        await USDT.getAddress()
       );
       await Treasury.connect(alice).withdraw(
-        await Treasury.deposits(alice.address)
+        await Treasury.deposits(await USDT.getAddress(), alice.address),
+        await USDT.getAddress()
       );
       const finalAliceBalance = await USDT.balanceOf(alice);
       const finalOwnerBalance = await USDT.balanceOf(owner);
@@ -680,6 +706,7 @@ describe("Setup Game", () => {
         tpPrice,
         slPrice,
         feedNumber,
+        await USDT.getAddress(),
         abiEncodeInt192WithTimestamp(
           assetPrice.toString(),
           feedNumber,
@@ -721,13 +748,16 @@ describe("Setup Game", () => {
       ).to.be.revertedWith(youLost);
       await Game.connect(bob).retrieveRewards(currentGameId);
       await Treasury.connect(owner).withdraw(
-        await Treasury.deposits(owner.address)
+        await Treasury.deposits(await USDT.getAddress(), owner.address),
+        await USDT.getAddress()
       );
       await Treasury.connect(bob).withdraw(
-        await Treasury.deposits(bob.address)
+        await Treasury.deposits(await USDT.getAddress(), bob.address),
+        await USDT.getAddress()
       );
       await Treasury.connect(alice).withdraw(
-        await Treasury.deposits(alice.address)
+        await Treasury.deposits(await USDT.getAddress(), alice.address),
+        await USDT.getAddress()
       );
       const finalAliceBalance = await USDT.balanceOf(alice);
       const finalOwnerBalance = await USDT.balanceOf(owner);
@@ -751,6 +781,7 @@ describe("Setup Game", () => {
         tpPrice,
         slPrice,
         feedNumber,
+        await USDT.getAddress(),
         abiEncodeInt192WithTimestamp(
           assetPrice.toString(),
           feedNumber,
@@ -791,6 +822,7 @@ describe("Setup Game", () => {
         slPrice,
         tpPrice,
         feedNumber,
+        await USDT.getAddress(),
         abiEncodeInt192WithTimestamp(
           assetPrice.toString(),
           feedNumber,
@@ -832,13 +864,16 @@ describe("Setup Game", () => {
       ).to.be.revertedWith(youLost);
       await Game.connect(bob).retrieveRewards(currentGameId);
       await Treasury.connect(owner).withdraw(
-        await Treasury.deposits(owner.address)
+        await Treasury.deposits(await USDT.getAddress(), owner.address),
+        await USDT.getAddress()
       );
       await Treasury.connect(bob).withdraw(
-        await Treasury.deposits(bob.address)
+        await Treasury.deposits(await USDT.getAddress(), bob.address),
+        await USDT.getAddress()
       );
       await Treasury.connect(alice).withdraw(
-        await Treasury.deposits(alice.address)
+        await Treasury.deposits(await USDT.getAddress(), alice.address),
+        await USDT.getAddress()
       );
       const finalAliceBalance = await USDT.balanceOf(alice);
       const finalOwnerBalance = await USDT.balanceOf(owner);
@@ -868,6 +903,7 @@ describe("Setup Game", () => {
         slPrice,
         tpPrice,
         feedNumber,
+        await USDT.getAddress(),
         abiEncodeInt192WithTimestamp(
           assetPrice.toString(),
           feedNumber,
@@ -909,13 +945,16 @@ describe("Setup Game", () => {
         Game.connect(bob).retrieveRewards(currentGameId)
       ).to.be.revertedWith(youLost);
       await Treasury.connect(owner).withdraw(
-        await Treasury.deposits(owner.address)
+        await Treasury.deposits(await USDT.getAddress(), owner.address),
+        await USDT.getAddress()
       );
       await Treasury.connect(bob).withdraw(
-        await Treasury.deposits(bob.address)
+        await Treasury.deposits(await USDT.getAddress(), bob.address),
+        await USDT.getAddress()
       );
       await Treasury.connect(alice).withdraw(
-        await Treasury.deposits(alice.address)
+        await Treasury.deposits(await USDT.getAddress(), alice.address),
+        await USDT.getAddress()
       );
       const finalAliceBalance = await USDT.balanceOf(alice);
       const finalOwnerBalance = await USDT.balanceOf(owner);
@@ -939,6 +978,7 @@ describe("Setup Game", () => {
         slPrice,
         tpPrice,
         feedNumber,
+        await USDT.getAddress(),
         abiEncodeInt192WithTimestamp(
           assetPrice.toString(),
           feedNumber,
@@ -970,6 +1010,7 @@ describe("Setup Game", () => {
         tpPrice,
         slPrice,
         feedNumber,
+        await USDT.getAddress(),
         abiEncodeInt192WithTimestamp(
           assetPrice.toString(),
           feedNumber,
@@ -1002,6 +1043,7 @@ describe("Setup Game", () => {
         tpPrice,
         slPrice,
         feedNumber,
+        await USDT.getAddress(),
         abiEncodeInt192WithTimestamp(
           assetPrice.toString(),
           feedNumber,
@@ -1035,6 +1077,7 @@ describe("Setup Game", () => {
         tpPrice,
         slPrice,
         feedNumber,
+        await USDT.getAddress(),
         abiEncodeInt192WithTimestamp(
           assetPrice.toString(),
           feedNumber,
@@ -1056,10 +1099,12 @@ describe("Setup Game", () => {
       await Game.connect(alice).getRefund(currentGameId);
       await Game.connect(owner).getRefund(currentGameId);
       await Treasury.connect(owner).withdraw(
-        await Treasury.deposits(owner.address)
+        await Treasury.deposits(await USDT.getAddress(), owner.address),
+        await USDT.getAddress()
       );
       await Treasury.connect(alice).withdraw(
-        await Treasury.deposits(alice.address)
+        await Treasury.deposits(await USDT.getAddress(), alice.address),
+        await USDT.getAddress()
       );
       expect(oldAliceBalance).to.be.equal(await USDT.balanceOf(alice));
       expect(oldOwnerBalance).to.be.equal(await USDT.balanceOf(owner));
@@ -1074,6 +1119,7 @@ describe("Setup Game", () => {
         tpPrice,
         slPrice,
         feedNumber,
+        await USDT.getAddress(),
         abiEncodeInt192WithTimestamp(
           assetPrice.toString(),
           feedNumber,
@@ -1095,10 +1141,12 @@ describe("Setup Game", () => {
       await Game.connect(alice).getRefund(currentGameId);
       await Game.connect(owner).getRefund(currentGameId);
       await Treasury.connect(owner).withdraw(
-        await Treasury.deposits(owner.address)
+        await Treasury.deposits(await USDT.getAddress(), owner.address),
+        await USDT.getAddress()
       );
       await Treasury.connect(alice).withdraw(
-        await Treasury.deposits(alice.address)
+        await Treasury.deposits(await USDT.getAddress(), alice.address),
+        await USDT.getAddress()
       );
       expect(oldAliceBalance).to.be.equal(await USDT.balanceOf(alice));
       expect(oldOwnerBalance).to.be.equal(await USDT.balanceOf(owner));
@@ -1115,6 +1163,7 @@ describe("Setup Game", () => {
         tpPrice,
         slPrice,
         feedNumber,
+        await USDT.getAddress(),
         abiEncodeInt192WithTimestamp(
           assetPrice.toString(),
           feedNumber,

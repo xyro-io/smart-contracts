@@ -84,7 +84,13 @@ describe("Bullseye", () => {
     it("should create bullseye game", async function () {
       const endTime = (await time.latest()) + fortyFiveMinutes;
       const stopPredictAt = (await time.latest()) + fifteenMinutes;
-      await Game.startGame(endTime, stopPredictAt, usdtAmount, feedNumber);
+      await Game.startGame(
+        endTime,
+        stopPredictAt,
+        usdtAmount,
+        feedNumber,
+        await USDT.getAddress()
+      );
       let game = await Game.decodeData();
       expect(game.endTime).to.be.equal(endTime);
       expect(game.stopPredictAt).to.be.equal(stopPredictAt);
@@ -97,7 +103,8 @@ describe("Bullseye", () => {
           (await time.latest()) + fortyFiveMinutes,
           (await time.latest()) + fifteenMinutes,
           usdtAmount,
-          feedNumber
+          feedNumber,
+          await USDT.getAddress()
         )
       ).to.be.revertedWith(requireFinishedGame);
     });
@@ -122,7 +129,10 @@ describe("Bullseye", () => {
     });
 
     it("should play with deposited amount", async function () {
-      await Treasury.connect(alice).deposit(usdtAmount);
+      await Treasury.connect(alice).deposit(
+        usdtAmount,
+        await USDT.getAddress()
+      );
       let tx = await Game.connect(alice).playWithDeposit(guessPriceAlice);
       let receipt = await tx.wait();
       let newPlayerLog = receipt?.logs[0]?.args;
@@ -162,7 +172,8 @@ describe("Bullseye", () => {
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
-        feedNumber
+        feedNumber,
+        await USDT.getAddress()
       );
       await Game.connect(alice).play(guessPriceAlice);
       let oldBalance = await USDT.balanceOf(alice.getAddress());
@@ -170,7 +181,8 @@ describe("Bullseye", () => {
       await expect(Game.closeGame()).to.emit(Game, "BullseyeCancelled");
       expect(await Game.getTotalPlayers()).to.be.equal(0);
       await Treasury.connect(alice).withdraw(
-        await Treasury.deposits(alice.address)
+        await Treasury.deposits(await USDT.getAddress(), alice.address),
+        await USDT.getAddress()
       );
       let newBalance = await USDT.balanceOf(alice.getAddress());
       expect(newBalance).to.be.above(oldBalance);
@@ -195,7 +207,8 @@ describe("Bullseye", () => {
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
-        feedNumber
+        feedNumber,
+        await USDT.getAddress()
       );
 
       await expect(
@@ -215,7 +228,8 @@ describe("Bullseye", () => {
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
-        feedNumber
+        feedNumber,
+        await USDT.getAddress()
       );
       await Game.connect(opponent).play(guessPriceAlice);
       await Game.connect(alice).play(guessPriceAlice);
@@ -231,10 +245,12 @@ describe("Bullseye", () => {
       ).to.be.revertedWith(requireValidChainlinkReport);
       await Game.closeGame();
       await Treasury.connect(opponent).withdraw(
-        await Treasury.deposits(opponent.address)
+        await Treasury.deposits(await USDT.getAddress(), opponent.address),
+        await USDT.getAddress()
       );
       await Treasury.connect(alice).withdraw(
-        await Treasury.deposits(alice.address)
+        await Treasury.deposits(await USDT.getAddress(), alice.address),
+        await USDT.getAddress()
       );
     });
 
@@ -243,7 +259,8 @@ describe("Bullseye", () => {
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
-        feedNumber
+        feedNumber,
+        await USDT.getAddress()
       );
       let oldBalance = await USDT.balanceOf(alice.getAddress());
       await Game.connect(alice).play(guessPriceAlice);
@@ -258,7 +275,8 @@ describe("Bullseye", () => {
         )
       ).to.emit(Game, "BullseyeCancelled");
       await Treasury.connect(alice).withdraw(
-        await Treasury.deposits(alice.address)
+        await Treasury.deposits(await USDT.getAddress(), alice.address),
+        await USDT.getAddress()
       );
       let newBalance = await USDT.balanceOf(alice.getAddress());
       expect(newBalance).to.be.equal(oldBalance);
@@ -269,14 +287,23 @@ describe("Bullseye", () => {
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
-        feedNumber
+        feedNumber,
+        await USDT.getAddress()
       );
       await Game.connect(opponent).play(guessPriceOpponent);
       await Game.connect(alice).play(guessPriceAlice);
-      let oldAliceBalance = await Treasury.deposits(alice.address);
-      let oldOpponentBalance = await Treasury.deposits(opponent.address);
+      let oldAliceBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      let oldOpponentBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        opponent.address
+      );
       await time.increase(fortyFiveMinutes);
-      const oldTreasuryFeeBalance = await Treasury.collectedFee();
+      const oldTreasuryFeeBalance = await Treasury.collectedFee(
+        await USDT.getAddress()
+      );
       await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
           finalPriceCloser.toString(),
@@ -285,8 +312,14 @@ describe("Bullseye", () => {
         )
       );
 
-      let newAliceBalance = await Treasury.deposits(alice.address);
-      let newOpponentBalance = await Treasury.deposits(opponent.address);
+      let newAliceBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      let newOpponentBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        opponent.address
+      );
       const wonAmountAlice =
         (usdtAmount * BigInt(2) * (await Game.rates(0, 1))) / BigInt(10000);
       const withdrawnFeesAlice =
@@ -297,7 +330,8 @@ describe("Bullseye", () => {
       const withdrawnFeesOpponent =
         (wonAmountOpponent * (await Game.fee())) / BigInt(10000);
       expect(
-        (await Treasury.collectedFee()) - oldTreasuryFeeBalance
+        (await Treasury.collectedFee(await USDT.getAddress())) -
+          oldTreasuryFeeBalance
       ).to.be.equal(withdrawnFeesAlice + withdrawnFeesOpponent);
       expect(newAliceBalance - oldAliceBalance).to.be.equal(
         wonAmountAlice - withdrawnFeesAlice
@@ -312,14 +346,23 @@ describe("Bullseye", () => {
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
-        feedNumber
+        feedNumber,
+        await USDT.getAddress()
       );
-      let oldAliceBalance = await Treasury.deposits(alice.address);
-      let oldOpponentBalance = await Treasury.deposits(opponent.address);
+      let oldAliceBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      let oldOpponentBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        opponent.address
+      );
       await Game.connect(opponent).play(guessPriceAlice);
       await Game.connect(alice).play(guessPriceAlice);
       await time.increase(fortyFiveMinutes);
-      const oldTreasuryFeeBalance = await Treasury.collectedFee();
+      const oldTreasuryFeeBalance = await Treasury.collectedFee(
+        await USDT.getAddress()
+      );
       await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
           finalPriceExact.toString(),
@@ -328,14 +371,21 @@ describe("Bullseye", () => {
         )
       );
 
-      let newAliceBalance = await Treasury.deposits(alice.address);
-      let newOpponentBalance = await Treasury.deposits(opponent.address);
+      let newAliceBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      let newOpponentBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        opponent.address
+      );
       const wonAmountAlice = usdtAmount * BigInt(2);
       const withdrawnFeesAlice =
         (wonAmountAlice * (await Game.fee())) / BigInt(10000);
 
       expect(
-        (await Treasury.collectedFee()) - oldTreasuryFeeBalance
+        (await Treasury.collectedFee(await USDT.getAddress())) -
+          oldTreasuryFeeBalance
       ).to.be.equal(withdrawnFeesAlice);
       expect(newAliceBalance - oldAliceBalance).to.be.equal(
         wonAmountAlice - withdrawnFeesAlice
@@ -348,14 +398,23 @@ describe("Bullseye", () => {
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
-        feedNumber
+        feedNumber,
+        await USDT.getAddress()
       );
-      let oldAliceBalance = await Treasury.deposits(alice.address);
-      let oldOpponentBalance = await Treasury.deposits(opponent.address);
+      let oldAliceBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      let oldOpponentBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        opponent.address
+      );
       await Game.connect(alice).play(guessPriceAlice);
       await Game.connect(opponent).play(guessPriceOpponent);
       await time.increase(fortyFiveMinutes);
-      const oldTreasuryFeeBalance = await Treasury.collectedFee();
+      const oldTreasuryFeeBalance = await Treasury.collectedFee(
+        await USDT.getAddress()
+      );
       await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
           finalPriceExact.toString(),
@@ -364,14 +423,21 @@ describe("Bullseye", () => {
         )
       );
 
-      let newAliceBalance = await Treasury.deposits(alice.address);
-      let newOpponentBalance = await Treasury.deposits(opponent.address);
+      let newAliceBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      let newOpponentBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        opponent.address
+      );
       const wonAmountAlice = usdtAmount * BigInt(2);
       const withdrawnFeesAlice =
         (wonAmountAlice * (await Game.fee())) / BigInt(10000);
 
       expect(
-        (await Treasury.collectedFee()) - oldTreasuryFeeBalance
+        (await Treasury.collectedFee(await USDT.getAddress())) -
+          oldTreasuryFeeBalance
       ).to.be.equal(withdrawnFeesAlice);
       expect(newAliceBalance - oldAliceBalance).to.be.equal(
         wonAmountAlice - withdrawnFeesAlice
@@ -384,15 +450,21 @@ describe("Bullseye", () => {
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
-        feedNumber
+        feedNumber,
+        await USDT.getAddress()
       );
       await Game.connect(bob).play(guessBobPrice);
       await Game.connect(opponent).play(guessPriceOpponent);
       //alice should win exact
       await Game.connect(alice).play(guessPriceAlice);
-      let oldAliceDeposit = await Treasury.deposits(alice.address);
+      let oldAliceDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
       await time.increase(fortyFiveMinutes);
-      const oldTreasuryFeeBalance = await Treasury.collectedFee();
+      const oldTreasuryFeeBalance = await Treasury.collectedFee(
+        await USDT.getAddress()
+      );
       let tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
           finalPriceExact.toString(),
@@ -411,12 +483,16 @@ describe("Bullseye", () => {
       expect(finalizeEventLog[2]).to.be.equal(finalPriceExact / BigInt(1e14));
       expect(finalizeEventLog[3]).to.be.equal(true);
       let wonAmountAlice = usdtAmount * BigInt(3);
-      let newAliceDeposit = await Treasury.deposits(alice.address);
+      let newAliceDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
       const withdrawnFeesAlice =
         (wonAmountAlice * (await Game.fee())) / BigInt(10000);
 
       expect(
-        (await Treasury.collectedFee()) - oldTreasuryFeeBalance
+        (await Treasury.collectedFee(await USDT.getAddress())) -
+          oldTreasuryFeeBalance
       ).to.be.equal(withdrawnFeesAlice);
       expect(newAliceDeposit - oldAliceDeposit).to.be.equal(
         wonAmountAlice - withdrawnFeesAlice
@@ -428,16 +504,28 @@ describe("Bullseye", () => {
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
-        feedNumber
+        feedNumber,
+        await USDT.getAddress()
       );
       await Game.connect(bob).play(guessBobPrice);
       await Game.connect(opponent).play(guessBobPrice);
       await Game.connect(alice).play(guessBobPrice);
-      let oldBobDeposit = await Treasury.deposits(bob.address);
-      let oldOpponentDeposit = await Treasury.deposits(opponent.address);
-      let oldAliceDeposit = await Treasury.deposits(alice.address);
+      let oldBobDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        bob.address
+      );
+      let oldOpponentDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        opponent.address
+      );
+      let oldAliceDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
       await time.increase(fortyFiveMinutes);
-      const oldTreasuryFeeBalance = await Treasury.collectedFee();
+      const oldTreasuryFeeBalance = await Treasury.collectedFee(
+        await USDT.getAddress()
+      );
       let tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
           finalPriceExact.toString(),
@@ -461,9 +549,18 @@ describe("Bullseye", () => {
       let wonAmountOpponent =
         (usdtAmount * BigInt(3) * (await Game.rates(0, 1))) / BigInt(10000);
 
-      let newBobDeposit = await Treasury.deposits(bob.address);
-      let newOpponentDeposit = await Treasury.deposits(opponent.address);
-      let newAliceDeposit = await Treasury.deposits(alice.address);
+      let newBobDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        bob.address
+      );
+      let newOpponentDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        opponent.address
+      );
+      let newAliceDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
 
       const withdrawnFeesBob =
         (wonAmountBob * (await Game.fee())) / BigInt(10000);
@@ -471,7 +568,8 @@ describe("Bullseye", () => {
         (wonAmountOpponent * (await Game.fee())) / BigInt(10000);
 
       expect(
-        (await Treasury.collectedFee()) - oldTreasuryFeeBalance
+        (await Treasury.collectedFee(await USDT.getAddress())) -
+          oldTreasuryFeeBalance
       ).to.be.equal(withdrawnFeesBob + withdrawnFeesOpponent);
       expect(newBobDeposit - oldBobDeposit).to.be.equal(
         wonAmountBob - withdrawnFeesBob
@@ -487,7 +585,8 @@ describe("Bullseye", () => {
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
-        feedNumber
+        feedNumber,
+        await USDT.getAddress()
       );
       await Game.connect(bob).play(guessBobPrice);
       await Game.connect(opponent).play(guessPriceOpponent);
@@ -495,14 +594,34 @@ describe("Bullseye", () => {
       await Game.connect(john).play(guessJohnPrice);
       await Game.connect(max).play(guessMaxPrice);
       await Game.connect(alice).play(guessPriceAlice);
-      let oldBobDeposit = await Treasury.deposits(bob.address);
-      let oldOpponentDeposit = await Treasury.deposits(opponent.address);
-      let oldAliceDeposit = await Treasury.deposits(alice.address);
-      let oldOwnerDeposit = await Treasury.deposits(owner.address);
-      let oldJohnDeposit = await Treasury.deposits(john.address);
-      let oldMaxDeposit = await Treasury.deposits(max.address);
+      let oldBobDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        bob.address
+      );
+      let oldOpponentDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        opponent.address
+      );
+      let oldAliceDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      let oldOwnerDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        owner.address
+      );
+      let oldJohnDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        john.address
+      );
+      let oldMaxDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        max.address
+      );
       await time.increase(fortyFiveMinutes);
-      const oldTreasuryFeeBalance = await Treasury.collectedFee();
+      const oldTreasuryFeeBalance = await Treasury.collectedFee(
+        await USDT.getAddress()
+      );
       let tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
           finalPriceExact.toString(),
@@ -526,12 +645,30 @@ describe("Bullseye", () => {
       let wonAmountOwner =
         (usdtAmount * BigInt(6) * (await Game.rates(3, 1))) / BigInt(10000);
 
-      let newBobDeposit = await Treasury.deposits(bob.address);
-      let newOpponentDeposit = await Treasury.deposits(opponent.address);
-      let newAliceDeposit = await Treasury.deposits(alice.address);
-      let newOwnerDeposit = await Treasury.deposits(owner.address);
-      let newJohnDeposit = await Treasury.deposits(john.address);
-      let newMaxDeposit = await Treasury.deposits(max.address);
+      let newBobDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        bob.address
+      );
+      let newOpponentDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        opponent.address
+      );
+      let newAliceDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      let newOwnerDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        owner.address
+      );
+      let newJohnDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        john.address
+      );
+      let newMaxDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        max.address
+      );
 
       const withdrawnFeesAlice =
         (wonAmountAlice * (await Game.fee())) / BigInt(10000);
@@ -539,7 +676,8 @@ describe("Bullseye", () => {
         (wonAmountOwner * (await Game.fee())) / BigInt(10000);
 
       expect(
-        (await Treasury.collectedFee()) - oldTreasuryFeeBalance
+        (await Treasury.collectedFee(await USDT.getAddress())) -
+          oldTreasuryFeeBalance
       ).to.be.equal(withdrawnFeesAlice + withdrawnFeesOwner);
       expect(newAliceDeposit - oldAliceDeposit).to.be.equal(
         wonAmountAlice - withdrawnFeesAlice
@@ -558,7 +696,8 @@ describe("Bullseye", () => {
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
-        feedNumber
+        feedNumber,
+        await USDT.getAddress()
       );
       await Game.connect(bob).play(guessBobPrice);
       await Game.connect(opponent).play(guessPriceOpponent);
@@ -566,14 +705,34 @@ describe("Bullseye", () => {
       await Game.connect(john).play(guessJohnPrice);
       await Game.connect(max).play(guessMaxPrice);
       await Game.connect(alice).play(guessMaxPrice);
-      let oldBobDeposit = await Treasury.deposits(bob.address);
-      let oldOpponentDeposit = await Treasury.deposits(opponent.address);
-      let oldAliceDeposit = await Treasury.deposits(alice.address);
-      let oldOwnerDeposit = await Treasury.deposits(owner.address);
-      let oldJohnDeposit = await Treasury.deposits(john.address);
-      let oldMaxDeposit = await Treasury.deposits(max.address);
+      let oldBobDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        bob.address
+      );
+      let oldOpponentDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        opponent.address
+      );
+      let oldAliceDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      let oldOwnerDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        owner.address
+      );
+      let oldJohnDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        john.address
+      );
+      let oldMaxDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        max.address
+      );
       await time.increase(fortyFiveMinutes);
-      const oldTreasuryFeeBalance = await Treasury.collectedFee();
+      const oldTreasuryFeeBalance = await Treasury.collectedFee(
+        await USDT.getAddress()
+      );
       let tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
           finalPriceExact.toString(),
@@ -597,12 +756,30 @@ describe("Bullseye", () => {
       let wonAmountOwner =
         (usdtAmount * BigInt(6) * (await Game.rates(2, 0))) / BigInt(10000);
 
-      let newBobDeposit = await Treasury.deposits(bob.address);
-      let newOpponentDeposit = await Treasury.deposits(opponent.address);
-      let newAliceDeposit = await Treasury.deposits(alice.address);
-      let newOwnerDeposit = await Treasury.deposits(owner.address);
-      let newJohnDeposit = await Treasury.deposits(john.address);
-      let newMaxDeposit = await Treasury.deposits(max.address);
+      let newBobDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        bob.address
+      );
+      let newOpponentDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        opponent.address
+      );
+      let newAliceDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      let newOwnerDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        owner.address
+      );
+      let newJohnDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        john.address
+      );
+      let newMaxDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        max.address
+      );
 
       const withdrawnFeesBob =
         (wonAmountBob * (await Game.fee())) / BigInt(10000);
@@ -610,7 +787,8 @@ describe("Bullseye", () => {
         (wonAmountOwner * (await Game.fee())) / BigInt(10000);
 
       expect(
-        (await Treasury.collectedFee()) - oldTreasuryFeeBalance
+        (await Treasury.collectedFee(await USDT.getAddress())) -
+          oldTreasuryFeeBalance
       ).to.be.equal(withdrawnFeesOwner + withdrawnFeesBob);
       expect(newBobDeposit - oldBobDeposit).to.be.equal(
         wonAmountBob - withdrawnFeesBob
@@ -629,7 +807,8 @@ describe("Bullseye", () => {
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
-        feedNumber
+        feedNumber,
+        await USDT.getAddress()
       );
       const signers = await ethers.getSigners();
       await Game.connect(bob).play(guessBobPrice);
@@ -646,14 +825,34 @@ describe("Bullseye", () => {
         );
         await Game.connect(signers[i]).play(guessMaxPrice + i);
       }
-      let oldBobDeposit = await Treasury.deposits(bob.address);
-      let oldOpponentDeposit = await Treasury.deposits(opponent.address);
-      let oldAliceDeposit = await Treasury.deposits(alice.address);
-      let oldOwnerDeposit = await Treasury.deposits(owner.address);
-      let oldJohnDeposit = await Treasury.deposits(john.address);
-      let oldMaxDeposit = await Treasury.deposits(max.address);
+      let oldBobDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        bob.address
+      );
+      let oldOpponentDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        opponent.address
+      );
+      let oldAliceDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      let oldOwnerDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        owner.address
+      );
+      let oldJohnDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        john.address
+      );
+      let oldMaxDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        max.address
+      );
       await time.increase(fortyFiveMinutes);
-      const oldTreasuryFeeBalance = await Treasury.collectedFee();
+      const oldTreasuryFeeBalance = await Treasury.collectedFee(
+        await USDT.getAddress()
+      );
       let tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
           finalPriceExact.toString(),
@@ -679,12 +878,30 @@ describe("Bullseye", () => {
       let wonAmountOpponent =
         (usdtAmount * BigInt(12) * (await Game.rates(4, 2))) / BigInt(10000);
 
-      let newBobDeposit = await Treasury.deposits(bob.address);
-      let newOpponentDeposit = await Treasury.deposits(opponent.address);
-      let newAliceDeposit = await Treasury.deposits(alice.address);
-      let newOwnerDeposit = await Treasury.deposits(owner.address);
-      let newJohnDeposit = await Treasury.deposits(john.address);
-      let newMaxDeposit = await Treasury.deposits(max.address);
+      let newBobDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        bob.address
+      );
+      let newOpponentDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        opponent.address
+      );
+      let newAliceDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      let newOwnerDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        owner.address
+      );
+      let newJohnDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        john.address
+      );
+      let newMaxDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        max.address
+      );
 
       const withdrawnFeesBob =
         (wonAmountBob * (await Game.fee())) / BigInt(10000);
@@ -694,7 +911,8 @@ describe("Bullseye", () => {
         (wonAmountOpponent * (await Game.fee())) / BigInt(10000);
 
       expect(
-        (await Treasury.collectedFee()) - oldTreasuryFeeBalance
+        (await Treasury.collectedFee(await USDT.getAddress())) -
+          oldTreasuryFeeBalance
       ).to.be.equal(
         withdrawnFeesOpponent + withdrawnFeesOwner + withdrawnFeesBob
       );
@@ -717,7 +935,8 @@ describe("Bullseye", () => {
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
-        feedNumber
+        feedNumber,
+        await USDT.getAddress()
       );
       const signers = await ethers.getSigners();
       await Game.connect(bob).play(guessBobPrice);
@@ -734,14 +953,34 @@ describe("Bullseye", () => {
         );
         await Game.connect(signers[i]).play(guessMaxPrice + i);
       }
-      let oldBobDeposit = await Treasury.deposits(bob.address);
-      let oldOpponentDeposit = await Treasury.deposits(opponent.address);
-      let oldAliceDeposit = await Treasury.deposits(alice.address);
-      let oldOwnerDeposit = await Treasury.deposits(owner.address);
-      let oldJohnDeposit = await Treasury.deposits(john.address);
-      let oldMaxDeposit = await Treasury.deposits(max.address);
+      let oldBobDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        bob.address
+      );
+      let oldOpponentDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        opponent.address
+      );
+      let oldAliceDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      let oldOwnerDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        owner.address
+      );
+      let oldJohnDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        john.address
+      );
+      let oldMaxDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        max.address
+      );
       await time.increase(fortyFiveMinutes);
-      const oldTreasuryFeeBalance = await Treasury.collectedFee();
+      const oldTreasuryFeeBalance = await Treasury.collectedFee(
+        await USDT.getAddress()
+      );
       let tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
           finalPriceExact.toString(),
@@ -767,12 +1006,30 @@ describe("Bullseye", () => {
       let wonAmountAlice =
         (usdtAmount * BigInt(12) * (await Game.rates(5, 0))) / BigInt(10000);
 
-      let newBobDeposit = await Treasury.deposits(bob.address);
-      let newOpponentDeposit = await Treasury.deposits(opponent.address);
-      let newAliceDeposit = await Treasury.deposits(alice.address);
-      let newOwnerDeposit = await Treasury.deposits(owner.address);
-      let newJohnDeposit = await Treasury.deposits(john.address);
-      let newMaxDeposit = await Treasury.deposits(max.address);
+      let newBobDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        bob.address
+      );
+      let newOpponentDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        opponent.address
+      );
+      let newAliceDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      let newOwnerDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        owner.address
+      );
+      let newJohnDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        john.address
+      );
+      let newMaxDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        max.address
+      );
 
       const withdrawnFeesBob =
         (wonAmountBob * (await Game.fee())) / BigInt(10000);
@@ -782,7 +1039,8 @@ describe("Bullseye", () => {
         (wonAmountAlice * (await Game.fee())) / BigInt(10000);
 
       expect(
-        (await Treasury.collectedFee()) - oldTreasuryFeeBalance
+        (await Treasury.collectedFee(await USDT.getAddress())) -
+          oldTreasuryFeeBalance
       ).to.be.equal(withdrawnFeesAlice + withdrawnFeesOwner + withdrawnFeesBob);
       expect(newBobDeposit - oldBobDeposit).to.be.equal(
         wonAmountBob - withdrawnFeesBob
@@ -806,7 +1064,8 @@ describe("Bullseye", () => {
         (await time.latest()) + fortyFiveMinutes,
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
-        feedNumber
+        feedNumber,
+        await USDT.getAddress()
       );
 
       const deadline = (await time.latest()) + fortyFiveMinutes;
@@ -825,7 +1084,8 @@ describe("Bullseye", () => {
         s: result.s,
       });
       await Treasury.connect(alice).withdraw(
-        await Treasury.deposits(alice.address)
+        await Treasury.deposits(await USDT.getAddress(), alice.address),
+        await USDT.getAddress()
       );
       let newBalance = await USDT.balanceOf(alice.getAddress());
       expect(oldBalance).to.be.above(newBalance);

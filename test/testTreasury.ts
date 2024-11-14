@@ -58,12 +58,15 @@ describe("Treasury", () => {
     const newToken = await new MockToken__factory(owner).deploy(
       parse18((1e13).toString())
     );
-    await Treasury.setToken(await newToken.getAddress());
-    expect(await Treasury.approvedToken()).to.be.equal(
-      await newToken.getAddress()
+    await Treasury.setToken(await newToken.getAddress(), true);
+    expect(
+      await Treasury.approvedTokens(await newToken.getAddress())
+    ).to.be.equal(true);
+    await Treasury.setToken(await USDT.getAddress(), false);
+    expect(await Treasury.approvedTokens(await USDT.getAddress())).to.be.equal(
+      false
     );
-    await Treasury.setToken(await USDT.getAddress());
-    expect(await Treasury.approvedToken()).to.be.equal(await USDT.getAddress());
+    await Treasury.setToken(await USDT.getAddress(), true);
   });
 
   it("Should fail - set token", async function () {
@@ -71,7 +74,7 @@ describe("Treasury", () => {
       parse18((1e13).toString())
     );
     await expect(
-      Treasury.connect(alice).setToken(await newToken.getAddress())
+      Treasury.connect(alice).setToken(await newToken.getAddress(), true)
     ).to.be.revertedWithCustomError(
       Treasury,
       "AccessControlUnauthorizedAccount"
@@ -95,18 +98,30 @@ describe("Treasury", () => {
   });
 
   it("Should deposit", async function () {
-    expect(await Treasury.deposits(alice.address)).to.be.equal(0);
-    await Treasury.connect(alice).deposit(depositAmount);
-    expect(await Treasury.deposits(alice.address)).to.be.equal(depositAmount);
+    expect(
+      await Treasury.deposits(await USDT.getAddress(), alice.address)
+    ).to.be.equal(0);
+    await Treasury.connect(alice).deposit(
+      depositAmount,
+      await USDT.getAddress()
+    );
+    expect(
+      await Treasury.deposits(await USDT.getAddress(), alice.address)
+    ).to.be.equal(depositAmount);
   });
 
   it("Should deposit and lock", async function () {
-    expect(await Treasury.locked(alice.address)).to.be.equal(0);
+    expect(
+      await Treasury.locked(await USDT.getAddress(), alice.address)
+    ).to.be.equal(0);
     await Treasury.connect(mockContract).depositAndLock(
       depositAmount,
-      alice.address
+      alice.address,
+      await USDT.getAddress()
     );
-    expect(await Treasury.locked(alice.address)).to.be.equal(depositAmount);
+    expect(
+      await Treasury.locked(await USDT.getAddress(), alice.address)
+    ).to.be.equal(depositAmount);
   });
 
   it("Should deposit with permit", async function () {});
@@ -115,43 +130,78 @@ describe("Treasury", () => {
 
   it("Should withdraw", async function () {
     const oldBalance = await USDT.balanceOf(alice.address);
-    await Treasury.connect(alice).withdraw(depositAmount);
+    await Treasury.connect(alice).withdraw(
+      depositAmount,
+      await USDT.getAddress()
+    );
     const newBalance = await USDT.balanceOf(alice.address);
     expect(newBalance - oldBalance).to.be.equal(depositAmount);
   });
 
   it("Should lock", async function () {
-    const oldLockedBalance = await Treasury.locked(alice.address);
-    await Treasury.connect(alice).deposit(depositAmount);
-    await Treasury.connect(mockContract).lock(depositAmount, alice.address);
-    const newLockedBalance = await Treasury.locked(alice.address);
+    const oldLockedBalance = await Treasury.locked(
+      await USDT.getAddress(),
+      alice.address
+    );
+    await Treasury.connect(alice).deposit(
+      depositAmount,
+      await USDT.getAddress()
+    );
+    await Treasury.connect(mockContract).lock(
+      depositAmount,
+      alice.address,
+      await USDT.getAddress()
+    );
+    const newLockedBalance = await Treasury.locked(
+      await USDT.getAddress(),
+      alice.address
+    );
     expect(newLockedBalance - oldLockedBalance).to.be.equal(depositAmount);
   });
 
   it("Should fail - not enough deposited tokens", async function () {
     await expect(
-      Treasury.connect(mockContract).lock(depositAmount, alice.address)
+      Treasury.connect(mockContract).lock(
+        depositAmount,
+        alice.address,
+        await USDT.getAddress()
+      )
     ).to.be.revertedWith(insufficentDepositAmount);
   });
 
   it("Should refund", async function () {
-    const oldDepositBalance = await Treasury.deposits(alice.address);
-    await Treasury.connect(mockContract).refund(depositAmount, alice.address);
-    const newDepositBalance = await Treasury.deposits(alice.address);
+    const oldDepositBalance = await Treasury.deposits(
+      await USDT.getAddress(),
+      alice.address
+    );
+    await Treasury.connect(mockContract).refund(
+      depositAmount,
+      alice.address,
+      await USDT.getAddress()
+    );
+    const newDepositBalance = await Treasury.deposits(
+      await USDT.getAddress(),
+      alice.address
+    );
     expect(newDepositBalance).to.be.above(oldDepositBalance);
   });
 
   it("Should distribute", async function () {
-    const oldDepositBalance = await Treasury.deposits(alice.address);
-    const oldFeeBalance = await Treasury.collectedFee();
+    const oldDepositBalance = await Treasury.deposits(
+      await USDT.getAddress(),
+      alice.address
+    );
+    const oldFeeBalance = await Treasury.collectedFee(await USDT.getAddress());
     await Treasury.connect(mockContract).depositAndLock(
       depositAmount,
-      owner.address
+      owner.address,
+      await USDT.getAddress()
     );
 
     await Treasury.connect(mockContract).depositAndLock(
       depositAmount,
-      alice.address
+      alice.address,
+      await USDT.getAddress()
     );
 
     const gameFee = 100;
@@ -159,24 +209,33 @@ describe("Treasury", () => {
     await Treasury.connect(mockContract).distribute(
       depositAmount * BigInt(2), //won amount
       alice.address,
+      await USDT.getAddress(),
       gameFee
     );
-    const newDepositBalance = await Treasury.deposits(alice.address);
-    const newFeeBalance = await Treasury.collectedFee();
+    const newDepositBalance = await Treasury.deposits(
+      await USDT.getAddress(),
+      alice.address
+    );
+    const newFeeBalance = await Treasury.collectedFee(await USDT.getAddress());
     expect(newDepositBalance).to.be.above(oldDepositBalance);
     expect(newFeeBalance).to.be.above(oldFeeBalance);
   });
 
   it("Should distribute without fee", async function () {
-    const oldDepositBalance = await Treasury.deposits(alice.address);
+    const oldDepositBalance = await Treasury.deposits(
+      await USDT.getAddress(),
+      alice.address
+    );
     await Treasury.connect(mockContract).depositAndLock(
       depositAmount,
-      owner.address
+      owner.address,
+      await USDT.getAddress()
     );
 
     await Treasury.connect(mockContract).depositAndLock(
       depositAmount,
-      alice.address
+      alice.address,
+      await USDT.getAddress()
     );
 
     const rate = 10000;
@@ -185,17 +244,25 @@ describe("Treasury", () => {
     await Treasury.connect(mockContract).distributeWithoutFee(
       rate, //won amount
       alice.address,
+      await USDT.getAddress(),
       usedFee,
       depositAmount
     );
-    const newDepositBalance = await Treasury.deposits(alice.address);
+    const newDepositBalance = await Treasury.deposits(
+      await USDT.getAddress(),
+      alice.address
+    );
     expect(newDepositBalance).to.be.above(oldDepositBalance);
   });
 
   it("Should withdraw collected fees", async function () {
-    const collectedFees = await Treasury.collectedFee();
+    const collectedFees = await Treasury.collectedFee(await USDT.getAddress());
     const oldOwnerBalance = await USDT.balanceOf(owner.address);
-    await Treasury.withdrawFees(owner.address, collectedFees);
+    await Treasury.withdrawFees(
+      owner.address,
+      collectedFees,
+      await USDT.getAddress()
+    );
     const newOwnerBalance = await USDT.balanceOf(owner.address);
     expect(newOwnerBalance - oldOwnerBalance).to.be.equal(collectedFees);
   });
@@ -203,23 +270,30 @@ describe("Treasury", () => {
   it("Should calculate Setup rate", async function () {
     const setupFee = 1000;
     const initiatorFee = await Treasury.setupInitiatorFee();
-    const oldAliceDepositBalance = await Treasury.deposits(alice.address);
+    const oldAliceDepositBalance = await Treasury.deposits(
+      await USDT.getAddress(),
+      alice.address
+    );
     const collectedFee =
       (depositAmount * BigInt(setupFee)) / BigInt(DENOMINATOR);
-    const oldFeeAmount = await Treasury.collectedFee();
+    const oldFeeAmount = await Treasury.collectedFee(await USDT.getAddress());
     await Treasury.connect(mockContract).calculateSetupRate(
       depositAmount,
       depositAmount,
+      await USDT.getAddress(),
       setupFee,
       alice.address
     );
-    const newAliceDepositBalance = await Treasury.deposits(alice.address);
+    const newAliceDepositBalance = await Treasury.deposits(
+      await USDT.getAddress(),
+      alice.address
+    );
     const initiatorFeeEarned =
       (depositAmount * BigInt(2) * BigInt(initiatorFee)) / BigInt(DENOMINATOR);
     expect(newAliceDepositBalance - oldAliceDepositBalance).to.be.equal(
       initiatorFeeEarned
     );
-    const newFeeAmount = await Treasury.collectedFee();
+    const newFeeAmount = await Treasury.collectedFee(await USDT.getAddress());
     expect(newFeeAmount - oldFeeAmount).to.be.equal(collectedFee);
   });
 
@@ -227,13 +301,14 @@ describe("Treasury", () => {
     const updownFee = 1500;
     const collectedFee =
       (depositAmount * BigInt(2) * BigInt(updownFee)) / BigInt(DENOMINATOR);
-    const oldFeeAmount = await Treasury.collectedFee();
+    const oldFeeAmount = await Treasury.collectedFee(await USDT.getAddress());
     await Treasury.connect(mockContract).calculateUpDownRate(
       depositAmount,
       depositAmount,
+      await USDT.getAddress(),
       updownFee
     );
-    const newFeeAmount = await Treasury.collectedFee();
+    const newFeeAmount = await Treasury.collectedFee(await USDT.getAddress());
     expect(newFeeAmount - oldFeeAmount).to.be.equal(collectedFee);
   });
 
@@ -245,31 +320,45 @@ describe("Treasury", () => {
 
   it("Should change deposit amount", async function () {
     const newDepositAmount = 1000;
-    await Treasury.changeMinDepositAmount(newDepositAmount);
-    expect(await Treasury.minDepositAmount()).to.be.equal(newDepositAmount);
+    await Treasury.changeMinDepositAmount(
+      newDepositAmount,
+      await USDT.getAddress()
+    );
+    expect(
+      await Treasury.minDepositAmount(await USDT.getAddress())
+    ).to.be.equal(newDepositAmount);
   });
 
   it("Should fail - zero address", async function () {
-    await expect(Treasury.setToken(ethers.ZeroAddress)).to.be.revertedWith(
-      zeroAddress
-    );
+    await expect(
+      Treasury.setToken(ethers.ZeroAddress, true)
+    ).to.be.revertedWith(zeroAddress);
   });
 
   it("Should fail - wrong deposit amount", async function () {
-    await expect(Treasury.deposit(100)).to.be.revertedWith(wrongDepositAmount);
+    await expect(
+      Treasury.deposit(100, await USDT.getAddress())
+    ).to.be.revertedWith(wrongDepositAmount);
   });
 
   it("Should fail - wrong amount refund", async function () {
     await expect(
-      Treasury.connect(mockContract).refund(ethers.MaxUint256, alice.address)
+      Treasury.connect(mockContract).refund(
+        ethers.MaxUint256,
+        alice.address,
+        await USDT.getAddress()
+      )
     ).to.be.revertedWith(wrongAmount);
   });
 
   it("Should fail - wrong amount withdraw", async function () {
-    await Treasury.withdraw(await Treasury.deposits(owner.address));
-    await expect(Treasury.withdraw(depositAmount)).to.be.revertedWith(
-      wrongAmount
+    await Treasury.withdraw(
+      await Treasury.deposits(await USDT.getAddress(), owner.address),
+      await USDT.getAddress()
     );
+    await expect(
+      Treasury.withdraw(depositAmount, await USDT.getAddress())
+    ).to.be.revertedWith(wrongAmount);
   });
 
   it("Should fail - wrong amount refundWithFee", async function () {
@@ -277,6 +366,7 @@ describe("Treasury", () => {
       Treasury.connect(mockContract).refundWithFees(
         ethers.MaxUint256,
         owner.address,
+        await USDT.getAddress(),
         100
       )
     ).to.be.revertedWith(wrongAmount);
@@ -284,7 +374,11 @@ describe("Treasury", () => {
 
   it("Should fail - wrong amount withdrawFees", async function () {
     await expect(
-      Treasury.withdrawFees(alice.address, ethers.MaxUint256)
+      Treasury.withdrawFees(
+        alice.address,
+        ethers.MaxUint256,
+        await USDT.getAddress()
+      )
     ).to.be.revertedWith(wrongAmount);
   });
 

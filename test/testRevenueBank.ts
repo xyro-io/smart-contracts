@@ -100,12 +100,21 @@ describe("RevenueBank", () => {
     const oldOwnerBalance = await USDT.balanceOf(await Bank.getAddress());
 
     //mock game to earn fees
-    await Treasury.calculateUpDownRate(parse18("500"), parse18("500"), 9000);
+    await Treasury.calculateUpDownRate(
+      parse18("500"),
+      parse18("500"),
+      await USDT.getAddress(),
+      9000
+    );
 
-    expect(await Treasury.collectedFee()).to.be.equal(parse18("900"));
+    expect(await Treasury.collectedFee(await USDT.getAddress())).to.be.equal(
+      parse18("900")
+    );
     const amount = parse18("100");
-    await Bank.connect(owner).collectFees(amount);
-    expect(await Treasury.collectedFee()).to.be.equal(parse18("800"));
+    await Bank.connect(owner).collectFees(amount, await USDT.getAddress());
+    expect(await Treasury.collectedFee(await USDT.getAddress())).to.be.equal(
+      parse18("800")
+    );
     const newOwnerBalance = await USDT.balanceOf(await Bank.getAddress());
     expect(newOwnerBalance - oldOwnerBalance).to.be.equal(amount);
   });

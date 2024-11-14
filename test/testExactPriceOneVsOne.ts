@@ -112,7 +112,8 @@ describe("OneVsOneExactPrice", () => {
         ethers.ZeroAddress,
         endTime,
         initiatorPrice,
-        usdtAmount
+        usdtAmount,
+        await USDT.getAddress()
       );
       receipt = await tx.wait();
       currentGameId = receipt!.logs[1]!.args[0];
@@ -143,7 +144,8 @@ describe("OneVsOneExactPrice", () => {
           opponent.address,
           endTime,
           initiatorPrice,
-          usdtAmount
+          usdtAmount,
+          await USDT.getAddress()
         )
       ).to.be.revertedWith(requireCreationEnabled);
     });
@@ -156,7 +158,8 @@ describe("OneVsOneExactPrice", () => {
           opponent.address,
           endTime,
           initiatorPrice,
-          usdtAmount
+          usdtAmount,
+          await USDT.getAddress()
         )
       ).to.be.revertedWith(requireCreationEnabled);
       await Game.toggleActive();
@@ -169,7 +172,8 @@ describe("OneVsOneExactPrice", () => {
           opponent.address,
           (await time.latest()) + 1,
           initiatorPrice,
-          usdtAmount
+          usdtAmount,
+          await USDT.getAddress()
         )
       ).to.be.revertedWith(requireMinBetDuration);
     });
@@ -182,7 +186,8 @@ describe("OneVsOneExactPrice", () => {
           opponent.address,
           (await time.latest()) + 1,
           initiatorPrice,
-          usdtAmount
+          usdtAmount,
+          await USDT.getAddress()
         )
       ).to.be.revertedWith(requireApprovedFeedNumber);
     });
@@ -195,7 +200,8 @@ describe("OneVsOneExactPrice", () => {
           opponent.address,
           (await time.latest()) + 1,
           initiatorPrice,
-          usdtAmount
+          usdtAmount,
+          await USDT.getAddress()
         )
       ).to.be.revertedWith(requireApprovedFeedNumber);
     });
@@ -207,7 +213,8 @@ describe("OneVsOneExactPrice", () => {
           opponent.address,
           (await time.latest()) + monthUnix * 20,
           initiatorPrice,
-          usdtAmount
+          usdtAmount,
+          await USDT.getAddress()
         )
       ).to.be.revertedWith(requireMaxBetDuration);
     });
@@ -219,7 +226,8 @@ describe("OneVsOneExactPrice", () => {
           opponent.address,
           (await time.latest()) + fortyFiveMinutes,
           initiatorPrice,
-          0
+          0,
+          await USDT.getAddress()
         )
       ).to.be.revertedWith(requireWrongusdtAmount);
     });
@@ -231,7 +239,8 @@ describe("OneVsOneExactPrice", () => {
           owner.address,
           (await time.latest()) + fortyFiveMinutes,
           initiatorPrice,
-          100
+          100,
+          await USDT.getAddress()
         )
       ).to.be.revertedWith(requireUniqueOpponent);
     });
@@ -255,7 +264,8 @@ describe("OneVsOneExactPrice", () => {
         ethers.ZeroAddress,
         (await time.latest()) + fortyFiveMinutes,
         initiatorPrice,
-        usdtAmount
+        usdtAmount,
+        await USDT.getAddress()
       );
 
       receipt = await tx.wait();
@@ -272,7 +282,8 @@ describe("OneVsOneExactPrice", () => {
         opponent.address,
         (await time.latest()) + fortyFiveMinutes,
         initiatorPrice,
-        usdtAmount
+        usdtAmount,
+        await USDT.getAddress()
       );
       receipt = await tx.wait();
       currentGameId = receipt!.logs[1]!.args[0];
@@ -288,7 +299,8 @@ describe("OneVsOneExactPrice", () => {
         opponent.address,
         (await time.latest()) + fortyFiveMinutes,
         initiatorPrice,
-        usdtAmount
+        usdtAmount,
+        await USDT.getAddress()
       );
       await time.increase(fortyFiveMinutes / 3);
       receipt = await tx.wait();
@@ -304,7 +316,8 @@ describe("OneVsOneExactPrice", () => {
         opponent.address,
         (await time.latest()) + fortyFiveMinutes,
         initiatorPrice,
-        usdtAmount
+        usdtAmount,
+        await USDT.getAddress()
       );
       receipt = await tx.wait();
       currentGameId = receipt!.logs[1]!.args[0];
@@ -319,7 +332,8 @@ describe("OneVsOneExactPrice", () => {
         opponent.address,
         (await time.latest()) + fortyFiveMinutes,
         initiatorPrice,
-        usdtAmount
+        usdtAmount,
+        await USDT.getAddress()
       );
       receipt = await tx.wait();
       currentGameId = receipt!.logs[1]!.args[0];
@@ -336,7 +350,8 @@ describe("OneVsOneExactPrice", () => {
         opponent.address,
         (await time.latest()) + fortyFiveMinutes,
         initiatorPrice,
-        usdtAmount
+        usdtAmount,
+        await USDT.getAddress()
       );
       await time.increase(fortyFiveMinutes / 3);
       receipt = await tx.wait();
@@ -346,7 +361,8 @@ describe("OneVsOneExactPrice", () => {
         Status.Cancelled
       );
       await Treasury.connect(owner).withdraw(
-        await Treasury.deposits(owner.address)
+        await Treasury.deposits(await USDT.getAddress(), owner.address),
+        await USDT.getAddress()
       );
     });
 
@@ -357,7 +373,8 @@ describe("OneVsOneExactPrice", () => {
         opponent.address,
         (await time.latest()) + fortyFiveMinutes,
         initiatorPrice,
-        usdtAmount
+        usdtAmount,
+        await USDT.getAddress()
       );
       receipt = await tx.wait();
       currentGameId = receipt!.logs[1]!.args[0];
@@ -368,10 +385,12 @@ describe("OneVsOneExactPrice", () => {
         Status.Cancelled
       );
       await Treasury.connect(owner).withdraw(
-        await Treasury.deposits(owner.address)
+        await Treasury.deposits(await USDT.getAddress(), owner.address),
+        await USDT.getAddress()
       );
       await Treasury.connect(opponent).withdraw(
-        await Treasury.deposits(opponent.address)
+        await Treasury.deposits(await USDT.getAddress(), opponent.address),
+        await USDT.getAddress()
       );
     });
 
@@ -382,7 +401,8 @@ describe("OneVsOneExactPrice", () => {
         opponent.address,
         (await time.latest()) + fortyFiveMinutes,
         initiatorPrice,
-        usdtAmount
+        usdtAmount,
+        await USDT.getAddress()
       );
       receipt = await tx.wait();
       currentGameId = receipt!.logs[1]!.args[0];
@@ -399,7 +419,8 @@ describe("OneVsOneExactPrice", () => {
         opponent.address,
         (await time.latest()) + fortyFiveMinutes,
         initiatorPrice,
-        usdtAmount
+        usdtAmount,
+        await USDT.getAddress()
       );
       await time.increase(monthUnix);
       receipt = await tx.wait();
@@ -408,14 +429,15 @@ describe("OneVsOneExactPrice", () => {
         Treasury,
         "FeeCollected"
       );
-      expect(await Treasury.collectedFee()).to.be.equal(
+      expect(await Treasury.collectedFee(await USDT.getAddress())).to.be.equal(
         usdtAmount / BigInt(10)
       );
       expect((await Game.decodeData(currentGameId)).gameStatus).to.equal(
         Status.Cancelled
       );
       await Treasury.connect(owner).withdraw(
-        await Treasury.deposits(owner.address)
+        await Treasury.deposits(await USDT.getAddress(), owner.address),
+        await USDT.getAddress()
       );
     });
 
@@ -425,7 +447,8 @@ describe("OneVsOneExactPrice", () => {
         opponent.address,
         (await time.latest()) + fortyFiveMinutes,
         initiatorPrice,
-        usdtAmount
+        usdtAmount,
+        await USDT.getAddress()
       );
       receipt = await tx.wait();
       currentGameId = receipt!.logs[1]!.args[0];
@@ -445,7 +468,8 @@ describe("OneVsOneExactPrice", () => {
         opponent.address,
         (await time.latest()) + fortyFiveMinutes,
         initiatorPrice,
-        usdtAmount
+        usdtAmount,
+        await USDT.getAddress()
       );
       receipt = await tx.wait();
       currentGameId = receipt!.logs[1]!.args[0];
@@ -462,7 +486,8 @@ describe("OneVsOneExactPrice", () => {
         opponent.address,
         (await time.latest()) + fortyFiveMinutes,
         initiatorPrice,
-        usdtAmount
+        usdtAmount,
+        await USDT.getAddress()
       );
       receipt = await tx.wait();
       currentGameId = receipt!.logs[1]!.args[0];
@@ -481,7 +506,8 @@ describe("OneVsOneExactPrice", () => {
       const game = await Game.decodeData(currentGameId);
       expect(game.gameStatus).to.be.equal(Status.Finished);
       await Treasury.connect(opponent).withdraw(
-        await Treasury.deposits(opponent.address)
+        await Treasury.deposits(await USDT.getAddress(), opponent.address),
+        await USDT.getAddress()
       );
       let newBalance = await USDT.balanceOf(opponent.address);
       expect(newBalance - oldBalance).to.be.equal(
@@ -498,7 +524,8 @@ describe("OneVsOneExactPrice", () => {
         ethers.ZeroAddress,
         endTime,
         initiatorPrice,
-        usdtAmount
+        usdtAmount,
+        await USDT.getAddress()
       );
       receipt = await tx.wait();
       currentGameId = receipt!.logs[1]!.args[0];
@@ -559,7 +586,8 @@ describe("OneVsOneExactPrice", () => {
       expect(gameData.gameStatus).to.be.equal(Status.Finished);
 
       await Treasury.connect(opponent).withdraw(
-        await Treasury.deposits(opponent.address)
+        await Treasury.deposits(await USDT.getAddress(), opponent.address),
+        await USDT.getAddress()
       );
       let newBalance = await USDT.balanceOf(opponent.address);
       expect(newBalance - oldBalance).to.be.equal(
@@ -569,9 +597,15 @@ describe("OneVsOneExactPrice", () => {
     });
 
     it("should finalize global game with deposit", async function () {
-      const oldOwnerDepositBalance = await Treasury.deposits(owner.address);
-      await Treasury.deposit(usdtAmount);
-      const newOwnerDepositBalance = await Treasury.deposits(owner.address);
+      const oldOwnerDepositBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        owner.address
+      );
+      await Treasury.deposit(usdtAmount, await USDT.getAddress());
+      const newOwnerDepositBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        owner.address
+      );
       expect(newOwnerDepositBalance - oldOwnerDepositBalance).to.be.equal(
         usdtAmount
       );
@@ -584,7 +618,8 @@ describe("OneVsOneExactPrice", () => {
         ethers.ZeroAddress,
         endTime,
         initiatorPrice,
-        usdtAmount
+        usdtAmount,
+        await USDT.getAddress()
       );
       receipt = await tx.wait();
       currentGameId = receipt!.logs[0]!.args[0];
@@ -603,10 +638,15 @@ describe("OneVsOneExactPrice", () => {
       expect(gameData.gameStatus).to.be.equal(Status.Created);
 
       const oldOpponentDepositBalance = await Treasury.deposits(
+        await USDT.getAddress(),
         opponent.address
       );
-      await Treasury.connect(opponent).deposit(usdtAmount);
+      await Treasury.connect(opponent).deposit(
+        usdtAmount,
+        await USDT.getAddress()
+      );
       const newOpponentDepositBalance = await Treasury.deposits(
+        await USDT.getAddress(),
         opponent.address
       );
       expect(newOpponentDepositBalance - oldOpponentDepositBalance).to.be.equal(
@@ -659,7 +699,8 @@ describe("OneVsOneExactPrice", () => {
       expect(gameData.gameStatus).to.be.equal(Status.Finished);
 
       await Treasury.connect(opponent).withdraw(
-        await Treasury.deposits(opponent.address)
+        await Treasury.deposits(await USDT.getAddress(), opponent.address),
+        await USDT.getAddress()
       );
       let newBalance = await USDT.balanceOf(opponent.address);
       expect(newBalance - oldBalance).to.be.equal(
@@ -674,7 +715,8 @@ describe("OneVsOneExactPrice", () => {
         opponent.address,
         (await time.latest()) + fortyFiveMinutes,
         initiatorPrice,
-        usdtAmount
+        usdtAmount,
+        await USDT.getAddress()
       );
       receipt = await tx.wait();
       currentGameId = receipt!.logs[1]!.args[0];
@@ -692,7 +734,8 @@ describe("OneVsOneExactPrice", () => {
       const game = await Game.decodeData(currentGameId);
       expect(game.gameStatus).to.be.equal(Status.Finished);
       await Treasury.connect(owner).withdraw(
-        await Treasury.deposits(owner.address)
+        await Treasury.deposits(await USDT.getAddress(), owner.address),
+        await USDT.getAddress()
       );
       let newBalance = await USDT.balanceOf(owner.address);
       expect(newBalance - oldBalance).to.be.equal(
@@ -707,7 +750,8 @@ describe("OneVsOneExactPrice", () => {
         opponent.address,
         (await time.latest()) + fortyFiveMinutes,
         equalInitiatorDiffPrice,
-        usdtAmount
+        usdtAmount,
+        await USDT.getAddress()
       );
       receipt = await tx.wait();
       currentGameId = receipt!.logs[1]!.args[0];
@@ -726,7 +770,8 @@ describe("OneVsOneExactPrice", () => {
         )
       );
       await Treasury.connect(opponent).withdraw(
-        await Treasury.deposits(opponent.address)
+        await Treasury.deposits(await USDT.getAddress(), opponent.address),
+        await USDT.getAddress()
       );
       const game = await Game.decodeData(currentGameId);
       expect(game.gameStatus).to.be.equal(Status.Finished);
@@ -740,7 +785,8 @@ describe("OneVsOneExactPrice", () => {
         opponent.address,
         (await time.latest()) + fortyFiveMinutes,
         initiatorPrice,
-        usdtAmount
+        usdtAmount,
+        await USDT.getAddress()
       );
       receipt = await tx.wait();
       currentGameId = receipt!.logs[1]!.args[0];
@@ -762,7 +808,8 @@ describe("OneVsOneExactPrice", () => {
         opponent.address,
         (await time.latest()) + fortyFiveMinutes,
         initiatorPrice,
-        usdtAmount
+        usdtAmount,
+        await USDT.getAddress()
       );
       receipt = await tx.wait();
       currentGameId = receipt!.logs[1]!.args[0];
@@ -785,7 +832,8 @@ describe("OneVsOneExactPrice", () => {
         opponent.address,
         (await time.latest()) + fortyFiveMinutes,
         initiatorPrice,
-        usdtAmount
+        usdtAmount,
+        await USDT.getAddress()
       );
       receipt = await tx.wait();
       currentGameId = receipt!.logs[1]!.args[0];
@@ -823,6 +871,7 @@ describe("OneVsOneExactPrice", () => {
         endTime,
         initiatorPrice,
         usdtAmount,
+        await USDT.getAddress(),
         {
           deadline: deadline,
           v: ownerPermit.v,
@@ -906,7 +955,8 @@ describe("OneVsOneExactPrice", () => {
       expect(gameData.gameStatus).to.be.equal(Status.Finished);
 
       await Treasury.connect(opponent).withdraw(
-        await Treasury.deposits(opponent.address)
+        await Treasury.deposits(await USDT.getAddress(), opponent.address),
+        await USDT.getAddress()
       );
       let newBalance = await USDT.balanceOf(opponent.address);
       expect(newBalance - oldBalance).to.be.equal(
@@ -935,6 +985,7 @@ describe("OneVsOneExactPrice", () => {
         endTime,
         initiatorPrice,
         usdtAmount,
+        await USDT.getAddress(),
         {
           deadline: deadline,
           v: ownerPermit.v,
@@ -978,6 +1029,7 @@ describe("OneVsOneExactPrice", () => {
           (await time.latest()) + fortyFiveMinutes,
           initiatorPrice,
           usdtAmount,
+          await USDT.getAddress(),
           {
             deadline: deadline,
             v: ownerPermit.v,
@@ -1005,6 +1057,7 @@ describe("OneVsOneExactPrice", () => {
           (await time.latest()) + 1,
           initiatorPrice,
           usdtAmount,
+          await USDT.getAddress(),
           {
             deadline: deadline,
             v: ownerPermit.v,
@@ -1032,6 +1085,7 @@ describe("OneVsOneExactPrice", () => {
           (await time.latest()) + 1,
           initiatorPrice,
           usdtAmount,
+          await USDT.getAddress(),
           {
             deadline: deadline,
             v: ownerPermit.v,
@@ -1058,6 +1112,7 @@ describe("OneVsOneExactPrice", () => {
           (await time.latest()) + monthUnix * 20,
           initiatorPrice,
           usdtAmount,
+          await USDT.getAddress(),
           {
             deadline: deadline,
             v: ownerPermit.v,
@@ -1084,6 +1139,7 @@ describe("OneVsOneExactPrice", () => {
           (await time.latest()) + fortyFiveMinutes,
           initiatorPrice,
           0,
+          await USDT.getAddress(),
           {
             deadline: deadline,
             v: ownerPermit.v,
@@ -1129,7 +1185,8 @@ describe("OneVsOneExactPrice", () => {
         opponent.address,
         (await time.latest()) + fortyFiveMinutes,
         initiatorPrice,
-        usdtAmount
+        usdtAmount,
+        await USDT.getAddress()
       );
       receipt = await tx.wait();
       currentGameId = receipt!.logs[1]!.args[0];
@@ -1162,7 +1219,8 @@ describe("OneVsOneExactPrice", () => {
         opponent.address,
         (await time.latest()) + fortyFiveMinutes,
         initiatorPrice,
-        usdtAmount
+        usdtAmount,
+        await USDT.getAddress()
       );
       await time.increase(fortyFiveMinutes / 3);
       receipt = await tx.wait();
@@ -1195,7 +1253,8 @@ describe("OneVsOneExactPrice", () => {
         opponent.address,
         (await time.latest()) + fortyFiveMinutes,
         initiatorPrice,
-        usdtAmount
+        usdtAmount,
+        await USDT.getAddress()
       );
       receipt = await tx.wait();
       currentGameId = receipt!.logs[1]!.args[0];
@@ -1227,7 +1286,8 @@ describe("OneVsOneExactPrice", () => {
         opponent.address,
         (await time.latest()) + fortyFiveMinutes,
         initiatorPrice,
-        usdtAmount
+        usdtAmount,
+        await USDT.getAddress()
       );
       receipt = await tx.wait();
       currentGameId = receipt!.logs[1]!.args[0];

@@ -111,6 +111,7 @@ contract Setup is AccessControl {
         bytes memory unverifiedReport
     ) public {
         require(isActive, "Game is disabled");
+        require(ITreasury(treasury).approvedTokens(token), "Unapproved token");
         require(
             endTime - block.timestamp >= minDuration,
             "Min game duration must be higher"

@@ -9,6 +9,9 @@ import { MockToken } from "../typechain-types/contracts/mock/MockERC20.sol/MockT
 import { MockToken__factory } from "../typechain-types/factories/contracts/mock/MockERC20.sol/MockToken__factory";
 import { MockVerifier } from "../typechain-types/contracts/mock/MockVerifier";
 import { MockVerifier__factory } from "../typechain-types/factories/contracts/mock/MockVerifier__factory";
+import { XyroTokenERC677 } from "../typechain-types/contracts/XyroTokenWithMint.sol/XyroTokenERC677";
+import { XyroTokenERC677__factory } from "../typechain-types/factories/contracts/XyroTokenWithMint.sol/XyroTokenERC677__factory";
+
 import {
   abiEncodeInt192WithTimestamp,
   getPermitSignature,
@@ -30,6 +33,7 @@ const requireChainlinkReport = "Old chainlink report";
 const requireUniqueOpponent = "Wrong opponent";
 const requireCreationEnabled = "Game is disabled";
 const requireApprovedFeedNumber = "Wrong feed number";
+const requireApprovedToken = "Unapproved token";
 const Status = {
   Default: 0,
   Created: 1,
@@ -43,14 +47,17 @@ describe("OneVsOneExactPrice", () => {
   let owner: HardhatEthersSigner;
   let alice: HardhatEthersSigner;
   let USDT: MockToken;
+  let XyroToken: XyroTokenERC677;
   let Treasury: Treasury;
   let Game: OneVsOneExactPrice;
   let Upkeep: MockVerifier;
   let currentGameId: string;
   let receipt: any;
+  let players: any;
+  let usdtAmount: bigint;
+  let xyroAmount: bigint;
   const feedNumber = 3;
   const assetPrice = 600000000;
-  const usdtAmount = parse18("100");
   const initiatorPrice = (assetPrice / 100) * 123;
   const opponentPrice = (assetPrice / 100) * 105;
   const equalOpponentDiffPrice = 617000000;
@@ -59,9 +66,17 @@ describe("OneVsOneExactPrice", () => {
   const finalPrice2 = parse18("73800");
   before(async () => {
     [owner, opponent, alice] = await ethers.getSigners();
+    players = [owner, opponent, alice];
     USDT = await new MockToken__factory(owner).deploy(
       parse18((1e13).toString())
     );
+    usdtAmount =
+      BigInt(100) * BigInt(Math.pow(10, Number(await USDT.decimals())));
+    XyroToken = await new XyroTokenERC677__factory(owner).deploy(
+      parse18((1e13).toString())
+    );
+    xyroAmount =
+      BigInt(100) * BigInt(Math.pow(10, Number(await XyroToken.decimals())));
     Treasury = await upgrades.deployProxy(
       await ethers.getContractFactory("Treasury"),
       [await USDT.getAddress()]
@@ -69,22 +84,25 @@ describe("OneVsOneExactPrice", () => {
     Game = await new OneVsOneExactPrice__factory(owner).deploy();
     Upkeep = await new MockVerifier__factory(owner).deploy();
     await Game.setTreasury(await Treasury.getAddress());
-    await USDT.mint(opponent.address, parse18("1000"));
     await Treasury.setUpkeep(await Upkeep.getAddress());
     await Game.grantRole(await Game.GAME_MASTER_ROLE(), owner.address);
     await Treasury.grantRole(
       await Treasury.DISTRIBUTOR_ROLE(),
       await Game.getAddress()
     );
-    await USDT.approve(Treasury.getAddress(), ethers.MaxUint256);
-    await USDT.connect(opponent).approve(
-      await Treasury.getAddress(),
-      ethers.MaxUint256
-    );
-    await USDT.connect(alice).approve(
-      await Treasury.getAddress(),
-      ethers.MaxUint256
-    );
+    for (let i = 0; i < players.length; i++) {
+      await USDT.mint(players[i].address, parse18("10000000"));
+      await USDT.connect(players[i]).approve(
+        Treasury.getAddress(),
+        ethers.MaxUint256
+      );
+      await XyroToken.approve(players[i].address, ethers.MaxUint256);
+      await XyroToken.transfer(players[i].address, parse18("10000"));
+      await XyroToken.connect(players[i]).approve(
+        Treasury.getAddress(),
+        ethers.MaxUint256
+      );
+    }
     //set mock feed ids
     const feedIds = [
       "0x00037da06d56d083fe599397a4769a042d63aa73dc4ef57709d31e9971a5b439",
@@ -849,6 +867,126 @@ describe("OneVsOneExactPrice", () => {
           )
         )
       ).to.be.revertedWith(requireChainlinkReport);
+    });
+  });
+
+  describe("Games with XyroToken", async function () {
+    it("should fail - attempt to create a game with unapproved token", async function () {
+      await expect(
+        Game.createGame(
+          feedNumber,
+          ethers.ZeroAddress,
+          (await time.latest()) + fortyFiveMinutes,
+          initiatorPrice,
+          xyroAmount,
+          await XyroToken.getAddress()
+        )
+      ).to.be.revertedWith(requireApprovedToken);
+    });
+
+    it("should create exact price game with XyroToken", async function () {
+      //approve XyroToken in Treasury
+      await Treasury.setToken(await XyroToken.getAddress(), true);
+      const oldTreasuryBalance = await XyroToken.balanceOf(
+        await Treasury.getAddress()
+      );
+      const oldUserBalance = await XyroToken.balanceOf(owner.address);
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      let tx = await Game.createGame(
+        feedNumber,
+        ethers.ZeroAddress,
+        endTime,
+        initiatorPrice,
+        xyroAmount,
+        await XyroToken.getAddress()
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt!.logs[1]!.args[0];
+      let game = await Game.decodeData(currentGameId);
+      const sentUserAmount =
+        oldUserBalance - (await XyroToken.balanceOf(owner.address));
+
+      expect(
+        (await XyroToken.balanceOf(await Treasury.getAddress())) -
+          oldTreasuryBalance
+      ).to.be.equal(xyroAmount);
+      expect(sentUserAmount).to.be.equal(xyroAmount);
+      expect(game.initiator).to.be.equal(owner.address);
+      expect(game.opponent).to.be.equal(ethers.ZeroAddress);
+      expect(game.endTime).to.be.equal(endTime);
+      expect(game.initiatorPrice).to.be.equal(initiatorPrice);
+      expect(game.gameStatus).to.be.equal(Status.Created);
+      expect(game.feedNumber).to.be.equal(feedNumber);
+      let data = await Game.games(currentGameId);
+      expect(data.depositAmount).to.be.equal(xyroAmount);
+    });
+
+    it("should accept exact price bet with XyroToken", async function () {
+      const oldUserBalance = await XyroToken.balanceOf(opponent.address);
+      await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
+      const sentUserAmount =
+        oldUserBalance - (await XyroToken.balanceOf(opponent.address));
+      let game = await Game.decodeData(currentGameId);
+      expect(sentUserAmount).to.be.equal(xyroAmount);
+      expect(game.opponentPrice).to.be.equal(opponentPrice);
+      expect(game.gameStatus).to.be.equal(Status.Started);
+    });
+
+    it("should create and close game with XyroToken", async function () {
+      const tx = await Game.createGame(
+        feedNumber,
+        opponent.address,
+        (await time.latest()) + fortyFiveMinutes,
+        initiatorPrice,
+        xyroAmount,
+        await XyroToken.getAddress()
+      );
+      await time.increase(fortyFiveMinutes / 3);
+      receipt = await tx.wait();
+      currentGameId = receipt!.logs[1]!.args[0];
+      await Game.closeGame(currentGameId);
+      expect((await Game.decodeData(currentGameId)).gameStatus).to.equal(
+        Status.Cancelled
+      );
+      await Treasury.connect(owner).withdraw(
+        await Treasury.deposits(await XyroToken.getAddress(), owner.address),
+        await XyroToken.getAddress()
+      );
+    });
+
+    it("should end the game with XyroToken", async function () {
+      const tx = await Game.createGame(
+        feedNumber,
+        opponent.address,
+        (await time.latest()) + fortyFiveMinutes,
+        initiatorPrice,
+        xyroAmount,
+        await XyroToken.getAddress()
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt!.logs[1]!.args[0];
+      await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
+      let oldBalance = await XyroToken.balanceOf(opponent.address);
+      await time.increase(fortyFiveMinutes);
+      await Game.finalizeGame(
+        currentGameId,
+        abiEncodeInt192WithTimestamp(
+          finalPrice.toString(),
+          feedNumber,
+          await time.latest()
+        )
+      );
+      const game = await Game.decodeData(currentGameId);
+      expect(game.gameStatus).to.be.equal(Status.Finished);
+      await Treasury.connect(opponent).withdraw(
+        await Treasury.deposits(await XyroToken.getAddress(), opponent.address),
+        await XyroToken.getAddress()
+      );
+      let newBalance = await XyroToken.balanceOf(opponent.address);
+      expect(newBalance - oldBalance).to.be.equal(
+        xyroAmount * BigInt(2) -
+          (xyroAmount * BigInt(2) * (await Game.fee())) / BigInt(10000)
+      );
     });
   });
 

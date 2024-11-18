@@ -19,10 +19,11 @@ describe("RevenueBank", () => {
   let Treasury: Treasury;
   let owner: HardhatEthersSigner;
   let alice: HardhatEthersSigner;
+  let wallet: HardhatEthersSigner;
   let domain: any;
   let types: any;
   before(async () => {
-    [owner, alice] = await ethers.getSigners();
+    [owner, alice, wallet] = await ethers.getSigners();
     XyroToken = await new XyroToken__factory(owner).deploy(
       parse18((1e9).toString())
     );
@@ -37,7 +38,9 @@ describe("RevenueBank", () => {
     Bank = await new RevenueBank__factory(owner).deploy(
       await USDT.getAddress(),
       await XyroToken.getAddress(),
-      await Treasury.getAddress()
+      await Treasury.getAddress(),
+      wallet.address,
+      ethers.ZeroAddress
     );
     await Treasury.grantRole(
       await Treasury.ACCOUNTANT_ROLE(),
@@ -65,23 +68,6 @@ describe("RevenueBank", () => {
     };
   });
 
-  it("should verify signature and claim tokens", async function () {
-    const oldAliceBalance = await XyroToken.balanceOf(alice.address);
-    let message = {
-      to: alice.address,
-      amount: 199,
-      nonce: await Bank.nonces(alice.address),
-      deadline: (await time.latest()) + 100,
-    };
-    let signature = await owner.signTypedData(domain, types, message);
-    await Bank.connect(alice).verifyTransfer(message, signature);
-    const newAliceBalance = await XyroToken.balanceOf(alice.address);
-    expect(newAliceBalance - oldAliceBalance).to.be.equal(message.amount);
-    await expect(
-      Bank.connect(alice).verifyTransfer(message, signature)
-    ).to.be.revertedWith("Wrong signer");
-  });
-
   it("should revert with expired deadline", async function () {
     let message = {
       to: alice.address,
@@ -95,16 +81,39 @@ describe("RevenueBank", () => {
     ).to.be.revertedWith("Deadline expired");
   });
 
+  it("should verify signature and claim tokens", async function () {
+    const oldAliceBalance = await USDT.balanceOf(alice.address);
+    let message = {
+      to: alice.address,
+      amount: 10,
+      nonce: await Bank.nonces(alice.address),
+      deadline: (await time.latest()) + 100,
+    };
+    let signature = await owner.signTypedData(domain, types, message);
+    await expect(
+      Bank.connect(alice).verifyTransfer(message, signature)
+    ).to.be.revertedWith("Not enough rewards");
+    await Treasury.calculateUpDownRate(500, 500, 9000);
+    await Bank.connect(owner).collectFees(900);
+    await Bank.connect(alice).verifyTransfer(message, signature);
+    const newAliceBalance = await USDT.balanceOf(alice.address);
+    expect(newAliceBalance - oldAliceBalance).to.be.equal(message.amount);
+    await expect(
+      Bank.connect(alice).verifyTransfer(message, signature)
+    ).to.be.revertedWith("Wrong signer");
+  });
+
   it("should withdraw fees", async function () {
     const oldOwnerBalance = await USDT.balanceOf(await Bank.getAddress());
-
+    console.log(await Bank.buybackBalance());
     //mock game to earn fees
     await Treasury.calculateUpDownRate(500, 500, 9000);
 
     expect(await Treasury.collectedFee()).to.be.equal(parse18("900"));
-    const amount = 100;
+    const amount = 300;
     await Bank.connect(owner).collectFees(amount);
-    expect(await Treasury.collectedFee()).to.be.equal(parse18("800"));
+    console.log(await Bank.buybackBalance());
+    expect(await Treasury.collectedFee()).to.be.equal(parse18("600"));
     const newOwnerBalance = await USDT.balanceOf(await Bank.getAddress());
     expect(newOwnerBalance - oldOwnerBalance).to.be.equal(
       parse18(amount.toString())
@@ -112,11 +121,11 @@ describe("RevenueBank", () => {
   });
 
   it("should change signer", async function () {
-    let tx = await Bank.setSigner(alice.address);
+    let tx = await Bank.setSigner(alice.address, true);
     let receipt = await tx.wait();
     let logs = receipt?.logs[0]?.args;
     expect(logs[0]).to.be.equal(alice.address);
-    expect(await Bank.signer()).to.be.equal(alice.address);
+    expect(await Bank.signers(alice.address)).to.be.equal(true);
   });
 
   it("should change Treasury", async function () {

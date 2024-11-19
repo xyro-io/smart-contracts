@@ -37,7 +37,7 @@ describe("Treasury", () => {
     XyroToken = await new XyroToken__factory(owner).deploy(parse18("2500"));
     Treasury = await upgrades.deployProxy(
       await ethers.getContractFactory("Treasury"),
-      [await USDT.getAddress()]
+      [await USDT.getAddress(), await XyroToken.getAddress()]
     );
     Game = await new OneVsOneExactPrice__factory(owner).deploy();
     Upkeep = await new MockVerifier__factory(owner).deploy();

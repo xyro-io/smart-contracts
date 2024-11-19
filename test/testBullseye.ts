@@ -67,7 +67,7 @@ describe("Bullseye", () => {
       BigInt(100) * BigInt(Math.pow(10, Number(await XyroToken.decimals())));
     Treasury = await upgrades.deployProxy(
       await ethers.getContractFactory("Treasury"),
-      [await USDT.getAddress()]
+      [await USDT.getAddress(), await XyroToken.getAddress()]
     );
     Game = await new Bullseye__factory(owner).deploy();
     Upkeep = await new MockVerifier__factory(owner).deploy();

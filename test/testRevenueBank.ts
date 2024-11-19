@@ -31,7 +31,7 @@ describe("RevenueBank", () => {
     );
     Treasury = await upgrades.deployProxy(
       await ethers.getContractFactory("Treasury"),
-      [await USDT.getAddress()]
+      [await USDT.getAddress(), await XyroToken.getAddress()]
     );
     await Treasury.grantRole(await Treasury.DISTRIBUTOR_ROLE(), owner.address);
     const bankAmount = parse18((1e7).toString());

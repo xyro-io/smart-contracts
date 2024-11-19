@@ -76,7 +76,7 @@ describe("Setup Game", () => {
 
     Treasury = await upgrades.deployProxy(
       await ethers.getContractFactory("Treasury"),
-      [await USDT.getAddress()]
+      [await USDT.getAddress(), await XyroToken.getAddress()]
     );
     Game = await new Setup__factory(owner).deploy(await Treasury.getAddress());
     Upkeep = await new MockVerifier__factory(owner).deploy();

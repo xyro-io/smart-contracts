@@ -67,7 +67,7 @@ describe("UpDown", () => {
       BigInt(100) * BigInt(Math.pow(10, Number(await XyroToken.decimals())));
     Treasury = await upgrades.deployProxy(
       await ethers.getContractFactory("Treasury"),
-      [await USDT.getAddress()]
+      [await USDT.getAddress(), await XyroToken.getAddress()]
     );
     Game = await new UpDown__factory(owner).deploy();
     Upkeep = await new MockVerifier__factory(owner).deploy();
@@ -80,12 +80,12 @@ describe("UpDown", () => {
         Treasury.getAddress(),
         ethers.MaxUint256
       );
-      await XyroToken.approve(players[i].address, ethers.MaxUint256);
-      await XyroToken.transfer(players[i].address, parse18("10000"));
-      await XyroToken.connect(players[i]).approve(
-        Treasury.getAddress(),
-        ethers.MaxUint256
-      );
+      // await XyroToken.approve(players[i].address, ethers.MaxUint256);
+      // await XyroToken.transfer(players[i].address, parse18("10000"));
+      // await XyroToken.connect(players[i]).approve(
+      //   Treasury.getAddress(),
+      //   ethers.MaxUint256
+      // );
     }
     await Game.grantRole(await Game.GAME_MASTER_ROLE(), owner.address);
     await Treasury.grantRole(

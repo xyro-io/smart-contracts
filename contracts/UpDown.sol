@@ -117,7 +117,9 @@ contract UpDown is AccessControl {
         ITreasury(treasury).depositAndLock(
             depositAmount,
             msg.sender,
-            gameToken
+            gameToken,
+            currentGameId,
+            true
         );
         emit UpDownNewPlayer(msg.sender, isLong, depositAmount, currentGameId);
     }
@@ -149,7 +151,13 @@ contract UpDown is AccessControl {
             DownPlayers.push(msg.sender);
         }
         depositAmounts[msg.sender] = depositAmount;
-        ITreasury(treasury).lock(depositAmount, msg.sender, gameToken);
+        ITreasury(treasury).lock(
+            depositAmount,
+            msg.sender,
+            gameToken,
+            currentGameId,
+            true
+        );
         emit UpDownNewPlayer(msg.sender, isLong, depositAmount, currentGameId);
     }
 
@@ -187,6 +195,8 @@ contract UpDown is AccessControl {
             depositAmount,
             gameToken,
             msg.sender,
+            currentGameId,
+            true,
             permitData.deadline,
             permitData.v,
             permitData.r,
@@ -233,7 +243,8 @@ contract UpDown is AccessControl {
                     ITreasury(treasury).refund(
                         depositAmounts[UpPlayers[i]],
                         UpPlayers[i],
-                        gameToken
+                        gameToken,
+                        currentGameId
                     );
                     isParticipating[UpPlayers[i]] = false;
                     depositAmounts[UpPlayers[i]] = 0;
@@ -244,7 +255,8 @@ contract UpDown is AccessControl {
                     ITreasury(treasury).refund(
                         depositAmounts[DownPlayers[i]],
                         DownPlayers[i],
-                        gameToken
+                        gameToken,
+                        currentGameId
                     );
                     isParticipating[DownPlayers[i]] = false;
                     depositAmounts[DownPlayers[i]] = 0;
@@ -273,7 +285,8 @@ contract UpDown is AccessControl {
                 totalDepositsDown,
                 totalDepositsUp,
                 gameToken,
-                fee
+                fee,
+                currentGameId
             );
             for (uint i = 0; i < UpPlayers.length; i++) {
                 ITreasury(treasury).distributeWithoutFee(
@@ -281,7 +294,8 @@ contract UpDown is AccessControl {
                     UpPlayers[i],
                     gameToken,
                     fee,
-                    depositAmounts[UpPlayers[i]]
+                    depositAmounts[UpPlayers[i]],
+                    currentGameId
                 );
             }
             emit UpDownFinalized(finalPrice, true, currentGameId);
@@ -290,7 +304,8 @@ contract UpDown is AccessControl {
                 totalDepositsUp,
                 totalDepositsDown,
                 gameToken,
-                fee
+                fee,
+                currentGameId
             );
             for (uint i = 0; i < DownPlayers.length; i++) {
                 ITreasury(treasury).distributeWithoutFee(
@@ -298,7 +313,8 @@ contract UpDown is AccessControl {
                     DownPlayers[i],
                     gameToken,
                     fee,
-                    depositAmounts[DownPlayers[i]]
+                    depositAmounts[DownPlayers[i]],
+                    currentGameId
                 );
             }
             emit UpDownFinalized(finalPrice, false, currentGameId);
@@ -307,7 +323,8 @@ contract UpDown is AccessControl {
                 ITreasury(treasury).refund(
                     depositAmounts[UpPlayers[i]],
                     UpPlayers[i],
-                    gameToken
+                    gameToken,
+                    currentGameId
                 );
                 isParticipating[UpPlayers[i]] = false;
             }
@@ -316,7 +333,8 @@ contract UpDown is AccessControl {
                 ITreasury(treasury).refund(
                     depositAmounts[DownPlayers[i]],
                     DownPlayers[i],
-                    gameToken
+                    gameToken,
+                    currentGameId
                 );
                 isParticipating[DownPlayers[i]] = false;
             }
@@ -350,7 +368,8 @@ contract UpDown is AccessControl {
             ITreasury(treasury).refund(
                 depositAmounts[UpPlayers[i]],
                 UpPlayers[i],
-                gameToken
+                gameToken,
+                currentGameId
             );
             isParticipating[UpPlayers[i]] = false;
             depositAmounts[UpPlayers[i]] = 0;
@@ -360,7 +379,8 @@ contract UpDown is AccessControl {
             ITreasury(treasury).refund(
                 depositAmounts[DownPlayers[i]],
                 DownPlayers[i],
-                gameToken
+                gameToken,
+                currentGameId
             );
             isParticipating[DownPlayers[i]] = false;
             depositAmounts[DownPlayers[i]] = 0;

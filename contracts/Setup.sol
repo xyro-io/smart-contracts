@@ -204,7 +204,9 @@ contract Setup is AccessControl {
         ITreasury(treasury).depositAndLock(
             depositAmount,
             msg.sender,
-            games[gameId].gameToken
+            games[gameId].gameToken,
+            gameId,
+            true
         );
         depositAmounts[gameId][msg.sender] = depositAmount;
         if (isLong) {
@@ -248,7 +250,9 @@ contract Setup is AccessControl {
         ITreasury(treasury).lock(
             depositAmount,
             msg.sender,
-            games[gameId].gameToken
+            games[gameId].gameToken,
+            gameId,
+            true
         );
         depositAmounts[gameId][msg.sender] = depositAmount;
         if (isLong) {
@@ -295,6 +299,8 @@ contract Setup is AccessControl {
             depositAmount,
             games[gameId].gameToken,
             msg.sender,
+            gameId,
+            true,
             permitData.deadline,
             permitData.v,
             permitData.r,
@@ -350,7 +356,8 @@ contract Setup is AccessControl {
         ITreasury(treasury).refund(
             depositAmounts[gameId][msg.sender],
             msg.sender,
-            games[gameId].gameToken
+            games[gameId].gameToken,
+            gameId
         );
         emit SetupRetrieved(
             gameId,
@@ -402,7 +409,8 @@ contract Setup is AccessControl {
                         games[gameId].totalDepositsTP,
                         games[gameId].gameToken,
                         fee,
-                        data.initiator
+                        data.initiator,
+                        gameId
                     );
                 emit SetupFinalized(
                     gameId,
@@ -420,7 +428,8 @@ contract Setup is AccessControl {
                         games[gameId].totalDepositsSL,
                         games[gameId].gameToken,
                         fee,
-                        data.initiator
+                        data.initiator,
+                        gameId
                     );
                 emit SetupFinalized(
                     gameId,
@@ -445,7 +454,8 @@ contract Setup is AccessControl {
                         games[gameId].totalDepositsSL,
                         games[gameId].gameToken,
                         fee,
-                        data.initiator
+                        data.initiator,
+                        gameId
                     );
                 emit SetupFinalized(
                     gameId,
@@ -462,7 +472,8 @@ contract Setup is AccessControl {
                         games[gameId].totalDepositsTP,
                         games[gameId].gameToken,
                         fee,
-                        data.initiator
+                        data.initiator,
+                        gameId
                     );
                 emit SetupFinalized(
                     gameId,
@@ -509,7 +520,8 @@ contract Setup is AccessControl {
                     msg.sender,
                     games[gameId].gameToken,
                     fee,
-                    depositAmounts[gameId][msg.sender]
+                    depositAmounts[gameId][msg.sender],
+                    gameId
                 );
             } else if (data.finalPrice <= data.stopLossPrice) {
                 // sl team wins
@@ -523,7 +535,8 @@ contract Setup is AccessControl {
                     msg.sender,
                     games[gameId].gameToken,
                     fee,
-                    depositAmounts[gameId][msg.sender]
+                    depositAmounts[gameId][msg.sender],
+                    gameId
                 );
             }
         } else {
@@ -539,7 +552,8 @@ contract Setup is AccessControl {
                     msg.sender,
                     games[gameId].gameToken,
                     fee,
-                    depositAmounts[gameId][msg.sender]
+                    depositAmounts[gameId][msg.sender],
+                    gameId
                 );
             } else if (data.finalPrice <= data.takeProfitPrice) {
                 require(
@@ -552,7 +566,8 @@ contract Setup is AccessControl {
                     msg.sender,
                     games[gameId].gameToken,
                     fee,
-                    depositAmounts[gameId][msg.sender]
+                    depositAmounts[gameId][msg.sender],
+                    gameId
                 );
             }
         }

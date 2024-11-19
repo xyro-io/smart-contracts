@@ -105,10 +105,15 @@ contract OneVsOneExactPrice is AccessControl {
             "Max game duration must be lower"
         );
         require(token != address(0), "Token must be set");
-
-        ITreasury(treasury).depositAndLock(depositAmount, msg.sender, token);
         bytes32 gameId = keccak256(
             abi.encodePacked(endTime, block.timestamp, msg.sender, opponent)
+        );
+        ITreasury(treasury).depositAndLock(
+            depositAmount,
+            msg.sender,
+            token,
+            gameId,
+            false
         );
         require(games[gameId].packedData == 0, "Game exists");
         uint256 packedData = uint(uint160(opponent));
@@ -167,10 +172,15 @@ contract OneVsOneExactPrice is AccessControl {
             "Max game duration must be lower"
         );
         require(token != address(0), "Token must be set");
-
-        ITreasury(treasury).lock(depositAmount, msg.sender, token);
         bytes32 gameId = keccak256(
             abi.encodePacked(endTime, block.timestamp, msg.sender, opponent)
+        );
+        ITreasury(treasury).lock(
+            depositAmount,
+            msg.sender,
+            token,
+            gameId,
+            false
         );
         require(games[gameId].packedData == 0, "Game exists");
         uint256 packedData = uint(uint160(opponent));
@@ -231,17 +241,19 @@ contract OneVsOneExactPrice is AccessControl {
         );
         require(token != address(0), "Token must be set");
 
+        bytes32 gameId = keccak256(
+            abi.encodePacked(endTime, block.timestamp, msg.sender, opponent)
+        );
         ITreasury(treasury).depositAndLockWithPermit(
             depositAmount,
             token,
             msg.sender,
+            gameId,
+            false,
             permitData.deadline,
             permitData.v,
             permitData.r,
             permitData.s
-        );
-        bytes32 gameId = keccak256(
-            abi.encodePacked(endTime, block.timestamp, msg.sender, opponent)
         );
         uint256 packedData = uint(uint160(opponent));
         uint256 packedData2 = uint(uint160(msg.sender));
@@ -295,7 +307,9 @@ contract OneVsOneExactPrice is AccessControl {
         ITreasury(treasury).depositAndLock(
             games[gameId].depositAmount,
             msg.sender,
-            games[gameId].gameToken
+            games[gameId].gameToken,
+            gameId,
+            false
         );
         //rewrites status
         games[gameId].packedData2 =
@@ -335,7 +349,9 @@ contract OneVsOneExactPrice is AccessControl {
         ITreasury(treasury).lock(
             games[gameId].depositAmount,
             msg.sender,
-            games[gameId].gameToken
+            games[gameId].gameToken,
+            gameId,
+            false
         );
         //rewrites status
         games[gameId].packedData2 =
@@ -377,6 +393,8 @@ contract OneVsOneExactPrice is AccessControl {
             games[gameId].depositAmount,
             games[gameId].gameToken,
             msg.sender,
+            gameId,
+            false,
             permitData.deadline,
             permitData.v,
             permitData.r,
@@ -408,7 +426,8 @@ contract OneVsOneExactPrice is AccessControl {
         ITreasury(treasury).refund(
             games[gameId].depositAmount,
             game.initiator,
-            games[gameId].gameToken
+            games[gameId].gameToken,
+            gameId
         );
         //rewrites status
         games[gameId].packedData2 =
@@ -429,7 +448,8 @@ contract OneVsOneExactPrice is AccessControl {
             games[gameId].depositAmount,
             game.initiator,
             games[gameId].gameToken,
-            refundFee
+            refundFee,
+            gameId
         );
         //rewrites status
         games[gameId].packedData2 =
@@ -469,7 +489,9 @@ contract OneVsOneExactPrice is AccessControl {
                 games[gameId].depositAmount * 2,
                 game.initiator,
                 games[gameId].gameToken,
-                fee
+                games[gameId].depositAmount,
+                fee,
+                gameId
             );
             emit ExactPriceFinalized(
                 gameId,
@@ -483,7 +505,9 @@ contract OneVsOneExactPrice is AccessControl {
                 games[gameId].depositAmount * 2,
                 game.opponent,
                 games[gameId].gameToken,
-                fee
+                games[gameId].depositAmount,
+                fee,
+                gameId
             );
             emit ExactPriceFinalized(
                 gameId,
@@ -496,12 +520,14 @@ contract OneVsOneExactPrice is AccessControl {
             ITreasury(treasury).refund(
                 games[gameId].depositAmount,
                 game.initiator,
-                games[gameId].gameToken
+                games[gameId].gameToken,
+                gameId
             );
             ITreasury(treasury).refund(
                 games[gameId].depositAmount,
                 game.opponent,
-                games[gameId].gameToken
+                games[gameId].gameToken,
+                gameId
             );
             emit ExactPriceCancelled(gameId);
         }

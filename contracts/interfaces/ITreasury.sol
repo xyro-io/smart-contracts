@@ -13,13 +13,25 @@ interface ITreasury {
 
     function grantRole(bytes32 role, address account) external;
 
+    function lockedRakeback(
+        bytes32 gameId,
+        address player
+    ) external returns (uint256);
+
+    function calculateBullseyeRate(
+        uint256 wonPercentage,
+        uint256 lostPlayersRakeback,
+        uint256 inititalDeposit,
+        bytes32 gameId
+    ) external returns (uint256);
+
     function depositAndLock(
         uint256 amount,
         address from,
         address token,
         bytes32 gameId,
         bool isRakeback
-    ) external;
+    ) external returns (uint256 rakeback);
 
     function depositAndLockWithPermit(
         uint256 amount,
@@ -31,7 +43,7 @@ interface ITreasury {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) external;
+    ) external returns (uint256 rakeback);
 
     function lock(
         uint256 amount,
@@ -39,25 +51,27 @@ interface ITreasury {
         address token,
         bytes32 gameId,
         bool isRakeback
-    ) external;
+    ) external returns (uint256 rakeback);
 
     function upkeep() external view returns (address);
 
-    function distribute(
-        uint256 amount,
-        address to,
-        address token,
-        uint256 initialDeposit,
-        uint256 gameFee,
-        bytes32 gameId
-    ) external;
+    // function distribute(
+    //     uint256 amount,
+    //     address to,
+    //     address token,
+    //     uint256 initialDeposit,
+    //     uint256 gameFee,
+    //     bytes32 gameId
+    // ) external;
+
+    function bullseyeResetLockedAmount(bytes32 gameId) external;
 
     function distributeBullseye(
-        uint256 amount,
+        uint256 rate,
         uint256 initialDeposit,
+        uint256 lostTeamRakeback,
         address to,
         address token,
-        uint256 gameFee,
         bytes32 gameId
     ) external;
 
@@ -78,38 +92,36 @@ interface ITreasury {
         bytes32 gameId
     ) external;
 
-    function distributeWithoutFee(
-        uint256 rate,
-        address to,
-        address token,
-        uint256 usedFee,
-        uint256 initialDeposit,
-        bytes32 gameId
-    ) external;
+    // function distributeWithoutFee(
+    //     uint256 rate,
+    //     address to,
+    //     address token,
+    //     uint256 usedFee,
+    //     uint256 initialDeposit,
+    //     bytes32 gameId
+    // ) external;
 
-    function calculateSetupRate(
-        uint256 lostTeamTotal,
-        uint256 wonTeamTotal,
-        address token,
-        uint256 setupFee,
-        address initiator,
-        bytes32 gameId
-    ) external returns (uint256, uint256);
+    // function calculateSetupRate(
+    //     uint256 lostTeamTotal,
+    //     uint256 wonTeamTotal,
+    //     address token,
+    //     uint256 setupFee,
+    //     address initiator,
+    //     bytes32 gameId
+    // ) external returns (uint256, uint256);
 
-    function calculateUpDownRate(
-        uint256 lostTeamTotal,
-        uint256 wonTeamTotal,
-        address token,
-        uint256 updownFee,
-        bytes32 gameId
-    ) external returns (uint256 rate);
+    // function calculateUpDownRate(
+    //     uint256 lostTeamTotal,
+    //     uint256 wonTeamTotal,
+    //     address token,
+    //     uint256 updownFee,
+    //     bytes32 gameId
+    // ) external returns (uint256 rate);
 
     function universalDistribute(
-        uint256 amount,
         address to,
         address token,
         uint256 initialDeposit,
-        uint256 gameFee,
         bytes32 gameId,
         uint256 rate
     ) external;
@@ -119,12 +131,13 @@ interface ITreasury {
         address token,
         uint256 gameFee,
         bytes32 gameId
-    ) external;
+    ) external returns (uint256 withdrawnFees);
 
     function calculateRate(
         uint256 wonTeamTotal,
+        uint256 lostTeamRakeback,
         bytes32 gameId
-    ) external view returns (uint256);
+    ) external returns (uint256);
 
     function withdrawInitiatorFee(
         uint256 lostTeamDeposits,
@@ -132,5 +145,5 @@ interface ITreasury {
         uint256 initiatorFee,
         address initiator,
         bytes32 gameId
-    ) external;
+    ) external returns (uint256 withdrawnFees);
 }

@@ -80,12 +80,12 @@ describe("UpDown", () => {
         Treasury.getAddress(),
         ethers.MaxUint256
       );
-      // await XyroToken.approve(players[i].address, ethers.MaxUint256);
-      // await XyroToken.transfer(players[i].address, parse18("10000"));
-      // await XyroToken.connect(players[i]).approve(
-      //   Treasury.getAddress(),
-      //   ethers.MaxUint256
-      // );
+      await XyroToken.approve(players[i].address, ethers.MaxUint256);
+      await XyroToken.transfer(players[i].address, parse18("10000"));
+      await XyroToken.connect(players[i]).approve(
+        Treasury.getAddress(),
+        ethers.MaxUint256
+      );
     }
     await Game.grantRole(await Game.GAME_MASTER_ROLE(), owner.address);
     await Treasury.grantRole(
@@ -138,6 +138,22 @@ describe("UpDown", () => {
       );
       expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(usdtAmount);
       expect(oldBobBalance - newBobBalance).to.be.equal(usdtAmount);
+      expect(await Treasury.locked(await Game.currentGameId())).to.be.equal(
+        usdtAmount
+      );
+
+      expect(
+        await Treasury.lockedRakeback(await Game.currentGameId(), bob.address)
+      ).to.be.equal((usdtAmount * BigInt(3)) / BigInt(100));
+
+      expect(await Game.totalDepositsUp()).to.be.equal(usdtAmount);
+      expect(await Game.totalDepositsDown()).to.be.equal(0);
+
+      expect(await Game.totalRakebackUp()).to.be.equal(
+        (usdtAmount * BigInt(3)) / BigInt(100)
+      );
+
+      expect(await Game.totalRakebackDown()).to.be.equal(0);
     });
 
     it("should play down", async function () {
@@ -152,6 +168,28 @@ describe("UpDown", () => {
       );
       expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(usdtAmount);
       expect(oldOpponentBalance - newOpponentBalance).to.be.equal(usdtAmount);
+
+      expect(await Treasury.locked(await Game.currentGameId())).to.be.equal(
+        usdtAmount * BigInt(2)
+      );
+
+      expect(
+        await Treasury.lockedRakeback(
+          await Game.currentGameId(),
+          opponent.address
+        )
+      ).to.be.equal((usdtAmount * BigInt(3)) / BigInt(100));
+
+      expect(await Game.totalDepositsUp()).to.be.equal(usdtAmount);
+      expect(await Game.totalDepositsDown()).to.be.equal(usdtAmount);
+
+      expect(await Game.totalRakebackUp()).to.be.equal(
+        (usdtAmount * BigInt(3)) / BigInt(100)
+      );
+
+      expect(await Game.totalRakebackDown()).to.be.equal(
+        (usdtAmount * BigInt(3)) / BigInt(100)
+      );
     });
 
     it("should play up", async function () {
@@ -166,6 +204,24 @@ describe("UpDown", () => {
       );
       expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(usdtAmount);
       expect(oldAliceBalance - newAliceBalance).to.be.equal(usdtAmount);
+      expect(await Treasury.locked(await Game.currentGameId())).to.be.equal(
+        usdtAmount * BigInt(3)
+      );
+
+      expect(
+        await Treasury.lockedRakeback(await Game.currentGameId(), alice.address)
+      ).to.be.equal((usdtAmount * BigInt(3)) / BigInt(100));
+
+      expect(await Game.totalDepositsUp()).to.be.equal(usdtAmount * BigInt(2));
+      expect(await Game.totalDepositsDown()).to.be.equal(usdtAmount);
+
+      expect(await Game.totalRakebackUp()).to.be.equal(
+        ((usdtAmount * BigInt(3)) / BigInt(100)) * BigInt(2)
+      );
+
+      expect(await Game.totalRakebackDown()).to.be.equal(
+        (usdtAmount * BigInt(3)) / BigInt(100)
+      );
     });
 
     it("should fail - wrong deposit amount play()", async function () {
@@ -288,7 +344,28 @@ describe("UpDown", () => {
       await Game.connect(alice).play(true, usdtAmount);
       await Game.connect(opponent).play(false, usdtAmount);
 
+      expect(
+        await Treasury.lockedRakeback(await Game.currentGameId(), alice.address)
+      ).to.be.equal((usdtAmount * BigInt(3)) / BigInt(100));
+
+      expect(
+        await Treasury.lockedRakeback(
+          await Game.currentGameId(),
+          opponent.address
+        )
+      ).to.be.equal((usdtAmount * BigInt(3)) / BigInt(100));
+
       await Game.closeGame();
+      expect(
+        await Treasury.lockedRakeback(await Game.currentGameId(), alice.address)
+      ).to.be.equal(0);
+
+      expect(
+        await Treasury.lockedRakeback(
+          await Game.currentGameId(),
+          opponent.address
+        )
+      ).to.be.equal(0);
       await Treasury.connect(opponent).withdraw(
         await Treasury.deposits(await USDT.getAddress(), opponent.address),
         await USDT.getAddress()
@@ -321,7 +398,6 @@ describe("UpDown", () => {
         )
       ).to.be.revertedWith(requireStartedGame);
     });
-
     it("should fail - too early to finish", async function () {
       const endTime = (await time.latest()) + fortyFiveMinutes;
       const stopPredictAt = (await time.latest()) + fifteenMinutes;
@@ -345,7 +421,6 @@ describe("UpDown", () => {
       ).to.be.revertedWith(requirePastEndTime);
       await Game.closeGame();
     });
-
     it("should fail - old chainlink report", async function () {
       const endTime = (await time.latest()) + fortyFiveMinutes;
       const stopPredictAt = (await time.latest()) + fifteenMinutes;
@@ -378,7 +453,6 @@ describe("UpDown", () => {
       ).to.be.revertedWith(requireValidChainlinkReport);
       await Game.closeGame();
     });
-
     it("should fail - startring price should be set", async function () {
       const endTime = (await time.latest()) + fortyFiveMinutes;
       const stopPredictAt = (await time.latest()) + fifteenMinutes;
@@ -403,7 +477,6 @@ describe("UpDown", () => {
       ).to.be.revertedWith(requireStartingPrice);
       await Game.closeGame();
     });
-
     it("should end updown game (up wins)", async function () {
       let oldDeposit = await Treasury.deposits(
         await USDT.getAddress(),
@@ -420,7 +493,6 @@ describe("UpDown", () => {
       );
       await Game.connect(alice).play(true, usdtAmount);
       await Game.connect(opponent).play(false, usdtAmount);
-
       await time.increase(fifteenMinutes);
       await Game.setStartingPrice(
         abiEncodeInt192WithTimestamp(
@@ -441,15 +513,20 @@ describe("UpDown", () => {
         await USDT.getAddress(),
         alice.address
       );
-      let wonAmount =
-        BigInt(2) * usdtAmount -
-        (BigInt(2) * usdtAmount * (await Game.fee())) / DENOMENATOR;
+      let rakeback = (usdtAmount * BigInt(3)) / BigInt(100);
+      let fee = (usdtAmount * (await Game.fee())) / DENOMENATOR;
+      // console.log("rakeback = ", rakeback / BigInt(1000000), rakeback);
+      // console.log("fee = ", fee / BigInt(1000000), fee);
+      // console.log(BigInt(2) * usdtAmount);
+      let wonAmount = BigInt(2) * usdtAmount - (fee + rakeback);
+      // console.log("wonAmount = ", wonAmount);
       expect(newDeposit - oldDeposit).to.be.equal(wonAmount);
       await Treasury.connect(alice).withdraw(
         await Treasury.deposits(await USDT.getAddress(), alice.address),
         await USDT.getAddress()
       );
     });
+
     it("should refund if starting price and final price are equal", async function () {
       let oldBalance = await USDT.balanceOf(alice.getAddress());
       await Game.startGame(
@@ -533,7 +610,6 @@ describe("UpDown", () => {
       currntBalance = await USDT.balanceOf(opponent.getAddress());
       expect(oldBalance).to.be.equal(currntBalance);
     });
-
     it("should refund if players only in down team", async function () {
       let oldBalance = await USDT.balanceOf(opponent.getAddress());
       await Game.startGame(
@@ -717,9 +793,11 @@ describe("UpDown", () => {
         await XyroToken.getAddress(),
         alice.address
       );
-      let wonAmount =
-        BigInt(2) * xyroAmount -
-        (BigInt(2) * xyroAmount * (await Game.fee())) / DENOMENATOR;
+
+      let rakeback = (xyroAmount * BigInt(3)) / BigInt(100);
+      let fee = (xyroAmount * (await Game.fee())) / DENOMENATOR;
+      let wonAmount = BigInt(2) * xyroAmount - (fee + rakeback);
+
       expect(newDeposit - oldDeposit).to.be.equal(wonAmount);
       await Treasury.connect(alice).withdraw(
         await Treasury.deposits(await XyroToken.getAddress(), alice.address),

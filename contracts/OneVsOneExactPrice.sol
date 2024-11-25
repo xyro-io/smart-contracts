@@ -467,10 +467,9 @@ contract OneVsOneExactPrice is AccessControl {
         bytes32 gameId,
         bytes memory unverifiedReport
     ) public onlyRole(GAME_MASTER_ROLE) {
-        address upkeep = ITreasury(treasury).upkeep();
         GameInfo memory game = decodeData(gameId);
         (int192 finalPrice, uint32 priceTimestamp) = IDataStreamsVerifier(
-            upkeep
+            ITreasury(treasury).upkeep()
         ).verifyReportWithTimestamp(unverifiedReport, game.feedNumber);
         require(game.gameStatus == Status.Started, "Wrong status!");
         require(block.timestamp >= game.endTime, "Too early to finish");
@@ -484,14 +483,25 @@ contract OneVsOneExactPrice is AccessControl {
         uint256 diff2 = game.opponentPrice > uint192(finalPrice) / 1e14
             ? game.opponentPrice - uint192(finalPrice) / 1e14
             : uint192(finalPrice) / 1e14 - game.opponentPrice;
+        ITreasury(treasury).withdrawGameFee(
+            games[gameId].depositAmount,
+            games[gameId].gameToken,
+            fee,
+            gameId
+        );
+        //1000000000 rate 1 to 1
+        uint256 finalRate = ITreasury(treasury).calculateRate(
+            games[gameId].depositAmount,
+            0,
+            gameId
+        );
         if (diff1 < diff2) {
-            ITreasury(treasury).distribute(
-                games[gameId].depositAmount * 2,
+            ITreasury(treasury).universalDistribute(
                 game.initiator,
                 games[gameId].gameToken,
                 games[gameId].depositAmount,
-                fee,
-                gameId
+                gameId,
+                finalRate
             );
             emit ExactPriceFinalized(
                 gameId,
@@ -501,13 +511,12 @@ contract OneVsOneExactPrice is AccessControl {
                 Status.Finished
             );
         } else if (diff1 > diff2) {
-            ITreasury(treasury).distribute(
-                games[gameId].depositAmount * 2,
+            ITreasury(treasury).universalDistribute(
                 game.opponent,
                 games[gameId].gameToken,
                 games[gameId].depositAmount,
-                fee,
-                gameId
+                gameId,
+                finalRate
             );
             emit ExactPriceFinalized(
                 gameId,

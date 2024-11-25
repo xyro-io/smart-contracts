@@ -1434,7 +1434,7 @@ describe("Setup Game", () => {
     it("should change treasury", async function () {
       let temporaryTreasury = await upgrades.deployProxy(
         await ethers.getContractFactory("Treasury"),
-        [await USDT.getAddress()]
+        [await USDT.getAddress(), await XyroToken.getAddress()]
       );
       await Game.setTreasury(await temporaryTreasury.getAddress());
       expect(await Game.treasury()).to.equal(

@@ -46,6 +46,8 @@ contract UpDown is AccessControl {
     uint256 public minDepositAmount;
     uint256 public totalDepositsUp;
     uint256 public totalDepositsDown;
+    uint256 public totalRakebackUp;
+    uint256 public totalRakebackDown;
     uint256 public maxPlayers = 100;
     uint256 public fee = 1500;
 
@@ -103,24 +105,25 @@ contract UpDown is AccessControl {
             game.stopPredictAt > block.timestamp,
             "Game is closed for new players"
         );
-        if (isLong) {
-            //rewrites totalDepositsUp
-            totalDepositsUp += depositAmount;
-            UpPlayers.push(msg.sender);
-        } else {
-            //rewrites totalDepositsDown
-            totalDepositsDown += depositAmount;
-            DownPlayers.push(msg.sender);
-        }
+
         depositAmounts[msg.sender] = depositAmount;
         isParticipating[msg.sender] = true;
-        ITreasury(treasury).depositAndLock(
+        uint256 rakeback = ITreasury(treasury).depositAndLock(
             depositAmount,
             msg.sender,
             gameToken,
             currentGameId,
             true
         );
+        if (isLong) {
+            totalRakebackUp += rakeback;
+            totalDepositsUp += depositAmount;
+            UpPlayers.push(msg.sender);
+        } else {
+            totalRakebackDown += rakeback;
+            totalDepositsDown += depositAmount;
+            DownPlayers.push(msg.sender);
+        }
         emit UpDownNewPlayer(msg.sender, isLong, depositAmount, currentGameId);
     }
 
@@ -141,23 +144,23 @@ contract UpDown is AccessControl {
             game.stopPredictAt > block.timestamp,
             "Game is closed for new players"
         );
-        if (isLong) {
-            //rewrites totalDepositsUp
-            totalDepositsUp += depositAmount;
-            UpPlayers.push(msg.sender);
-        } else {
-            //rewrites totalDepositsDown
-            totalDepositsDown += depositAmount;
-            DownPlayers.push(msg.sender);
-        }
         depositAmounts[msg.sender] = depositAmount;
-        ITreasury(treasury).lock(
+        uint256 rakeback = ITreasury(treasury).lock(
             depositAmount,
             msg.sender,
             gameToken,
             currentGameId,
             true
         );
+        if (isLong) {
+            totalRakebackUp += rakeback;
+            totalDepositsUp += depositAmount;
+            UpPlayers.push(msg.sender);
+        } else {
+            totalRakebackDown += rakeback;
+            totalDepositsDown += depositAmount;
+            DownPlayers.push(msg.sender);
+        }
         emit UpDownNewPlayer(msg.sender, isLong, depositAmount, currentGameId);
     }
 
@@ -181,17 +184,9 @@ contract UpDown is AccessControl {
             game.stopPredictAt > block.timestamp,
             "Game is closed for new players"
         );
-        if (isLong) {
-            //rewrites totalDepositsUp
-            totalDepositsUp += depositAmount;
-            UpPlayers.push(msg.sender);
-        } else {
-            //rewrites totalDepositsDown
-            totalDepositsDown += depositAmount;
-            DownPlayers.push(msg.sender);
-        }
         depositAmounts[msg.sender] = depositAmount;
-        ITreasury(treasury).depositAndLockWithPermit(
+        isParticipating[msg.sender] = true;
+        uint256 rakeback = ITreasury(treasury).depositAndLockWithPermit(
             depositAmount,
             gameToken,
             msg.sender,
@@ -202,7 +197,15 @@ contract UpDown is AccessControl {
             permitData.r,
             permitData.s
         );
-        isParticipating[msg.sender] = true;
+        if (isLong) {
+            totalRakebackUp += rakeback;
+            totalDepositsUp += depositAmount;
+            UpPlayers.push(msg.sender);
+        } else {
+            totalRakebackDown += rakeback;
+            totalDepositsDown += depositAmount;
+            DownPlayers.push(msg.sender);
+        }
         emit UpDownNewPlayer(msg.sender, isLong, depositAmount, currentGameId);
     }
 
@@ -281,40 +284,47 @@ contract UpDown is AccessControl {
         );
         GameInfo memory _game = game;
         if (uint192(finalPrice / 1e14) > _game.startingPrice) {
-            uint256 finalRate = ITreasury(treasury).calculateUpDownRate(
+            // -= OR =-
+            ITreasury(treasury).withdrawGameFee(
                 totalDepositsDown,
-                totalDepositsUp,
                 gameToken,
                 fee,
                 currentGameId
             );
+            uint256 finalRate = ITreasury(treasury).calculateRate(
+                totalDepositsUp,
+                totalRakebackDown,
+                currentGameId
+            );
             for (uint i = 0; i < UpPlayers.length; i++) {
-                ITreasury(treasury).distributeWithoutFee(
-                    finalRate,
+                ITreasury(treasury).universalDistribute(
                     UpPlayers[i],
                     gameToken,
-                    fee,
                     depositAmounts[UpPlayers[i]],
-                    currentGameId
+                    currentGameId,
+                    finalRate
                 );
             }
             emit UpDownFinalized(finalPrice, true, currentGameId);
         } else if (uint192(finalPrice / 1e14) < _game.startingPrice) {
-            uint256 finalRate = ITreasury(treasury).calculateUpDownRate(
+            ITreasury(treasury).withdrawGameFee(
                 totalDepositsUp,
-                totalDepositsDown,
                 gameToken,
                 fee,
                 currentGameId
             );
+            uint256 finalRate = ITreasury(treasury).calculateRate(
+                totalDepositsDown,
+                totalRakebackUp,
+                currentGameId
+            );
             for (uint i = 0; i < DownPlayers.length; i++) {
-                ITreasury(treasury).distributeWithoutFee(
-                    finalRate,
+                ITreasury(treasury).universalDistribute(
                     DownPlayers[i],
                     gameToken,
-                    fee,
                     depositAmounts[DownPlayers[i]],
-                    currentGameId
+                    currentGameId,
+                    finalRate
                 );
             }
             emit UpDownFinalized(finalPrice, false, currentGameId);
@@ -365,6 +375,7 @@ contract UpDown is AccessControl {
     function closeGame() public onlyRole(GAME_MASTER_ROLE) {
         require(currentGameId != bytes32(0), "Game not started");
         for (uint i; i < UpPlayers.length; i++) {
+            // console.log(depositAmounts[UpPlayers[i]]);
             ITreasury(treasury).refund(
                 depositAmounts[UpPlayers[i]],
                 UpPlayers[i],
@@ -376,6 +387,7 @@ contract UpDown is AccessControl {
         }
         delete UpPlayers;
         for (uint i; i < DownPlayers.length; i++) {
+            // console.log(depositAmounts[DownPlayers[i]]);
             ITreasury(treasury).refund(
                 depositAmounts[DownPlayers[i]],
                 DownPlayers[i],
@@ -391,6 +403,8 @@ contract UpDown is AccessControl {
         packedData = 0;
         totalDepositsUp = 0;
         totalDepositsDown = 0;
+        totalRakebackUp = 0;
+        totalRakebackDown = 0;
     }
 
     /**

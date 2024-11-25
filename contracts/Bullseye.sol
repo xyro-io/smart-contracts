@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ITreasury} from "./interfaces/ITreasury.sol";
 import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
-
+import "hardhat/console.sol";
 contract Bullseye is AccessControl {
     bytes32 public constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
     uint256 constant DENOMINATOR = 10000;
@@ -64,6 +64,7 @@ contract Bullseye is AccessControl {
     uint256 packedData;
 
     uint256 public depositAmount;
+    uint256 public totalRakeback;
     bytes32 public currentGameId;
     address public treasury;
     address public gameToken;
@@ -125,7 +126,7 @@ contract Bullseye is AccessControl {
             (block.timestamp << 160) |
             (uint256(assetPrice) << 192);
         packedGuessData.push(packedGuess);
-        ITreasury(treasury).depositAndLock(
+        totalRakeback += ITreasury(treasury).depositAndLock(
             depositAmount,
             msg.sender,
             gameToken,
@@ -159,7 +160,7 @@ contract Bullseye is AccessControl {
             (block.timestamp << 160) |
             (uint256(assetPrice) << 192);
         packedGuessData.push(packedGuess);
-        ITreasury(treasury).lock(
+        totalRakeback += ITreasury(treasury).lock(
             depositAmount,
             msg.sender,
             gameToken,
@@ -196,7 +197,7 @@ contract Bullseye is AccessControl {
             (block.timestamp << 160) |
             (uint256(assetPrice) << 192);
         packedGuessData.push(packedGuess);
-        ITreasury(treasury).depositAndLockWithPermit(
+        totalRakeback += ITreasury(treasury).depositAndLockWithPermit(
             depositAmount,
             gameToken,
             msg.sender,
@@ -264,37 +265,44 @@ contract Bullseye is AccessControl {
                 uint192(finalPrice)
                 ? playerTwoGuessData.assetPrice - uint192(finalPrice)
                 : uint192(finalPrice) - playerTwoGuessData.assetPrice;
+
+            ITreasury(treasury).withdrawGameFee(
+                depositAmount,
+                gameToken,
+                fee,
+                currentGameId
+            );
             if (playerOneDiff < playerTwoDiff) {
                 // player 1 closer
                 if (playerOneDiff > exactRange) {
-                    uint256 wonAmountFirst = (2 * depositAmount * rates[0][0]) /
-                        DENOMINATOR;
+                    // uint256 wonAmountFirst = (2 * depositAmount * rates[0][0]) /
+                    //     DENOMINATOR;
                     ITreasury(treasury).distributeBullseye(
-                        wonAmountFirst,
+                        rates[0][0],
                         depositAmount,
+                        0,
                         playerOneGuessData.player,
                         gameToken,
-                        fee,
                         currentGameId
                     );
-                    uint256 wonAmountSecond = 2 *
-                        depositAmount -
-                        wonAmountFirst;
+                    // uint256 wonAmountSecond = 2 *
+                    //     depositAmount -
+                    //     wonAmountFirst;
                     ITreasury(treasury).distributeBullseye(
-                        wonAmountSecond,
+                        rates[0][1],
                         depositAmount,
+                        0,
                         playerTwoGuessData.player,
                         gameToken,
-                        fee,
                         currentGameId
                     );
                 } else {
                     ITreasury(treasury).distributeBullseye(
-                        2 * depositAmount,
+                        rates[1][0],
                         depositAmount,
+                        0,
                         playerOneGuessData.player,
                         gameToken,
-                        fee,
                         currentGameId
                     );
                 }
@@ -315,31 +323,31 @@ contract Bullseye is AccessControl {
                     uint256 wonAmountFirst = (2 * depositAmount * rates[0][0]) /
                         DENOMINATOR;
                     ITreasury(treasury).distributeBullseye(
-                        wonAmountFirst,
+                        rates[0][0],
                         depositAmount,
+                        0,
                         playerTwoGuessData.player,
                         gameToken,
-                        fee,
                         currentGameId
                     );
                     uint256 wonAmountSecond = 2 *
                         depositAmount -
                         wonAmountFirst;
                     ITreasury(treasury).distributeBullseye(
-                        wonAmountSecond,
+                        rates[0][1],
                         depositAmount,
+                        0,
                         playerOneGuessData.player,
                         gameToken,
-                        fee,
                         currentGameId
                     );
                 } else {
                     ITreasury(treasury).distributeBullseye(
-                        2 * depositAmount,
+                        rates[1][0],
                         depositAmount,
+                        0,
                         playerTwoGuessData.player,
                         gameToken,
-                        fee,
                         currentGameId
                     );
                 }
@@ -417,35 +425,52 @@ contract Bullseye is AccessControl {
                     wonAmount = rates[4];
                 }
             }
+
+            uint256 winnersRakeback;
+            for (uint i = 0; i < 3; i++) {
+                winnersRakeback += ITreasury(treasury).lockedRakeback(
+                    currentGameId,
+                    topPlayers[i]
+                );
+            }
+
+            ITreasury(treasury).withdrawGameFee(
+                totalDeposited - 3 * depositAmount,
+                gameToken,
+                fee,
+                currentGameId
+            );
+
             for (uint256 i = 0; i < 3; i++) {
                 if (topPlayers[i] != address(0)) {
                     if (wonAmount[i] != 0) {
-                        if (i != 3) {
-                            ITreasury(treasury).distributeBullseye(
-                                (totalDeposited * wonAmount[i]) / DENOMINATOR,
-                                depositAmount,
-                                topPlayers[i],
-                                gameToken,
-                                fee,
-                                currentGameId
-                            );
-                        } else {
-                            ITreasury(treasury).distributeBullseye(
-                                totalDeposited -
-                                    ((totalDeposited * wonAmount[0]) /
-                                        DENOMINATOR +
-                                        (totalDeposited * wonAmount[1]) /
-                                        DENOMINATOR),
-                                depositAmount,
-                                topPlayers[i],
-                                gameToken,
-                                fee,
-                                currentGameId
-                            );
-                        }
+                        // if (i != 3) {
+                        ITreasury(treasury).distributeBullseye(
+                            wonAmount[i],
+                            depositAmount,
+                            totalRakeback - winnersRakeback,
+                            topPlayers[i],
+                            gameToken,
+                            currentGameId
+                        );
+                        // } else {
+                        //     ITreasury(treasury).distributeBullseye(
+                        //         totalDeposited -
+                        //             ((totalDeposited * wonAmount[0]) /
+                        //                 DENOMINATOR +
+                        //                 (totalDeposited * wonAmount[1]) /
+                        //                 DENOMINATOR),
+                        //         depositAmount,
+                        //         topPlayers[i],
+                        //         gameToken,
+                        //         fee,
+                        //         currentGameId
+                        //     );
+                        // }
                     }
                 }
             }
+            // ITreasury(treasury).bullseyeResetLockedAmount(currentGameId);
             emit BullseyeFinalized(
                 topPlayers,
                 topIndexes,

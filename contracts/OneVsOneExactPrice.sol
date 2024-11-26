@@ -503,6 +503,7 @@ contract OneVsOneExactPrice is AccessControl {
                 gameId,
                 finalRate
             );
+            ITreasury(treasury).setGameFinished(gameId);
             emit ExactPriceFinalized(
                 gameId,
                 game.initiatorPrice,
@@ -518,6 +519,7 @@ contract OneVsOneExactPrice is AccessControl {
                 gameId,
                 finalRate
             );
+            ITreasury(treasury).setGameFinished(gameId);
             emit ExactPriceFinalized(
                 gameId,
                 game.opponentPrice,

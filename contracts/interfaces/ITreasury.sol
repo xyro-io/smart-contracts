@@ -55,20 +55,10 @@ interface ITreasury {
 
     function upkeep() external view returns (address);
 
-    // function distribute(
-    //     uint256 amount,
-    //     address to,
-    //     address token,
-    //     uint256 initialDeposit,
-    //     uint256 gameFee,
-    //     bytes32 gameId
-    // ) external;
-
     function bullseyeResetLockedAmount(bytes32 gameId) external;
 
     function distributeBullseye(
         uint256 rate,
-        uint256 initialDeposit,
         uint256 lostTeamRakeback,
         address to,
         address token,
@@ -91,32 +81,6 @@ interface ITreasury {
         uint256 refundFee,
         bytes32 gameId
     ) external;
-
-    // function distributeWithoutFee(
-    //     uint256 rate,
-    //     address to,
-    //     address token,
-    //     uint256 usedFee,
-    //     uint256 initialDeposit,
-    //     bytes32 gameId
-    // ) external;
-
-    // function calculateSetupRate(
-    //     uint256 lostTeamTotal,
-    //     uint256 wonTeamTotal,
-    //     address token,
-    //     uint256 setupFee,
-    //     address initiator,
-    //     bytes32 gameId
-    // ) external returns (uint256, uint256);
-
-    // function calculateUpDownRate(
-    //     uint256 lostTeamTotal,
-    //     uint256 wonTeamTotal,
-    //     address token,
-    //     uint256 updownFee,
-    //     bytes32 gameId
-    // ) external returns (uint256 rate);
 
     function universalDistribute(
         address to,
@@ -146,4 +110,6 @@ interface ITreasury {
         address initiator,
         bytes32 gameId
     ) external returns (uint256 withdrawnFees);
+
+    function setGameFinished(bytes32 gameId) external;
 }

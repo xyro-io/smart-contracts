@@ -366,6 +366,7 @@ contract UpDown is AccessControl {
 
         delete DownPlayers;
         delete UpPlayers;
+        ITreasury(treasury).setGameFinished(currentGameId);
         currentGameId = bytes32(0);
         packedData = 0;
         totalDepositsUp = 0;

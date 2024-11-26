@@ -125,7 +125,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
             lockedRakeback[gameId][from] += rakeback;
         }
         locked[gameId] += amount;
-        // locked[token][from] += amount;
     }
 
     /**
@@ -308,11 +307,9 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     }
 
     function universalDistribute(
-        // uint256 amount,
         address to,
         address token,
         uint256 initialDeposit,
-        // uint256 gameFee,
         bytes32 gameId,
         uint256 rate
     ) external onlyRole(DISTRIBUTOR_ROLE) {
@@ -323,8 +320,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         uint256 wonAmount = initialDeposit +
             (initialDeposit * rate) /
             RATE_PRECISION_AMPLIFIER;
-        console.log(88, wonAmount);
-        console.log(88, locked[gameId]);
         deposits[token][to] += wonAmount;
         locked[gameId] -= wonAmount;
         emit Distributed(to, wonAmount, token);
@@ -339,9 +334,7 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         withdrawnFees = (lostTeamDeposits * gameFee) / FEE_DENOMINATOR;
         collectedFee[token] += withdrawnFees;
         emit FeeCollected(withdrawnFees, collectedFee[token], token);
-        console.log(65, locked[gameId]);
         locked[gameId] -= withdrawnFees;
-        console.log(6555, withdrawnFees);
     }
 
     function calculateRate(
@@ -353,31 +346,9 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         if (lostTeamRakeback != 0) {
             locked[gameId] -= lostTeamRakeback;
         }
-        console.log(44, lostTeamRakeback);
-        console.log(77, locked[gameId]);
-        console.log(99, (locked[gameId] - wonTeamTotal));
-        console.log(
-            ((locked[gameId] - wonTeamTotal) * RATE_PRECISION_AMPLIFIER) /
-                wonTeamTotal
-        );
         return
             ((locked[gameId] - wonTeamTotal) * RATE_PRECISION_AMPLIFIER) /
             wonTeamTotal;
-    }
-
-    function calculateBullseyeRate(
-        uint256 wonPercentage,
-        uint256 lostPlayersRakeback,
-        uint256 inititalDeposit,
-        bytes32 gameId
-    ) public onlyRole(DISTRIBUTOR_ROLE) returns (uint256) {
-        if (lostPlayersRakeback != 0) {
-            locked[gameId] -= lostPlayersRakeback;
-        }
-        return
-            (wonPercentage *
-                (locked[gameId] - inititalDeposit * 3) *
-                RATE_PRECISION_AMPLIFIER) / inititalDeposit;
     }
 
     function withdrawInitiatorFee(
@@ -387,41 +358,10 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         address initiator,
         bytes32 gameId
     ) external onlyRole(DISTRIBUTOR_ROLE) returns (uint256 withdrawnFees) {
-        console.log(551, lostTeamDeposits);
-        console.log(552, initiatorFee);
         withdrawnFees = (lostTeamDeposits * initiatorFee) / FEE_DENOMINATOR;
-        console.log(555, withdrawnFees);
-        console.log(555, locked[gameId]);
         deposits[token][initiator] += withdrawnFees;
         emit Distributed(initiator, withdrawnFees, token);
         locked[gameId] -= withdrawnFees;
-    }
-
-    /**
-     * Distribute reward
-     * @param amount token amount
-     * @param to token reciever
-     * @param gameFee game mode fees in bp
-     */
-    function distribute(
-        uint256 amount,
-        address to,
-        address token,
-        uint256 initialDeposit,
-        uint256 gameFee,
-        bytes32 gameId
-    ) public onlyRole(DISTRIBUTOR_ROLE) {
-        if (lockedRakeback[gameId][to] != 0) {
-            initialDeposit += lockedRakeback[gameId][to];
-            lockedRakeback[gameId][to] = 0;
-        }
-        uint256 withdrawnFees = (amount * gameFee) / FEE_DENOMINATOR;
-        uint256 wonAmount = amount - withdrawnFees;
-        collectedFee[token] += withdrawnFees;
-        emit FeeCollected(withdrawnFees, collectedFee[token], token);
-        deposits[token][to] += wonAmount;
-        locked[gameId] -= amount;
-        emit Distributed(to, wonAmount, token);
     }
 
     /**
@@ -430,21 +370,23 @@ contract Treasury is Initializable, AccessControlUpgradeable {
      */
     function distributeBullseye(
         uint256 rate,
-        uint256 initialDeposit,
         uint256 lostTeamRakeback,
         address to,
         address token,
         bytes32 gameId
     ) public onlyRole(DISTRIBUTOR_ROLE) {
         if (lockedRakeback[gameId][to] != 0) {
-            initialDeposit += lockedRakeback[gameId][to];
             lockedRakeback[gameId][to] = 0;
         }
-        locked[gameId] -= lostTeamRakeback;
-        uint256 wonAmount = (locked[gameId] * rate) / FEE_DENOMINATOR;
+        uint256 wonAmount;
+        if (rate == FEE_DENOMINATOR) {
+            wonAmount = locked[gameId] - lostTeamRakeback;
+        } else {
+            wonAmount =
+                ((locked[gameId] - lostTeamRakeback) * rate) /
+                FEE_DENOMINATOR;
+        }
         deposits[token][to] += wonAmount;
-        // should it be removed?
-        // locked[gameId] -= wonAmount;
         emit Distributed(to, wonAmount, token);
     }
 
@@ -455,94 +397,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     }
 
     /**
-     * Distribute reward without fees
-     * @param rate reward rate in bp
-     * @param to token reciever
-     * @param initialDeposit initial deposit amount
-     */
-    function distributeWithoutFee(
-        uint256 rate,
-        address to,
-        address token,
-        uint256 usedFee,
-        uint256 initialDeposit,
-        bytes32 gameId
-    ) public onlyRole(DISTRIBUTOR_ROLE) {
-        if (lockedRakeback[gameId][to] != 0) {
-            initialDeposit += lockedRakeback[gameId][to];
-            lockedRakeback[gameId][to] = 0;
-        }
-        uint256 withdrawnFees = (initialDeposit * usedFee) / FEE_DENOMINATOR;
-        uint256 wonAmount = (initialDeposit - withdrawnFees) +
-            ((initialDeposit - withdrawnFees) * rate) /
-            (FEE_DENOMINATOR * PRECISION_AMPLIFIER);
-        deposits[token][to] += wonAmount;
-        locked[gameId] -= wonAmount;
-        emit Distributed(to, wonAmount, token);
-    }
-
-    /**
-     * Calculates setup reward rate and distributes fee for setup creator
-     * @param lostTeamTotal summ of lost team deposits
-     * @param wonTeamTotal summ of won team deposits
-     * @param initiator game initiator address
-     */
-    function calculateSetupRate(
-        uint256 lostTeamTotal,
-        uint256 wonTeamTotal,
-        address token,
-        uint256 setupFee,
-        address initiator,
-        bytes32 gameId
-    ) external onlyRole(DISTRIBUTOR_ROLE) returns (uint256, uint256) {
-        uint256 withdrawnFees = (lostTeamTotal * setupFee) / FEE_DENOMINATOR;
-        collectedFee[token] += withdrawnFees;
-        emit FeeCollected(withdrawnFees, collectedFee[token], token);
-        uint256 lostTeamFee = (lostTeamTotal * setupInitiatorFee) /
-            FEE_DENOMINATOR;
-        uint256 wonTeamFee = (wonTeamTotal * setupInitiatorFee) /
-            FEE_DENOMINATOR;
-        deposits[token][initiator] += lostTeamFee + wonTeamFee;
-        emit Distributed(initiator, lostTeamFee + wonTeamFee, token);
-        //collect dust
-        // uint256 rate = ((lostTeamTotal - withdrawnFees - lostTeamFee) *
-        //     (FEE_DENOMINATOR * PRECISION_AMPLIFIER)) /
-        //     (wonTeamTotal - wonTeamFee);
-        locked[gameId] -= withdrawnFees + lostTeamFee + wonTeamFee;
-        return (
-            ((lostTeamTotal - withdrawnFees - lostTeamFee) *
-                (FEE_DENOMINATOR * PRECISION_AMPLIFIER)) /
-                (wonTeamTotal - wonTeamFee),
-            lostTeamFee + wonTeamFee
-        );
-    }
-
-    /**
-     * Calculates updown reward rate
-     * @param lostTeamTotal summ of lost team deposits
-     * @param wonTeamTotal summ of won team deposits
-     * @param updownFee updown game fee
-     */
-    function calculateUpDownRate(
-        uint256 lostTeamTotal,
-        uint256 wonTeamTotal,
-        address token,
-        uint256 updownFee,
-        bytes32 gameId
-    ) external onlyRole(DISTRIBUTOR_ROLE) returns (uint256 rate) {
-        uint256 lostTeamFee = (lostTeamTotal * updownFee) / FEE_DENOMINATOR;
-        uint256 wonTeamFee = (wonTeamTotal * updownFee) / FEE_DENOMINATOR;
-        collectedFee[token] += lostTeamFee + wonTeamFee;
-        emit FeeCollected(lostTeamFee + wonTeamFee, collectedFee[token], token);
-        locked[gameId] -= lostTeamFee + wonTeamFee;
-        //collect dust
-        rate =
-            ((lostTeamTotal - lostTeamFee) *
-                (FEE_DENOMINATOR * PRECISION_AMPLIFIER)) /
-            (wonTeamTotal - wonTeamFee);
-    }
-
-    /**
      * Counts earned rakeback amount
      * @param target player address
      * @param initialDeposit initial deposit amount
@@ -550,7 +404,7 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     function calculateRakebackAmount(
         address target,
         uint256 initialDeposit
-    ) internal view returns (uint256) {
+    ) public view returns (uint256) {
         uint256 targetBalance = IERC20(xyroToken).balanceOf(target);
         if (
             targetBalance <
@@ -569,12 +423,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
             }
             rate = 0;
         }
-        // console.log(
-        //     88,
-        //     rate,
-        //     targetBalance,
-        //     rakebackRate[3] * 10 ** IERC20Mint(xyroToken).decimals()
-        // );
         return (initialDeposit * rate * 100) / FEE_DENOMINATOR;
     }
 

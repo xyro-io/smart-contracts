@@ -3,12 +3,19 @@ pragma solidity ^0.8.24;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface ITreasury {
+    function deposits(
+        address token,
+        address target
+    ) external view returns (uint256);
+}
+
+interface IOldTreasury {
     function deposits(address target) external view returns (uint256);
-    function setupInitiatorFee() external view returns (uint256);
 }
 
 interface IGame {
     function fee() external view returns (uint256);
+    function initiatorFee() external view returns (uint256);
 }
 
 contract FrontHelper {
@@ -27,13 +34,9 @@ contract FrontHelper {
         uint256 bullseyeFee;
     }
 
-    address public token;
-    address public treasury;
     address public owner;
 
-    constructor(address _token, address _treasury) {
-        treasury = _treasury;
-        token = _token;
+    constructor() {
         owner = msg.sender;
     }
 
@@ -46,7 +49,7 @@ contract FrontHelper {
         return
             FeeData({
                 setupFee: IGame(setup).fee(),
-                setupInitiatorFee: ITreasury(treasury).setupInitiatorFee(),
+                setupInitiatorFee: IGame(setup).initiatorFee(),
                 oneVsOneFee: IGame(oneVsOne).fee(),
                 upDownfee: IGame(upDown).fee(),
                 bullseyeFee: IGame(bullseye).fee()
@@ -54,13 +57,15 @@ contract FrontHelper {
     }
 
     function getBalanceData(
+        address treasury,
+        address token,
         address[] calldata targets
     ) public view returns (Data[] memory) {
         Data[] memory data = new Data[](targets.length);
         for (uint i; i < targets.length; i++) {
             data[i] = Data({
                 balance: IERC20(token).balanceOf(targets[i]),
-                deposited: ITreasury(treasury).deposits(targets[i]),
+                deposited: ITreasury(treasury).deposits(token, targets[i]),
                 allowance: IERC20(token).allowance(targets[i], treasury),
                 etherBalance: targets[i].balance
             });
@@ -68,8 +73,43 @@ contract FrontHelper {
         return data;
     }
 
-    function setToken(address newToken) public {
-        require(msg.sender == owner, "Not an owner");
-        token = newToken;
+    function getBalanceDataBatch(
+        address treasury,
+        address[] calldata token,
+        address[] calldata targets
+    ) public view returns (Data[] memory) {
+        Data[] memory data = new Data[](targets.length * token.length);
+        uint256 index;
+        for (uint i; i < targets.length; i++) {
+            for (uint j; j < targets.length; j++) {
+                data[index++] = Data({
+                    balance: IERC20(token[j]).balanceOf(targets[i]),
+                    deposited: ITreasury(treasury).deposits(
+                        token[j],
+                        targets[i]
+                    ),
+                    allowance: IERC20(token[j]).allowance(targets[i], treasury),
+                    etherBalance: targets[i].balance
+                });
+            }
+        }
+        return data;
+    }
+
+    function getOldBalanceData(
+        address treasury,
+        address token,
+        address[] calldata targets
+    ) public view returns (Data[] memory) {
+        Data[] memory data = new Data[](targets.length);
+        for (uint i; i < targets.length; i++) {
+            data[i] = Data({
+                balance: IERC20(token).balanceOf(targets[i]),
+                deposited: IOldTreasury(treasury).deposits(targets[i]),
+                allowance: IERC20(token).allowance(targets[i], treasury),
+                etherBalance: targets[i].balance
+            });
+        }
+        return data;
     }
 }

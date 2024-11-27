@@ -5,7 +5,6 @@ import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { RevenueBank } from "../typechain-types/contracts/RevenueBank.sol/RevenueBank";
 import { RevenueBank__factory } from "../typechain-types/factories/contracts/RevenueBank.sol/RevenueBank__factory";
 import { Treasury } from "../typechain-types/contracts/Treasury.sol/Treasury";
-import { Treasury__factory } from "../typechain-types/factories/contracts/Treasury.sol/Treasury__factory";
 import { XyroToken } from "../typechain-types/contracts/XyroToken";
 import { XyroToken__factory } from "../typechain-types/factories/contracts/XyroToken__factory";
 import { MockToken } from "../typechain-types/contracts/mock/MockERC20.sol/MockToken";
@@ -100,11 +99,21 @@ describe("RevenueBank", () => {
     const oldOwnerBalance = await USDT.balanceOf(await Bank.getAddress());
 
     //mock game to earn fees
-    await Treasury.calculateUpDownRate(
-      parse18("500"),
-      parse18("500"),
+    const mockGameId =
+      "0x0000000000000000000000000000000000000000000000000000000000000001";
+    await USDT.approve(await Treasury.getAddress(), ethers.MaxUint256);
+    await Treasury.depositAndLock(
+      parse18("1000"),
+      owner.address,
       await USDT.getAddress(),
-      9000
+      mockGameId,
+      false
+    );
+    await Treasury.withdrawGameFee(
+      parse18("1000"),
+      await USDT.getAddress(),
+      9000,
+      mockGameId
     );
 
     expect(await Treasury.collectedFee(await USDT.getAddress())).to.be.equal(

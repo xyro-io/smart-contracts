@@ -483,18 +483,20 @@ contract OneVsOneExactPrice is AccessControl {
         uint256 diff2 = game.opponentPrice > uint192(finalPrice) / 1e14
             ? game.opponentPrice - uint192(finalPrice) / 1e14
             : uint192(finalPrice) / 1e14 - game.opponentPrice;
-        ITreasury(treasury).withdrawGameFee(
-            games[gameId].depositAmount,
-            games[gameId].gameToken,
-            fee,
-            gameId
-        );
-        //1000000000 rate 1 to 1
-        uint256 finalRate = ITreasury(treasury).calculateRate(
-            games[gameId].depositAmount,
-            0,
-            gameId
-        );
+        uint256 finalRate;
+        if (diff1 != diff2) {
+            ITreasury(treasury).withdrawGameFee(
+                games[gameId].depositAmount,
+                games[gameId].gameToken,
+                fee,
+                gameId
+            );
+            finalRate = ITreasury(treasury).calculateRate(
+                games[gameId].depositAmount,
+                0,
+                gameId
+            );
+        }
         if (diff1 < diff2) {
             ITreasury(treasury).universalDistribute(
                 game.initiator,

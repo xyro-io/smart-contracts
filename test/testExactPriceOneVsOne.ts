@@ -42,7 +42,7 @@ const Status = {
   Finished: 4,
 };
 
-describe("OneVsOneExactPrice", () => {
+describe("OneVsOne", () => {
   let opponent: HardhatEthersSigner;
   let owner: HardhatEthersSigner;
   let alice: HardhatEthersSigner;
@@ -144,7 +144,6 @@ describe("OneVsOneExactPrice", () => {
       ).to.be.equal(usdtAmount);
       expect(sentUserAmount).to.be.equal(usdtAmount);
       expect(game.initiator).to.be.equal(owner.address);
-      // expect(game.opponent).to.be.equal(opponent.address);
       expect(game.endTime).to.be.equal(endTime);
       expect(game.initiatorPrice).to.be.equal(initiatorPrice);
       expect(game.gameStatus).to.be.equal(Status.Created);
@@ -530,7 +529,7 @@ describe("OneVsOneExactPrice", () => {
       let newBalance = await USDT.balanceOf(opponent.address);
       expect(newBalance - oldBalance).to.be.equal(
         usdtAmount * BigInt(2) -
-          (usdtAmount * BigInt(2) * (await Game.fee())) / BigInt(10000)
+          (usdtAmount * (await Game.fee())) / BigInt(10000)
       );
     });
 
@@ -610,7 +609,7 @@ describe("OneVsOneExactPrice", () => {
       let newBalance = await USDT.balanceOf(opponent.address);
       expect(newBalance - oldBalance).to.be.equal(
         usdtAmount * BigInt(2) -
-          (usdtAmount * BigInt(2) * (await Game.fee())) / BigInt(10000)
+          (usdtAmount * (await Game.fee())) / BigInt(10000)
       );
     });
 
@@ -723,7 +722,7 @@ describe("OneVsOneExactPrice", () => {
       let newBalance = await USDT.balanceOf(opponent.address);
       expect(newBalance - oldBalance).to.be.equal(
         usdtAmount * BigInt(2) -
-          (usdtAmount * BigInt(2) * (await Game.fee())) / BigInt(10000)
+          (usdtAmount * (await Game.fee())) / BigInt(10000)
       );
     });
 
@@ -758,7 +757,7 @@ describe("OneVsOneExactPrice", () => {
       let newBalance = await USDT.balanceOf(owner.address);
       expect(newBalance - oldBalance).to.be.equal(
         usdtAmount * BigInt(2) -
-          (usdtAmount * BigInt(2) * (await Game.fee())) / BigInt(10000)
+          (usdtAmount * (await Game.fee())) / BigInt(10000)
       );
     });
 
@@ -985,7 +984,7 @@ describe("OneVsOneExactPrice", () => {
       let newBalance = await XyroToken.balanceOf(opponent.address);
       expect(newBalance - oldBalance).to.be.equal(
         xyroAmount * BigInt(2) -
-          (xyroAmount * BigInt(2) * (await Game.fee())) / BigInt(10000)
+          (xyroAmount * (await Game.fee())) / BigInt(10000)
       );
     });
   });
@@ -1099,7 +1098,7 @@ describe("OneVsOneExactPrice", () => {
       let newBalance = await USDT.balanceOf(opponent.address);
       expect(newBalance - oldBalance).to.be.equal(
         usdtAmount * BigInt(2) -
-          (usdtAmount * BigInt(2) * (await Game.fee())) / BigInt(10000)
+          (usdtAmount * (await Game.fee())) / BigInt(10000)
       );
     });
 

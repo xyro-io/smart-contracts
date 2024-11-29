@@ -28,14 +28,12 @@ interface ITreasury {
     function depositAndLock(
         uint256 amount,
         address from,
-        address token,
         bytes32 gameId,
         bool isRakeback
     ) external returns (uint256 rakeback);
 
     function depositAndLockWithPermit(
         uint256 amount,
-        address token,
         address from,
         bytes32 gameId,
         bool isRakeback,
@@ -48,7 +46,6 @@ interface ITreasury {
     function lock(
         uint256 amount,
         address from,
-        address token,
         bytes32 gameId,
         bool isRakeback
     ) external returns (uint256 rakeback);
@@ -61,30 +58,22 @@ interface ITreasury {
         uint256 rate,
         uint256 lostTeamRakeback,
         address to,
-        address token,
         bytes32 gameId
     ) external;
 
     function approvedTokens(address token) external returns (bool);
 
-    function refund(
-        uint256 amount,
-        address to,
-        address token,
-        bytes32 gameId
-    ) external;
+    function refund(uint256 amount, address to, bytes32 gameId) external;
 
     function refundWithFees(
         uint256 amount,
         address to,
-        address token,
         uint256 refundFee,
         bytes32 gameId
     ) external;
 
     function universalDistribute(
         address to,
-        address token,
         uint256 initialDeposit,
         bytes32 gameId,
         uint256 rate
@@ -92,7 +81,6 @@ interface ITreasury {
 
     function withdrawGameFee(
         uint256 lostTeamDeposits,
-        address token,
         uint256 gameFee,
         bytes32 gameId
     ) external returns (uint256 withdrawnFees);
@@ -105,11 +93,15 @@ interface ITreasury {
 
     function withdrawInitiatorFee(
         uint256 lostTeamDeposits,
-        address token,
+        uint256 wonTeamDeposits,
         uint256 initiatorFee,
         address initiator,
         bytes32 gameId
     ) external returns (uint256 withdrawnFees);
 
     function setGameFinished(bytes32 gameId) external;
+
+    function withdrawRakebackSetup(bytes32 gameId, address target) external;
+
+    function setGameToken(bytes32 gameId, address token) external;
 }

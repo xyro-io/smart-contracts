@@ -667,10 +667,15 @@ describe("Setup Game", () => {
       expect(game.endTime).to.be.equal(finalizeTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
-      await Game.connect(alice).retrieveRewards(currentGameId);
+      const bobRakeback = await Treasury.lockedRakeback(
+        currentGameId,
+        bob.address
+      );
+      await Game.connect(alice).retrieveRewards([currentGameId]);
+      //get rakeback for bob
       await expect(
-        Game.connect(bob).retrieveRewards(currentGameId)
-      ).to.be.revertedWith(youLost);
+        Game.connect(bob).retrieveRewards([currentGameId])
+      ).to.be.emit(Treasury, "UsedRakeback");
       await Treasury.connect(owner).withdraw(
         await Treasury.deposits(await USDT.getAddress(), owner.address),
         await USDT.getAddress()
@@ -692,7 +697,9 @@ describe("Setup Game", () => {
       expect(finalTreasuryBalance).to.be.above(oldTreasuryBalance);
       expect(finalOwnerBalance).to.be.above(oldOwnerBalance);
       expect(finalAliceBalance).to.be.above(oldAliceBalance);
-      expect(oldBobBalance).to.be.above(finalBobBalance);
+      expect(oldBobBalance - finalBobBalance).to.be.equal(
+        usdtAmount - bobRakeback
+      );
     });
 
     it("should end setup game (long) sl wins", async function () {
@@ -748,10 +755,14 @@ describe("Setup Game", () => {
       expect(game.endTime).to.be.equal(finalizeTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
+      const aliceRakeback = await Treasury.lockedRakeback(
+        currentGameId,
+        alice.address
+      );
       await expect(
-        Game.connect(alice).retrieveRewards(currentGameId)
-      ).to.be.revertedWith(youLost);
-      await Game.connect(bob).retrieveRewards(currentGameId);
+        Game.connect(alice).retrieveRewards([currentGameId])
+      ).to.be.emit(Treasury, "UsedRakeback");
+      await Game.connect(bob).retrieveRewards([currentGameId]);
       await Treasury.connect(owner).withdraw(
         await Treasury.deposits(await USDT.getAddress(), owner.address),
         await USDT.getAddress()
@@ -772,7 +783,9 @@ describe("Setup Game", () => {
       );
       expect(finalTreasuryBalance).to.be.above(oldTreasuryBalance);
       expect(finalOwnerBalance).to.be.above(oldOwnerBalance);
-      expect(oldAliceBalance).to.be.above(finalAliceBalance);
+      expect(oldAliceBalance - finalAliceBalance).to.be.equal(
+        usdtAmount - aliceRakeback
+      );
       expect(finalBobBalance).to.be.above(oldBobBalance);
     });
 
@@ -864,10 +877,14 @@ describe("Setup Game", () => {
       expect(game.endTime).to.be.equal(finalizeTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
+      const aliceRakeback = await Treasury.lockedRakeback(
+        currentGameId,
+        alice.address
+      );
       await expect(
-        Game.connect(alice).retrieveRewards(currentGameId)
-      ).to.be.revertedWith(youLost);
-      await Game.connect(bob).retrieveRewards(currentGameId);
+        Game.connect(alice).retrieveRewards([currentGameId])
+      ).to.be.emit(Treasury, "UsedRakeback");
+      await Game.connect(bob).retrieveRewards([currentGameId]);
       await Treasury.connect(owner).withdraw(
         await Treasury.deposits(await USDT.getAddress(), owner.address),
         await USDT.getAddress()
@@ -888,7 +905,9 @@ describe("Setup Game", () => {
       );
       expect(finalTreasuryBalance).to.be.above(oldTreasuryBalance);
       expect(finalOwnerBalance).to.be.above(oldOwnerBalance);
-      expect(oldAliceBalance).to.be.above(finalAliceBalance);
+      expect(oldAliceBalance - finalAliceBalance).to.be.equal(
+        usdtAmount - aliceRakeback
+      );
       expect(finalBobBalance).to.be.above(oldBobBalance);
     });
 
@@ -945,10 +964,14 @@ describe("Setup Game", () => {
       expect(game.endTime).to.be.equal(finalizeTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
-      await Game.connect(alice).retrieveRewards(currentGameId);
+      await Game.connect(alice).retrieveRewards([currentGameId]);
+      const bobRakeback = await Treasury.lockedRakeback(
+        currentGameId,
+        bob.address
+      );
       await expect(
-        Game.connect(bob).retrieveRewards(currentGameId)
-      ).to.be.revertedWith(youLost);
+        Game.connect(bob).retrieveRewards([currentGameId])
+      ).to.be.emit(Treasury, "UsedRakeback");
       await Treasury.connect(owner).withdraw(
         await Treasury.deposits(await USDT.getAddress(), owner.address),
         await USDT.getAddress()
@@ -970,7 +993,9 @@ describe("Setup Game", () => {
       expect(finalTreasuryBalance).to.be.above(oldTreasuryBalance);
       expect(finalOwnerBalance).to.be.above(oldOwnerBalance);
       expect(finalAliceBalance).to.be.above(oldAliceBalance);
-      expect(oldBobBalance).to.be.above(finalBobBalance);
+      expect(oldBobBalance - finalBobBalance).to.be.equal(
+        usdtAmount - bobRakeback
+      );
     });
 
     it("should fail - can't end (short)", async function () {
@@ -1340,10 +1365,14 @@ describe("Setup Game", () => {
       expect(game.endTime).to.be.equal(finalizeTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
-      await Game.connect(alice).retrieveRewards(currentGameId);
+      const bobRakeback = await Treasury.lockedRakeback(
+        currentGameId,
+        bob.address
+      );
+      await Game.connect(alice).retrieveRewards([currentGameId]);
       await expect(
-        Game.connect(bob).retrieveRewards(currentGameId)
-      ).to.be.revertedWith(youLost);
+        Game.connect(bob).retrieveRewards([currentGameId])
+      ).to.be.emit(Treasury, "UsedRakeback");
       await Treasury.connect(owner).withdraw(
         await Treasury.deposits(await XyroToken.getAddress(), owner.address),
         await XyroToken.getAddress()
@@ -1365,7 +1394,9 @@ describe("Setup Game", () => {
       expect(finalTreasuryBalance).to.be.above(oldTreasuryBalance);
       expect(finalOwnerBalance).to.be.above(oldOwnerBalance);
       expect(finalAliceBalance).to.be.above(oldAliceBalance);
-      expect(oldBobBalance).to.be.above(finalBobBalance);
+      expect(oldBobBalance - finalBobBalance).to.be.above(
+        usdtAmount - bobRakeback
+      );
     });
   });
 

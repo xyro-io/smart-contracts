@@ -1069,7 +1069,23 @@ describe("Bullseye", () => {
   });
 
   describe("Games with XyroToken", async function () {
+    it("should fail - attempt to create a game with unapproved token", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = (await time.latest()) + fifteenMinutes;
+      await expect(
+        Game.startGame(
+          endTime,
+          stopPredictAt,
+          xyroAmount,
+          feedNumber,
+          await XyroToken.getAddress()
+        )
+      ).to.be.revertedWith(requireApprovedToken);
+    });
+
     it("should create bullseye game with XyroToken", async function () {
+      //approve XyroToken in Treasury
+      await Treasury.setToken(await XyroToken.getAddress(), true);
       const endTime = (await time.latest()) + fortyFiveMinutes;
       const stopPredictAt = (await time.latest()) + fifteenMinutes;
       await Game.startGame(
@@ -1084,16 +1100,7 @@ describe("Bullseye", () => {
       expect(game.stopPredictAt).to.be.equal(stopPredictAt);
       expect(await Game.depositAmount()).to.equal(xyroAmount);
     });
-
-    it("should fail - attempt to play a game with unapproved token", async function () {
-      await expect(
-        Game.connect(opponent).play(guessPriceOpponent)
-      ).to.be.revertedWith(requireApprovedToken);
-    });
-
     it("should play with XyroToken", async function () {
-      //approve XyroToken in Treasury
-      await Treasury.setToken(await XyroToken.getAddress(), true);
       let tx = await Game.connect(opponent).play(guessPriceOpponent);
       let receipt = await tx.wait();
       let newPlayerLog = receipt?.logs[1]?.args;

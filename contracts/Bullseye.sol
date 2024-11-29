@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ITreasury} from "./interfaces/ITreasury.sol";
 import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
-import "hardhat/console.sol";
 
 contract Bullseye is AccessControl {
     bytes32 public constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
@@ -13,7 +12,6 @@ contract Bullseye is AccessControl {
     uint256 public fee = 1000;
     uint256 public maxPlayers = 100;
     uint256[3][5] public rates = [
-        // [9000, 1000, 0],
         [10000, 0, 0],
         [7500, 2500, 0],
         [9000, 1000, 0],
@@ -29,7 +27,7 @@ contract Bullseye is AccessControl {
         uint32 endTime,
         uint256 depositAmount,
         uint8 feedNumber,
-        address gameToken,
+        address token,
         bytes32 gameId
     );
     event BullseyeNewPlayer(
@@ -37,7 +35,8 @@ contract Bullseye is AccessControl {
         uint32 assetPrice,
         uint256 depositAmount,
         bytes32 gameId,
-        uint256 index
+        uint256 index,
+        uint256 rakeback
     );
     event BullseyeFinalized(
         address[3] players,
@@ -68,7 +67,6 @@ contract Bullseye is AccessControl {
     uint256 public totalRakeback;
     bytes32 public currentGameId;
     address public treasury;
-    address public gameToken;
 
     constructor() {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -88,7 +86,7 @@ contract Bullseye is AccessControl {
     ) public onlyRole(GAME_MASTER_ROLE) {
         require(packedData == 0, "Finish previous game first");
         require(endTime > block.timestamp, "Wrong ending time");
-        require(token != address(0), "Token must be set");
+        require(ITreasury(treasury).approvedTokens(token), "Unapproved token");
         packedData = (block.timestamp |
             (uint256(stopPredictAt) << 32) |
             (uint256(endTime) << 64) |
@@ -97,7 +95,7 @@ contract Bullseye is AccessControl {
             abi.encodePacked(endTime, block.timestamp, address(this))
         );
         depositAmount = depositAmount_;
-        gameToken = token;
+        ITreasury(treasury).setGameToken(currentGameId, token);
         emit BullseyeStart(
             block.timestamp,
             stopPredictAt,
@@ -127,19 +125,21 @@ contract Bullseye is AccessControl {
             (block.timestamp << 160) |
             (uint256(assetPrice) << 192);
         packedGuessData.push(packedGuess);
-        totalRakeback += ITreasury(treasury).depositAndLock(
+        uint256 rakeback = ITreasury(treasury).depositAndLock(
             depositAmount,
             msg.sender,
-            gameToken,
             currentGameId,
             true
         );
+
+        totalRakeback += rakeback;
         emit BullseyeNewPlayer(
             msg.sender,
             assetPrice,
             depositAmount,
             currentGameId,
-            packedGuessData.length - 1
+            packedGuessData.length - 1,
+            rakeback
         );
     }
 
@@ -161,19 +161,20 @@ contract Bullseye is AccessControl {
             (block.timestamp << 160) |
             (uint256(assetPrice) << 192);
         packedGuessData.push(packedGuess);
-        totalRakeback += ITreasury(treasury).lock(
+        uint256 rakeback = ITreasury(treasury).lock(
             depositAmount,
             msg.sender,
-            gameToken,
             currentGameId,
             true
         );
+        totalRakeback += rakeback;
         emit BullseyeNewPlayer(
             msg.sender,
             assetPrice,
             depositAmount,
             currentGameId,
-            packedGuessData.length - 1
+            packedGuessData.length - 1,
+            rakeback
         );
     }
 
@@ -198,23 +199,25 @@ contract Bullseye is AccessControl {
             (block.timestamp << 160) |
             (uint256(assetPrice) << 192);
         packedGuessData.push(packedGuess);
-        totalRakeback += ITreasury(treasury).depositAndLockWithPermit(
-            depositAmount,
-            gameToken,
-            msg.sender,
-            currentGameId,
-            true,
-            permitData.deadline,
-            permitData.v,
-            permitData.r,
-            permitData.s
-        );
+        uint256 rakeback = totalRakeback += ITreasury(treasury)
+            .depositAndLockWithPermit(
+                depositAmount,
+                msg.sender,
+                currentGameId,
+                true,
+                permitData.deadline,
+                permitData.v,
+                permitData.r,
+                permitData.s
+            );
+        totalRakeback += rakeback;
         emit BullseyeNewPlayer(
             msg.sender,
             assetPrice,
             depositAmount,
             currentGameId,
-            packedGuessData.length - 1
+            packedGuessData.length - 1,
+            rakeback
         );
     }
 
@@ -235,7 +238,6 @@ contract Bullseye is AccessControl {
                 ITreasury(treasury).refund(
                     depositAmount,
                     playerGuessData.player,
-                    gameToken,
                     currentGameId
                 );
                 delete packedGuessData;
@@ -302,7 +304,6 @@ contract Bullseye is AccessControl {
         if (packedGuessData.length <= 5) {
             ITreasury(treasury).withdrawGameFee(
                 totalDeposited - depositAmount,
-                gameToken,
                 fee,
                 currentGameId
             );
@@ -310,7 +311,6 @@ contract Bullseye is AccessControl {
         } else if (packedGuessData.length <= 10) {
             ITreasury(treasury).withdrawGameFee(
                 totalDeposited - 2 * depositAmount,
-                gameToken,
                 fee,
                 currentGameId
             );
@@ -318,7 +318,6 @@ contract Bullseye is AccessControl {
         } else {
             ITreasury(treasury).withdrawGameFee(
                 totalDeposited - 3 * depositAmount,
-                gameToken,
                 fee,
                 currentGameId
             );
@@ -342,7 +341,6 @@ contract Bullseye is AccessControl {
                         currentRates[i],
                         totalRakeback - winnersRakeback,
                         topPlayers[i],
-                        gameToken,
                         currentGameId
                     );
                 }
@@ -374,7 +372,6 @@ contract Bullseye is AccessControl {
             ITreasury(treasury).refund(
                 deposit,
                 playerGuessData.player,
-                gameToken,
                 currentGameId
             );
         }

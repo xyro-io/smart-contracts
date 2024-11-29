@@ -515,11 +515,7 @@ describe("UpDown", () => {
       );
       let rakeback = (usdtAmount * BigInt(3)) / BigInt(100);
       let fee = (usdtAmount * (await Game.fee())) / DENOMENATOR;
-      // console.log("rakeback = ", rakeback / BigInt(1000000), rakeback);
-      // console.log("fee = ", fee / BigInt(1000000), fee);
-      // console.log(BigInt(2) * usdtAmount);
       let wonAmount = BigInt(2) * usdtAmount - (fee + rakeback);
-      // console.log("wonAmount = ", wonAmount);
       expect(newDeposit - oldDeposit).to.be.equal(wonAmount);
       await Treasury.connect(alice).withdraw(
         await Treasury.deposits(await USDT.getAddress(), alice.address),
@@ -661,7 +657,22 @@ describe("UpDown", () => {
   });
 
   describe("Games with XyroToken", () => {
+    it("should fail - create a game with unapproved token", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = (await time.latest()) + fifteenMinutes;
+      await expect(
+        Game.startGame(
+          endTime,
+          stopPredictAt,
+          xyroAmount,
+          await XyroToken.getAddress(),
+          feedNumber
+        )
+      ).to.be.revertedWith(requireApprovedToken);
+    });
     it("should create updown game with XyroToken", async function () {
+      //approve XyroToken in Treasury
+      await Treasury.setToken(await XyroToken.getAddress(), true);
       const endTime = (await time.latest()) + fortyFiveMinutes;
       const stopPredictAt = (await time.latest()) + fifteenMinutes;
       await Game.startGame(
@@ -676,16 +687,7 @@ describe("UpDown", () => {
       expect(game.stopPredictAt).to.be.equal(stopPredictAt);
       expect(game.feedNumber).to.equal(feedNumber);
     });
-
-    it("should fail - attempt to play a game with unapproved token", async function () {
-      await expect(
-        Game.connect(opponent).play(false, xyroAmount)
-      ).to.be.revertedWith(requireApprovedToken);
-    });
-
     it("should play down with XyroToken", async function () {
-      //approve XyroToken in Treasury
-      await Treasury.setToken(await XyroToken.getAddress(), true);
       const oldOpponentBalance = await XyroToken.balanceOf(opponent.address);
       const oldTreasuryBalance = await XyroToken.balanceOf(
         await Treasury.getAddress()

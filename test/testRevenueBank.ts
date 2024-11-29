@@ -101,20 +101,15 @@ describe("RevenueBank", () => {
     //mock game to earn fees
     const mockGameId =
       "0x0000000000000000000000000000000000000000000000000000000000000001";
+    await Treasury.setGameToken(mockGameId, await USDT.getAddress());
     await USDT.approve(await Treasury.getAddress(), ethers.MaxUint256);
     await Treasury.depositAndLock(
       parse18("1000"),
       owner.address,
-      await USDT.getAddress(),
       mockGameId,
       false
     );
-    await Treasury.withdrawGameFee(
-      parse18("1000"),
-      await USDT.getAddress(),
-      9000,
-      mockGameId
-    );
+    await Treasury.withdrawGameFee(parse18("1000"), 9000, mockGameId);
 
     expect(await Treasury.collectedFee(await USDT.getAddress())).to.be.equal(
       parse18("900")

@@ -5,7 +5,6 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "hardhat/console.sol";
 
 interface IERC20Mint {
     function decimals() external view returns (uint256);
@@ -15,14 +14,13 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     event FeeCollected(uint256 feeEarned, uint256 totalFees, address token);
     event Distributed(address to, uint256 amount, address token);
     event Refunded(address to, uint256 amount, address token);
-    event UsedRakeback(bytes32[] gameIds, uint256 totalRakeback);
+    event UsedRakeback(bytes32 gameId, uint256 totalRakeback, address token);
     event UpkeepChanged(address newUpkeep);
     mapping(address => bool) public approvedTokens;
     address public xyroToken;
     address public upkeep;
     uint256 public setupInitiatorFee;
     uint256 public constant FEE_DENOMINATOR = 10000;
-    uint256 public constant PRECISION_AMPLIFIER = 100000;
     uint256 public constant RATE_PRECISION_AMPLIFIER = 1000000000;
     bytes32 public constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
     bytes32 public constant ACCOUNTANT_ROLE = keccak256("ACCOUNTANT_ROLE");
@@ -30,7 +28,7 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     mapping(address => uint256) public collectedFee;
     mapping(address => uint256) public minDepositAmount;
     mapping(address => mapping(address => uint256)) public deposits;
-    // mapping(address => mapping(address => uint256)) public locked;
+    mapping(bytes32 => address) public gameToken;
     mapping(bytes32 => uint256) public locked;
     mapping(bytes32 => bool) public gameStatus;
     mapping(bytes32 => mapping(address => uint256)) public lockedRakeback;
@@ -75,6 +73,13 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         approvedTokens[token] = status;
     }
 
+    function setGameToken(
+        bytes32 gameId,
+        address token
+    ) public onlyRole(DISTRIBUTOR_ROLE) {
+        gameToken[gameId] = token;
+    }
+
     /**
      * Set new fee for setup games
      * @param newFee fee in bp
@@ -110,10 +115,10 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     function depositAndLock(
         uint256 amount,
         address from,
-        address token,
         bytes32 gameId,
         bool isRakeback
     ) public onlyRole(DISTRIBUTOR_ROLE) returns (uint256 rakeback) {
+        address token = gameToken[gameId];
         require(amount >= minDepositAmount[token], "Wrong deposit amount");
         require(approvedTokens[token], "Unapproved token");
         uint256 oldBalance = IERC20(token).balanceOf(address(this));
@@ -169,7 +174,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
      */
     function depositAndLockWithPermit(
         uint256 amount,
-        address token,
         address from,
         bytes32 gameId,
         bool isRakeback,
@@ -178,6 +182,7 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         bytes32 r,
         bytes32 s
     ) public onlyRole(DISTRIBUTOR_ROLE) returns (uint256 rakeback) {
+        address token = gameToken[gameId];
         require(amount >= minDepositAmount[token], "Wrong deposit amount");
         require(approvedTokens[token], "Unapproved token");
         uint256 oldBalance = IERC20(token).balanceOf(address(this));
@@ -217,10 +222,10 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     function lock(
         uint256 amount,
         address from,
-        address token,
         bytes32 gameId,
         bool isRakeback
     ) public onlyRole(DISTRIBUTOR_ROLE) returns (uint256 rakeback) {
+        address token = gameToken[gameId];
         require(approvedTokens[token], "Unapproved token");
         require(deposits[token][from] >= amount, "Insufficent deposit amount");
         if (isRakeback) {
@@ -240,21 +245,16 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     function refund(
         uint256 amount,
         address to,
-        address token,
         bytes32 gameId
     ) public onlyRole(DISTRIBUTOR_ROLE) {
+        address token = gameToken[gameId];
         require(approvedTokens[token], "Unapproved token");
         require(locked[gameId] >= amount, "Wrong amount");
-        // uint256 rakeback = lockedRakeback[gameId][to];
         if (lockedRakeback[gameId][to] != 0) {
             lockedRakeback[gameId][to] = 0;
-            // locked[gameId] -= (amount + rakeback);
-            // deposits[token][to] += (amount + rakeback);
         }
         locked[gameId] -= amount;
         deposits[token][to] += amount;
-        // locked[token][to] -= amount;
-        // deposits[token][to] += amount;
         emit Refunded(to, amount, token);
     }
 
@@ -266,10 +266,10 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     function refundWithFees(
         uint256 amount,
         address to,
-        address token,
         uint256 refundFee,
         bytes32 gameId
     ) public onlyRole(DISTRIBUTOR_ROLE) {
+        address token = gameToken[gameId];
         require(approvedTokens[token], "Unapproved token");
         require(locked[gameId] >= amount, "Wrong amount");
         uint256 withdrawnFees = (amount * refundFee) / FEE_DENOMINATOR;
@@ -284,8 +284,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
             locked[gameId] -= amount;
             deposits[token][to] += (amount - withdrawnFees);
         }
-        // locked[token][to] -= amount;
-        // deposits[token][to] += (amount - withdrawnFees);
         emit Refunded(to, (amount - withdrawnFees), token);
     }
 
@@ -308,15 +306,14 @@ contract Treasury is Initializable, AccessControlUpgradeable {
 
     function universalDistribute(
         address to,
-        address token,
         uint256 initialDeposit,
         bytes32 gameId,
         uint256 rate
     ) external onlyRole(DISTRIBUTOR_ROLE) {
+        address token = gameToken[gameId];
         if (lockedRakeback[gameId][to] != 0) {
             lockedRakeback[gameId][to] = 0;
         }
-
         uint256 wonAmount = initialDeposit +
             (initialDeposit * rate) /
             RATE_PRECISION_AMPLIFIER;
@@ -327,10 +324,10 @@ contract Treasury is Initializable, AccessControlUpgradeable {
 
     function withdrawGameFee(
         uint256 lostTeamDeposits,
-        address token,
         uint256 gameFee,
         bytes32 gameId
     ) external onlyRole(DISTRIBUTOR_ROLE) returns (uint256 withdrawnFees) {
+        address token = gameToken[gameId];
         withdrawnFees = (lostTeamDeposits * gameFee) / FEE_DENOMINATOR;
         collectedFee[token] += withdrawnFees;
         emit FeeCollected(withdrawnFees, collectedFee[token], token);
@@ -342,7 +339,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         uint256 lostTeamRakeback,
         bytes32 gameId
     ) public onlyRole(DISTRIBUTOR_ROLE) returns (uint256) {
-        // учитывать рейкбек как? wonTeamTotal будет передаваться с игр без рейбека?
         if (lostTeamRakeback != 0) {
             locked[gameId] -= lostTeamRakeback;
         }
@@ -353,12 +349,15 @@ contract Treasury is Initializable, AccessControlUpgradeable {
 
     function withdrawInitiatorFee(
         uint256 lostTeamDeposits,
-        address token,
+        uint256 wonTeamDeposits,
         uint256 initiatorFee,
         address initiator,
         bytes32 gameId
     ) external onlyRole(DISTRIBUTOR_ROLE) returns (uint256 withdrawnFees) {
-        withdrawnFees = (lostTeamDeposits * initiatorFee) / FEE_DENOMINATOR;
+        address token = gameToken[gameId];
+        withdrawnFees =
+            (wonTeamDeposits + lostTeamDeposits * initiatorFee) /
+            FEE_DENOMINATOR;
         deposits[token][initiator] += withdrawnFees;
         emit Distributed(initiator, withdrawnFees, token);
         locked[gameId] -= withdrawnFees;
@@ -372,9 +371,9 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         uint256 rate,
         uint256 lostTeamRakeback,
         address to,
-        address token,
         bytes32 gameId
     ) public onlyRole(DISTRIBUTOR_ROLE) {
+        address token = gameToken[gameId];
         if (lockedRakeback[gameId][to] != 0) {
             lockedRakeback[gameId][to] = 0;
         }
@@ -430,21 +429,37 @@ contract Treasury is Initializable, AccessControlUpgradeable {
      * Changes game status wich allows players to withdraw rakeback
      * @param gameIds array of game ids with earned rakeback
      */
-    function withdrawRakeback(
-        bytes32[] calldata gameIds,
-        address token
-    ) public {
-        uint256 rakeback;
+    function withdrawRakeback(bytes32[] calldata gameIds) public {
         for (uint i = 0; i < gameIds.length; i++) {
+            address token = gameToken[gameIds[i]];
             require(
                 gameStatus[gameIds[i]] == true,
                 "Can't withdraw from unfinished game"
             );
-            rakeback += lockedRakeback[gameIds[i]][msg.sender];
+            deposits[token][msg.sender] += lockedRakeback[gameIds[i]][
+                msg.sender
+            ];
+            emit UsedRakeback(
+                gameIds[i],
+                lockedRakeback[gameIds[i]][msg.sender],
+                token
+            );
             lockedRakeback[gameIds[i]][msg.sender] = 0;
         }
-        deposits[token][msg.sender] += rakeback;
-        emit UsedRakeback(gameIds, rakeback);
+    }
+
+    function withdrawRakebackSetup(
+        bytes32 gameId,
+        address target
+    ) external onlyRole(DISTRIBUTOR_ROLE) {
+        require(lockedRakeback[gameId][target] != 0, "No rakeback available");
+        deposits[gameToken[gameId]][target] += lockedRakeback[gameId][target];
+        emit UsedRakeback(
+            gameId,
+            lockedRakeback[gameId][target],
+            gameToken[gameId]
+        );
+        lockedRakeback[gameId][target] = 0;
     }
 
     /**

@@ -12,7 +12,7 @@ import { MockToken } from "../typechain-types/contracts/mock/MockERC20.sol/MockT
 import { MockToken__factory } from "../typechain-types/factories/contracts/mock/MockERC20.sol/MockToken__factory";
 const parse18 = ethers.parseEther;
 
-describe("RevenueBank", () => {
+describe("FrontHelper", () => {
   let XyroToken: XyroToken;
   let FrontHelper: FrontHelper;
   let USDT: MockToken;
@@ -64,7 +64,6 @@ describe("RevenueBank", () => {
       [await USDT.getAddress(), await XyroToken.getAddress()],
       [owner.address, alice.address]
     );
-    console.log(newData);
     expect(newData[0][1]).to.be.equal(usdtAmount);
     expect(newData[1][1]).to.be.equal(xyroAmount);
     expect(newData[2][1]).to.be.equal(0);

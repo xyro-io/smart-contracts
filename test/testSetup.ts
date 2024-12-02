@@ -1181,6 +1181,56 @@ describe("Setup Game", () => {
       expect(oldAliceBalance).to.be.equal(await USDT.balanceOf(alice));
       expect(oldOwnerBalance).to.be.equal(await USDT.balanceOf(owner));
     });
+
+    it("should fail - withdraw rakeback twice", async function () {
+      const oldAliceBalance = await USDT.balanceOf(alice);
+      const oldOwnerBalance = await USDT.balanceOf(owner);
+      const oldBobBalance = await USDT.balanceOf(bob);
+      const isLong = true;
+      const startTime = await time.latest();
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      let tx = await Game.createSetup(
+        isLong,
+        endTime,
+        tpPrice,
+        slPrice,
+        feedNumber,
+        await USDT.getAddress(),
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          startTime
+        )
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt?.logs[0]?.args[0][0];
+      await Game.connect(bob).play(false, usdtAmount, currentGameId);
+      await Game.connect(alice).play(true, usdtAmount, currentGameId);
+      await time.increase(fortyFiveMinutes);
+      const finalizeTime = await time.latest();
+      tx = await Game.finalizeGame(
+        abiEncodeInt192WithTimestamp(
+          finalPriceTP.toString(),
+          feedNumber,
+          finalizeTime
+        ),
+        currentGameId
+      );
+      receipt = await tx.wait();
+
+      const bobRakeback = await Treasury.lockedRakeback(
+        currentGameId,
+        bob.address
+      );
+
+      //get rakeback for bob
+      await expect(
+        Game.connect(bob).retrieveRewards([currentGameId])
+      ).to.be.emit(Treasury, "UsedRakeback");
+      await expect(
+        Game.connect(bob).retrieveRewards([currentGameId])
+      ).to.revertedWith(youLost);
+    });
   });
 
   describe("Games with XyroToken", async function () {

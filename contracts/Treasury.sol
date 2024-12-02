@@ -77,6 +77,7 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         bytes32 gameId,
         address token
     ) public onlyRole(DISTRIBUTOR_ROLE) {
+        require(approvedTokens[token], "Unapproved token");
         gameToken[gameId] = token;
     }
 
@@ -105,6 +106,25 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         uint256 newBalance = IERC20(token).balanceOf(address(this));
         require(newBalance == oldBalance + amount, "Token with fee");
         deposits[token][msg.sender] += amount;
+    }
+
+    /**
+     * Deposit token to a certain player's balance in treasury
+     * @param amount token amount
+     */
+    function deposit(uint256 amount, address token, address to) public {
+        require(amount >= minDepositAmount[token], "Wrong deposit amount");
+        require(approvedTokens[token], "Unapproved token");
+        uint256 oldBalance = IERC20(token).balanceOf(address(this));
+        SafeERC20.safeTransferFrom(
+            IERC20(token),
+            msg.sender,
+            address(this),
+            amount
+        );
+        uint256 newBalance = IERC20(token).balanceOf(address(this));
+        require(newBalance == oldBalance + amount, "Token with fee");
+        deposits[token][to] += amount;
     }
 
     /**
@@ -168,6 +188,42 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     }
 
     /**
+     * Deposit token on a certain player balance in treasury with permit
+     * @param amount token amount
+     */
+    function depositWithPermit(
+        uint256 amount,
+        address token,
+        address to,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) public {
+        require(amount >= minDepositAmount[token], "Wrong deposit amount");
+        require(approvedTokens[token], "Unapproved token");
+        uint256 oldBalance = IERC20(token).balanceOf(address(this));
+        IERC20Permit(token).permit(
+            msg.sender,
+            address(this),
+            amount,
+            deadline,
+            v,
+            r,
+            s
+        );
+        SafeERC20.safeTransferFrom(
+            IERC20(token),
+            msg.sender,
+            address(this),
+            amount
+        );
+        uint256 newBalance = IERC20(token).balanceOf(address(this));
+        require(newBalance == oldBalance + amount, "Token with fee");
+        deposits[token][to] += amount;
+    }
+
+    /**
      * Deposit token in treasury with permit
      * @param amount token amount
      * @param from token sender
@@ -203,7 +259,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
             lockedRakeback[gameId][from] += rakeback;
         }
         locked[gameId] += amount;
-        // locked[token][from] += amount;
     }
 
     /**

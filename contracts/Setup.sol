@@ -103,7 +103,8 @@ contract Setup is AccessControl {
      * @param endTime game end time
      * @param takeProfitPrice take profit asset price
      * @param stopLossPrice stop loss asset price
-     * @param feedNumber chainlink feed number
+     * @param feedNumber token position in array of Chainlink DataStreams feed IDs
+     * @param token token for game deposits
      * @param unverifiedReport chainlink unverified report
      */
     function createSetup(
@@ -368,6 +369,10 @@ contract Setup is AccessControl {
         emit SetupCancelled(gameId, data.initiator);
     }
 
+    /**
+     * Claim for refund if game was cancelled
+     * @param gameId game id
+     */
     function getRefund(bytes32 gameId) public {
         GameInfo memory data = decodeData(gameId);
         require(data.gameStatus == Status.Cancelled, "Wrong status!");
@@ -567,6 +572,10 @@ contract Setup is AccessControl {
         games[gameId].packedData2 = packedData2;
     }
 
+    /**
+     * Withdraws rewards or rakeback to your Treasury deposit
+     * @param gameIds array of game IDs to claim your reward from
+     */
     function retrieveRewards(bytes32[] calldata gameIds) public {
         for (uint i; i < gameIds.length; i++) {
             GameInfo memory data = decodeData(gameIds[i]);

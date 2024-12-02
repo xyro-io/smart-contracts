@@ -74,10 +74,12 @@ contract OneVsOneExactPrice is AccessControl {
 
     /**
      * Creates 1vs1 exact price mode game and deposit funds
+     * @param feedNumber token position in array of Chainlink DataStreams feed IDs
      * @param opponent address of the opponent
      * @param endTime when the game will end
      * @param initiatorPrice game initiator picked asset price
      * @param depositAmount amount to enter the game
+     * @param token token for game deposits
      */
     function createGame(
         uint8 feedNumber,
@@ -139,10 +141,12 @@ contract OneVsOneExactPrice is AccessControl {
 
     /**
      * Creates 1vs1 exact price mode game with deposited funds
+     * @param feedNumber token position in array of Chainlink DataStreams feed IDs
      * @param opponent address of the opponent
      * @param endTime when the game will end
      * @param initiatorPrice game initiator picked asset price
      * @param depositAmount amount to enter the game
+     * @param token token for game deposits
      */
     function createGameWithDeposit(
         uint8 feedNumber,
@@ -199,10 +203,12 @@ contract OneVsOneExactPrice is AccessControl {
 
     /**
      * Creates 1vs1 exact price mode game and deposit funds
+     * @param feedNumber token position in array of Chainlink DataStreams feed IDs
      * @param opponent address of the opponent
      * @param endTime when the game will end
      * @param initiatorPrice game initiator picked asset price
      * @param depositAmount amount to enter the game
+     * @param token token for game deposits
      */
     function createGameWithPermit(
         uint8 feedNumber,

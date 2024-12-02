@@ -75,12 +75,15 @@ contract Bullseye is AccessControl {
     /**
      * Starts bullseye game
      * @param endTime when the game iteration will end
-     * @param depositAmount_ amount to enter the game
+     * @param stopPredictAt time when players can't enter the game
+     * @param newDepositAmount amount to enter the game
+     * @param feedNumber token position in array of Chainlink DataStreams feed IDs
+     * @param token token for game deposits
      */
     function startGame(
         uint32 endTime,
         uint32 stopPredictAt,
-        uint256 depositAmount_,
+        uint256 newDepositAmount,
         uint8 feedNumber,
         address token
     ) public onlyRole(GAME_MASTER_ROLE) {
@@ -93,13 +96,13 @@ contract Bullseye is AccessControl {
         currentGameId = keccak256(
             abi.encodePacked(endTime, block.timestamp, address(this))
         );
-        depositAmount = depositAmount_;
+        depositAmount = newDepositAmount;
         ITreasury(treasury).setGameToken(currentGameId, token);
         emit BullseyeStart(
             block.timestamp,
             stopPredictAt,
             endTime,
-            depositAmount_,
+            newDepositAmount,
             feedNumber,
             token,
             currentGameId

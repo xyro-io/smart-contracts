@@ -58,6 +58,10 @@ contract UpDown is AccessControl {
     /**
      * Creates up/down game
      * @param endTime when the game will end
+     * @param stopPredictAt time when players can't enter the game
+     * @param depositAmount amount to enter the game
+     * @param token token for game deposits
+     * @param feedNumber token position in array of Chainlink DataStreams feed IDs
      */
     function startGame(
         uint32 endTime,
@@ -223,6 +227,10 @@ contract UpDown is AccessControl {
         );
     }
 
+    /**
+     * Sets starting price wich will be used to compare with final price
+     * @param unverifiedReport Chainlink DataStreams report
+     */
     function setStartingPrice(
         bytes memory unverifiedReport
     ) public onlyRole(GAME_MASTER_ROLE) {
@@ -380,6 +388,9 @@ contract UpDown is AccessControl {
         totalDepositsDown = 0;
     }
 
+    /**
+     * Closes game and refunds tokens
+     */
     function closeGame() public onlyRole(GAME_MASTER_ROLE) {
         require(currentGameId != bytes32(0), "Game not started");
         for (uint i; i < UpPlayers.length; i++) {

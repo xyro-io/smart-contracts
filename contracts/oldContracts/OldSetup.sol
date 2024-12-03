@@ -2,19 +2,17 @@
 pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {ITreasury} from "./interfaces/ITreasury.sol";
-import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
+import {IOldTreasury} from "./IOldTreasury.sol";
+import {IDataStreamsVerifier} from "../interfaces/IDataStreamsVerifier.sol";
 
-contract Setup is AccessControl {
+contract OldSetup is AccessControl {
     event NewFee(uint256 newFee);
-    event NewInitiatorFee(uint256 newFee);
     event NewTreasury(address newTreasury);
     event SetupNewPlayer(
         bytes32 gameId,
         bool isLong,
         uint256 depositAmount,
-        address player,
-        uint256 rakeback
+        address player
     );
     event SetupCancelled(bytes32 gameId, address initiator);
     event SetupFinalized(
@@ -52,7 +50,6 @@ contract Setup is AccessControl {
         uint32 stopLossPrice;
         bool isLong;
         address creator;
-        address token;
     }
 
     struct GameInfo {
@@ -62,6 +59,8 @@ contract Setup is AccessControl {
         Status gameStatus;
         uint256 startTime;
         uint256 endTime;
+        uint256 totalDepositsSL;
+        uint256 totalDepositsTP;
         uint256 SLplayers;
         uint256 TPplayers;
         uint256 takeProfitPrice;
@@ -73,10 +72,6 @@ contract Setup is AccessControl {
     struct GameInfoPacked {
         uint256 packedData;
         uint256 packedData2;
-        uint256 totalDepositsSL;
-        uint256 totalDepositsTP;
-        uint256 totalRakebackSL;
-        uint256 totalRakebackTP;
         uint256 finalRate;
     }
 
@@ -84,13 +79,10 @@ contract Setup is AccessControl {
     mapping(bytes32 => GameInfoPacked) public games;
     mapping(bytes32 => mapping(address => UserStatus)) public withdrawStatus;
     mapping(bytes32 => mapping(address => uint256)) public depositAmounts;
-    uint256 public constant FEE_DENOMINATOR = 10000;
     uint256 public minDuration = 30 minutes;
     uint256 public maxDuration = 24 weeks;
-    uint256 public initiatorFee = 1000;
     uint256 public fee = 1000;
     address public treasury;
-    bool public isActive = true;
 
     constructor(address newTreasury) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -103,8 +95,7 @@ contract Setup is AccessControl {
      * @param endTime game end time
      * @param takeProfitPrice take profit asset price
      * @param stopLossPrice stop loss asset price
-     * @param feedNumber token position in array of Chainlink DataStreams feed IDs
-     * @param token token for game deposits
+     * @param feedNumber chainlink feed number
      * @param unverifiedReport chainlink unverified report
      */
     function createSetup(
@@ -113,10 +104,8 @@ contract Setup is AccessControl {
         uint32 takeProfitPrice,
         uint32 stopLossPrice,
         uint8 feedNumber,
-        address token,
         bytes memory unverifiedReport
     ) public {
-        require(isActive, "Game is disabled");
         require(
             endTime - block.timestamp >= minDuration,
             "Min game duration must be higher"
@@ -134,9 +123,8 @@ contract Setup is AccessControl {
                 msg.sender
             )
         );
-        ITreasury(treasury).setGameToken(gameId, token);
         (int192 startingPrice, uint32 startTime) = IDataStreamsVerifier(
-            ITreasury(treasury).upkeep()
+            IOldTreasury(treasury).upkeep()
         ).verifyReportWithTimestamp(unverifiedReport, feedNumber);
         require(
             block.timestamp - startTime <= 1 minutes,
@@ -181,8 +169,7 @@ contract Setup is AccessControl {
                 takeProfitPrice,
                 stopLossPrice,
                 isLong,
-                msg.sender,
-                token
+                msg.sender
             )
         );
     }
@@ -198,42 +185,35 @@ contract Setup is AccessControl {
         require(data.gameStatus == Status.Created, "Wrong status!");
         require(
             data.startTime + (data.endTime - data.startTime) / 3 >
-                block.timestamp,
+                block.timestamp &&
+                (data.totalDepositsSL + depositAmount <= type(uint32).max ||
+                    data.totalDepositsTP + depositAmount <= type(uint32).max),
             "Game is closed for new players"
         );
         require(
             depositAmounts[gameId][msg.sender] == 0,
             "You are already in the game"
         );
-        uint256 rakeback = ITreasury(treasury).depositAndLock(
-            depositAmount,
-            msg.sender,
-            gameId,
-            true
-        );
+        IOldTreasury(treasury).depositAndLock(depositAmount, msg.sender);
         depositAmounts[gameId][msg.sender] = depositAmount;
         if (isLong) {
             withdrawStatus[gameId][msg.sender] = UserStatus.TP;
+            //rewrites totalDepositsTP
             games[gameId].packedData2 =
-                (games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 177)) |
+                ((games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 113)) &
+                    ~(uint256(0xFFFFFFFF) << 177)) |
+                ((depositAmount + data.totalDepositsTP) << 113) |
                 ((data.TPplayers + 1) << 177);
-            games[gameId].totalDepositsTP += depositAmount;
-            games[gameId].totalRakebackTP += rakeback;
         } else {
             withdrawStatus[gameId][msg.sender] = UserStatus.SL;
+            //rewrites totalDepositsSL
             games[gameId].packedData2 =
-                (games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 209)) |
+                ((games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 81)) &
+                    ~(uint256(0xFFFFFFFF) << 209)) |
+                ((depositAmount + data.totalDepositsSL) << 81) |
                 ((data.SLplayers + 1) << 209);
-            games[gameId].totalDepositsSL += depositAmount;
-            games[gameId].totalRakebackSL += rakeback;
         }
-        emit SetupNewPlayer(
-            gameId,
-            isLong,
-            depositAmount,
-            msg.sender,
-            rakeback
-        );
+        emit SetupNewPlayer(gameId, isLong, depositAmount, msg.sender);
     }
 
     /**
@@ -251,42 +231,35 @@ contract Setup is AccessControl {
         require(data.gameStatus == Status.Created, "Wrong status!");
         require(
             data.startTime + (data.endTime - data.startTime) / 3 >
-                block.timestamp,
+                block.timestamp &&
+                (data.totalDepositsSL + depositAmount <= type(uint32).max ||
+                    data.totalDepositsTP + depositAmount <= type(uint32).max),
             "Game is closed for new players"
         );
         require(
             depositAmounts[gameId][msg.sender] == 0,
             "You are already in the game"
         );
-        uint256 rakeback = ITreasury(treasury).lock(
-            depositAmount,
-            msg.sender,
-            gameId,
-            true
-        );
+        IOldTreasury(treasury).lock(depositAmount, msg.sender);
         depositAmounts[gameId][msg.sender] = depositAmount;
         if (isLong) {
             withdrawStatus[gameId][msg.sender] = UserStatus.TP;
+            //rewrites totalDepositsTP
             games[gameId].packedData2 =
-                (games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 177)) |
+                ((games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 113)) &
+                    ~(uint256(0xFFFFFFFF) << 177)) |
+                ((depositAmount + data.totalDepositsTP) << 113) |
                 ((data.TPplayers + 1) << 177);
-            games[gameId].totalDepositsTP += depositAmount;
-            games[gameId].totalRakebackTP += rakeback;
         } else {
             withdrawStatus[gameId][msg.sender] = UserStatus.SL;
+            //rewrites totalDepositsSL
             games[gameId].packedData2 =
-                (games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 209)) |
+                ((games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 81)) &
+                    ~(uint256(0xFFFFFFFF) << 209)) |
+                ((depositAmount + data.totalDepositsSL) << 81) |
                 ((data.SLplayers + 1) << 209);
-            games[gameId].totalDepositsSL += depositAmount;
-            games[gameId].totalRakebackSL += rakeback;
         }
-        emit SetupNewPlayer(
-            gameId,
-            isLong,
-            depositAmount,
-            msg.sender,
-            rakeback
-        );
+        emit SetupNewPlayer(gameId, isLong, depositAmount, msg.sender);
     }
 
     /**
@@ -300,7 +273,7 @@ contract Setup is AccessControl {
         bool isLong,
         uint256 depositAmount,
         bytes32 gameId,
-        ITreasury.PermitData calldata permitData
+        IOldTreasury.PermitData calldata permitData
     ) public {
         GameInfo memory data = decodeData(gameId);
         require(data.gameStatus == Status.Created, "Wrong status!");
@@ -309,15 +282,24 @@ contract Setup is AccessControl {
                 block.timestamp,
             "Game is closed for new players"
         );
+        if (isLong) {
+            require(
+                data.totalDepositsTP + depositAmount <= type(uint32).max,
+                "Game is closed for new TP players"
+            );
+        } else {
+            require(
+                data.totalDepositsSL + depositAmount <= type(uint32).max,
+                "Game is closed for new SL players"
+            );
+        }
         require(
             depositAmounts[gameId][msg.sender] == 0,
             "You are already in the game"
         );
-        uint256 rakeback = ITreasury(treasury).depositAndLockWithPermit(
+        IOldTreasury(treasury).depositAndLockWithPermit(
             depositAmount,
             msg.sender,
-            gameId,
-            true,
             permitData.deadline,
             permitData.v,
             permitData.r,
@@ -326,26 +308,22 @@ contract Setup is AccessControl {
         depositAmounts[gameId][msg.sender] = depositAmount;
         if (isLong) {
             withdrawStatus[gameId][msg.sender] = UserStatus.TP;
+            //rewrites totalDepositsTP
             games[gameId].packedData2 =
-                (games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 177)) |
+                ((games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 113)) &
+                    ~(uint256(0xFFFFFFFF) << 177)) |
+                ((depositAmount + data.totalDepositsTP) << 113) |
                 ((data.TPplayers + 1) << 177);
-            games[gameId].totalDepositsTP += depositAmount;
-            games[gameId].totalRakebackTP += rakeback;
         } else {
             withdrawStatus[gameId][msg.sender] = UserStatus.SL;
+            //rewrites totalDepositsSL
             games[gameId].packedData2 =
-                (games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 209)) |
+                ((games[gameId].packedData2 & ~(uint256(0xFFFFFFFF) << 81)) &
+                    ~(uint256(0xFFFFFFFF) << 209)) |
+                ((depositAmount + data.totalDepositsSL) << 81) |
                 ((data.SLplayers + 1) << 209);
-            games[gameId].totalDepositsSL += depositAmount;
-            games[gameId].totalRakebackSL += rakeback;
         }
-        emit SetupNewPlayer(
-            gameId,
-            isLong,
-            depositAmount,
-            msg.sender,
-            rakeback
-        );
+        emit SetupNewPlayer(gameId, isLong, depositAmount, msg.sender);
     }
 
     /**
@@ -369,10 +347,6 @@ contract Setup is AccessControl {
         emit SetupCancelled(gameId, data.initiator);
     }
 
-    /**
-     * Claim for refund if game was cancelled
-     * @param gameId game id
-     */
     function getRefund(bytes32 gameId) public {
         GameInfo memory data = decodeData(gameId);
         require(data.gameStatus == Status.Cancelled, "Wrong status!");
@@ -382,10 +356,9 @@ contract Setup is AccessControl {
             "Already claimed"
         );
         withdrawStatus[gameId][msg.sender] = UserStatus.Claimed;
-        ITreasury(treasury).refund(
+        IOldTreasury(treasury).refund(
             depositAmounts[gameId][msg.sender],
-            msg.sender,
-            gameId
+            msg.sender
         );
         emit SetupRetrieved(
             gameId,
@@ -406,7 +379,7 @@ contract Setup is AccessControl {
         GameInfo memory data = decodeData(gameId);
         require(data.gameStatus == Status.Created, "Wrong status!");
         (int192 finalPrice, uint256 endTime) = IDataStreamsVerifier(
-            ITreasury(treasury).upkeep()
+            IOldTreasury(treasury).upkeep()
         ).verifyReportWithTimestamp(unverifiedReport, data.feedNumber);
 
         if (data.SLplayers == 0 || data.TPplayers == 0) {
@@ -421,8 +394,8 @@ contract Setup is AccessControl {
             return;
         }
 
+        uint256 initiatorFee;
         uint256 finalRate;
-        uint256 withdrawnInitiatorFees;
         if (data.isLong) {
             require(
                 uint192(finalPrice) / 1e14 <= data.stopLossPrice ||
@@ -430,62 +403,37 @@ contract Setup is AccessControl {
                 "Can't end"
             );
             if (uint192(finalPrice) / 1e14 >= data.takeProfitPrice) {
-                ITreasury(treasury).withdrawGameFee(
-                    games[gameId].totalDepositsSL,
-                    fee,
-                    gameId
-                );
-                withdrawnInitiatorFees = ITreasury(treasury)
-                    .withdrawInitiatorFee(
-                        games[gameId].totalDepositsSL,
-                        games[gameId].totalDepositsTP,
-                        initiatorFee,
-                        data.initiator,
-                        gameId
+                // tp team wins
+                (finalRate, initiatorFee) = IOldTreasury(treasury)
+                    .calculateSetupRate(
+                        data.totalDepositsSL,
+                        data.totalDepositsTP,
+                        fee,
+                        data.initiator
                     );
-                finalRate = ITreasury(treasury).calculateRate(
-                    games[gameId].totalDepositsTP -
-                        ((games[gameId].totalDepositsTP * initiatorFee) /
-                            FEE_DENOMINATOR),
-                    games[gameId].totalRakebackSL,
-                    gameId
-                );
                 emit SetupFinalized(
                     gameId,
                     true,
                     finalPrice,
                     endTime,
-                    withdrawnInitiatorFees,
+                    initiatorFee,
                     finalRate
                 );
             } else if (uint192(finalPrice) / 1e14 <= data.stopLossPrice) {
-                ITreasury(treasury).withdrawGameFee(
-                    games[gameId].totalDepositsTP,
-                    fee,
-                    gameId
-                );
-                withdrawnInitiatorFees = ITreasury(treasury)
-                    .withdrawInitiatorFee(
-                        games[gameId].totalDepositsTP,
-                        games[gameId].totalDepositsSL,
-                        initiatorFee,
-                        data.initiator,
-                        gameId
-                    );
                 // sl team wins
-                finalRate = ITreasury(treasury).calculateRate(
-                    games[gameId].totalDepositsSL -
-                        ((games[gameId].totalDepositsSL * initiatorFee) /
-                            FEE_DENOMINATOR),
-                    games[gameId].totalRakebackTP,
-                    gameId
-                );
+                (finalRate, initiatorFee) = IOldTreasury(treasury)
+                    .calculateSetupRate(
+                        data.totalDepositsTP,
+                        data.totalDepositsSL,
+                        fee,
+                        data.initiator
+                    );
                 emit SetupFinalized(
                     gameId,
                     false,
                     finalPrice,
                     endTime,
-                    withdrawnInitiatorFees,
+                    initiatorFee,
                     finalRate
                 );
             }
@@ -497,62 +445,35 @@ contract Setup is AccessControl {
             );
             if (uint192(finalPrice) / 1e14 >= data.stopLossPrice) {
                 // sl team wins
-                ITreasury(treasury).withdrawGameFee(
-                    games[gameId].totalDepositsTP,
-                    fee,
-                    gameId
-                );
-                withdrawnInitiatorFees = ITreasury(treasury)
-                    .withdrawInitiatorFee(
-                        games[gameId].totalDepositsTP,
-                        games[gameId].totalDepositsSL,
-                        initiatorFee,
-                        data.initiator,
-                        gameId
+                (finalRate, initiatorFee) = IOldTreasury(treasury)
+                    .calculateSetupRate(
+                        data.totalDepositsTP,
+                        data.totalDepositsSL,
+                        fee,
+                        data.initiator
                     );
-                // sl team wins
-                finalRate = ITreasury(treasury).calculateRate(
-                    games[gameId].totalDepositsSL -
-                        ((games[gameId].totalDepositsSL * initiatorFee) /
-                            FEE_DENOMINATOR),
-                    games[gameId].totalRakebackTP,
-                    gameId
-                );
                 emit SetupFinalized(
                     gameId,
                     false,
                     finalPrice,
                     endTime,
-                    withdrawnInitiatorFees,
+                    initiatorFee,
                     finalRate
                 );
             } else if (uint192(finalPrice) / 1e14 <= data.takeProfitPrice) {
-                ITreasury(treasury).withdrawGameFee(
-                    games[gameId].totalDepositsSL,
-                    fee,
-                    gameId
-                );
-                withdrawnInitiatorFees = ITreasury(treasury)
-                    .withdrawInitiatorFee(
-                        games[gameId].totalDepositsSL,
-                        games[gameId].totalDepositsTP,
-                        initiatorFee,
-                        data.initiator,
-                        gameId
+                (finalRate, initiatorFee) = IOldTreasury(treasury)
+                    .calculateSetupRate(
+                        data.totalDepositsSL,
+                        data.totalDepositsTP,
+                        fee,
+                        data.initiator
                     );
-                finalRate = ITreasury(treasury).calculateRate(
-                    games[gameId].totalDepositsTP -
-                        ((games[gameId].totalDepositsTP * initiatorFee) /
-                            FEE_DENOMINATOR),
-                    games[gameId].totalRakebackSL,
-                    gameId
-                );
                 emit SetupFinalized(
                     gameId,
                     true,
                     finalPrice,
                     endTime,
-                    withdrawnInitiatorFees,
+                    initiatorFee,
                     finalRate
                 );
             }
@@ -572,140 +493,74 @@ contract Setup is AccessControl {
         games[gameId].packedData2 = packedData2;
     }
 
-    /**
-     * Withdraws rewards or rakeback to your Treasury deposit
-     * @param gameIds array of game IDs to claim your reward from
-     */
-    function retrieveRewards(bytes32[] calldata gameIds) public {
-        for (uint i; i < gameIds.length; i++) {
-            GameInfo memory data = decodeData(gameIds[i]);
-            require(data.gameStatus == Status.Finished, "Wrong status!");
-            require(
-                withdrawStatus[gameIds[i]][msg.sender] == UserStatus.TP ||
-                    withdrawStatus[gameIds[i]][msg.sender] == UserStatus.SL,
-                "Already claimed"
-            );
-            if (data.isLong) {
-                if (data.finalPrice >= data.takeProfitPrice) {
-                    if (
-                        withdrawStatus[gameIds[i]][msg.sender] == UserStatus.SL
-                    ) {
-                        require(
-                            ITreasury(treasury).lockedRakeback(
-                                gameIds[i],
-                                msg.sender
-                            ) != 0,
-                            "You lost"
-                        );
-                        ITreasury(treasury).withdrawRakebackSetup(
-                            gameIds[i],
-                            msg.sender
-                        );
-                    } else {
-                        withdrawStatus[gameIds[i]][msg.sender] = UserStatus
-                            .Claimed;
-                        ITreasury(treasury).universalDistribute(
-                            msg.sender,
-                            depositAmounts[gameIds[i]][msg.sender] -
-                                ((depositAmounts[gameIds[i]][msg.sender] *
-                                    initiatorFee) / FEE_DENOMINATOR),
-                            gameIds[i],
-                            games[gameIds[i]].finalRate
-                        );
-                    }
-                } else if (data.finalPrice <= data.stopLossPrice) {
-                    // sl team wins
-                    if (
-                        withdrawStatus[gameIds[i]][msg.sender] == UserStatus.TP
-                    ) {
-                        require(
-                            ITreasury(treasury).lockedRakeback(
-                                gameIds[i],
-                                msg.sender
-                            ) != 0,
-                            "You lost"
-                        );
-                        ITreasury(treasury).withdrawRakebackSetup(
-                            gameIds[i],
-                            msg.sender
-                        );
-                    } else {
-                        withdrawStatus[gameIds[i]][msg.sender] = UserStatus
-                            .Claimed;
-                        ITreasury(treasury).universalDistribute(
-                            msg.sender,
-                            depositAmounts[gameIds[i]][msg.sender] -
-                                ((depositAmounts[gameIds[i]][msg.sender] *
-                                    initiatorFee) / FEE_DENOMINATOR),
-                            gameIds[i],
-                            games[gameIds[i]].finalRate
-                        );
-                    }
-                }
-            } else {
-                if (data.finalPrice >= data.stopLossPrice) {
-                    // sl team wins
-                    if (
-                        withdrawStatus[gameIds[i]][msg.sender] == UserStatus.TP
-                    ) {
-                        require(
-                            ITreasury(treasury).lockedRakeback(
-                                gameIds[i],
-                                msg.sender
-                            ) != 0,
-                            "You lost"
-                        );
-                        ITreasury(treasury).withdrawRakebackSetup(
-                            gameIds[i],
-                            msg.sender
-                        );
-                    } else {
-                        withdrawStatus[gameIds[i]][msg.sender] = UserStatus
-                            .Claimed;
-                        ITreasury(treasury).universalDistribute(
-                            msg.sender,
-                            depositAmounts[gameIds[i]][msg.sender] -
-                                ((depositAmounts[gameIds[i]][msg.sender] *
-                                    initiatorFee) / FEE_DENOMINATOR),
-                            gameIds[i],
-                            games[gameIds[i]].finalRate
-                        );
-                    }
-                } else if (data.finalPrice <= data.takeProfitPrice) {
-                    if (
-                        withdrawStatus[gameIds[i]][msg.sender] == UserStatus.SL
-                    ) {
-                        require(
-                            ITreasury(treasury).lockedRakeback(
-                                gameIds[i],
-                                msg.sender
-                            ) != 0,
-                            "You lost"
-                        );
-                        ITreasury(treasury).withdrawRakebackSetup(
-                            gameIds[i],
-                            msg.sender
-                        );
-                    } else {
-                        withdrawStatus[gameIds[i]][msg.sender] = UserStatus
-                            .Claimed;
-                        ITreasury(treasury).universalDistribute(
-                            msg.sender,
-                            depositAmounts[gameIds[i]][msg.sender] -
-                                ((depositAmounts[gameIds[i]][msg.sender] *
-                                    initiatorFee) / FEE_DENOMINATOR),
-                            gameIds[i],
-                            games[gameIds[i]].finalRate
-                        );
-                    }
-                }
+    function retrieveRewards(bytes32 gameId) public {
+        GameInfo memory data = decodeData(gameId);
+        require(data.gameStatus == Status.Finished, "Wrong status!");
+        require(
+            withdrawStatus[gameId][msg.sender] == UserStatus.TP ||
+                withdrawStatus[gameId][msg.sender] == UserStatus.SL,
+            "Already claimed"
+        );
+        if (data.isLong) {
+            if (data.finalPrice >= data.takeProfitPrice) {
+                require(
+                    withdrawStatus[gameId][msg.sender] == UserStatus.TP,
+                    "You lost"
+                );
+                withdrawStatus[gameId][msg.sender] = UserStatus.Claimed;
+                IOldTreasury(treasury).distributeWithoutFee(
+                    games[gameId].finalRate,
+                    msg.sender,
+                    fee,
+                    depositAmounts[gameId][msg.sender]
+                );
+            } else if (data.finalPrice <= data.stopLossPrice) {
+                // sl team wins
+                require(
+                    withdrawStatus[gameId][msg.sender] == UserStatus.SL,
+                    "You lost"
+                );
+                withdrawStatus[gameId][msg.sender] = UserStatus.Claimed;
+                IOldTreasury(treasury).distributeWithoutFee(
+                    games[gameId].finalRate,
+                    msg.sender,
+                    fee,
+                    depositAmounts[gameId][msg.sender]
+                );
             }
-            emit SetupRetrieved(
-                gameIds[i],
-                msg.sender,
-                depositAmounts[gameIds[i]][msg.sender]
-            );
+        } else {
+            if (data.finalPrice >= data.stopLossPrice) {
+                // sl team wins
+                require(
+                    withdrawStatus[gameId][msg.sender] == UserStatus.SL,
+                    "You lost"
+                );
+                withdrawStatus[gameId][msg.sender] = UserStatus.Claimed;
+                IOldTreasury(treasury).distributeWithoutFee(
+                    games[gameId].finalRate,
+                    msg.sender,
+                    fee,
+                    depositAmounts[gameId][msg.sender]
+                );
+            } else if (data.finalPrice <= data.takeProfitPrice) {
+                require(
+                    withdrawStatus[gameId][msg.sender] == UserStatus.TP,
+                    "You lost"
+                );
+                withdrawStatus[gameId][msg.sender] = UserStatus.Claimed;
+                IOldTreasury(treasury).distributeWithoutFee(
+                    games[gameId].finalRate,
+                    msg.sender,
+                    fee,
+                    depositAmounts[gameId][msg.sender]
+                );
+            }
         }
+        emit SetupRetrieved(
+            gameId,
+            msg.sender,
+            depositAmounts[gameId][msg.sender]
+        );
     }
 
     /**
@@ -727,6 +582,8 @@ contract Setup is AccessControl {
         gameData.feedNumber = uint8(packedData2 >> 64);
         gameData.gameStatus = Status(uint8(packedData2 >> 72));
         gameData.isLong = packedData2 >> 250 == 1;
+        gameData.totalDepositsSL = uint256(uint32(packedData2 >> 81));
+        gameData.totalDepositsTP = uint256(uint32(packedData2 >> 113));
         gameData.finalPrice = uint256(uint32(packedData2 >> 145));
         gameData.TPplayers = uint256(uint32(packedData2 >> 177));
         gameData.SLplayers = uint256(uint32(packedData2 >> 209));
@@ -764,23 +621,5 @@ contract Setup is AccessControl {
     function setFee(uint256 newFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
         fee = newFee;
         emit NewFee(newFee);
-    }
-
-    /**
-     * Change fee
-     * @param newFee new fee in bp
-     */
-    function setInitiatorFee(
-        uint256 newFee
-    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        initiatorFee = newFee;
-        emit NewInitiatorFee(newFee);
-    }
-
-    /**
-     * Turns game on/off
-     */
-    function toggleActive() public onlyRole(DEFAULT_ADMIN_ROLE) {
-        isActive = !isActive;
     }
 }

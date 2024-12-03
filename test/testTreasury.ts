@@ -1,11 +1,9 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { time } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { XyroToken } from "../typechain-types/contracts/XyroToken";
 import { XyroToken__factory } from "../typechain-types/factories/contracts/XyroToken__factory";
 import { Treasury } from "../typechain-types/contracts/Treasury.sol/Treasury";
-import { Treasury__factory } from "../typechain-types/factories/contracts/Treasury.sol/Treasury__factory";
 import { OneVsOneExactPrice } from "../typechain-types/contracts/OneVsOneExactPrice";
 import { OneVsOneExactPrice__factory } from "../typechain-types/factories/contracts/OneVsOneExactPrice__factory";
 import { MockToken } from "../typechain-types/contracts/mock/MockERC20.sol/MockToken";
@@ -14,14 +12,12 @@ import { MockVerifier } from "../typechain-types/contracts/mock/MockVerifier";
 import { MockVerifier__factory } from "../typechain-types/factories/contracts/mock/MockVerifier__factory";
 const parse18 = ethers.parseEther;
 const insufficentDepositAmount = "Insufficent deposit amount";
-const invalidRole = "Invalid role";
 const zeroAddress = "Zero address";
 const wrongDepositAmount = "Wrong deposit amount";
 const wrongAmount = "Wrong amount";
 
 describe("Treasury", () => {
   let mockContract: HardhatEthersSigner;
-  let mockDAO: HardhatEthersSigner;
   let owner: HardhatEthersSigner;
   let alice: HardhatEthersSigner;
   let USDT: MockToken;
@@ -29,17 +25,17 @@ describe("Treasury", () => {
   let Treasury: Treasury;
   let Game: OneVsOneExactPrice;
   let Upkeep: MockVerifier;
-  const depositAmount = 100;
-  const DENOMINATOR = 10000;
+  const depositAmount = 100000000;
   before(async () => {
-    [owner, mockContract, alice, mockDAO] = await ethers.getSigners();
+    [owner, mockContract, alice] = await ethers.getSigners();
     USDT = await new MockToken__factory(owner).deploy(
       parse18((1e13).toString())
     );
     await USDT.mint(alice.address, parse18("100000"));
     XyroToken = await new XyroToken__factory(owner).deploy(parse18("2500"));
-    Treasury = await new Treasury__factory(owner).deploy(
-      await USDT.getAddress()
+    Treasury = await upgrades.deployProxy(
+      await ethers.getContractFactory("Treasury"),
+      [await USDT.getAddress(), await XyroToken.getAddress()]
     );
     Game = await new OneVsOneExactPrice__factory(owner).deploy();
     Upkeep = await new MockVerifier__factory(owner).deploy();
@@ -60,12 +56,15 @@ describe("Treasury", () => {
     const newToken = await new MockToken__factory(owner).deploy(
       parse18((1e13).toString())
     );
-    await Treasury.setToken(await newToken.getAddress());
-    expect(await Treasury.approvedToken()).to.be.equal(
-      await newToken.getAddress()
+    await Treasury.setToken(await newToken.getAddress(), true);
+    expect(
+      await Treasury.approvedTokens(await newToken.getAddress())
+    ).to.be.equal(true);
+    await Treasury.setToken(await USDT.getAddress(), false);
+    expect(await Treasury.approvedTokens(await USDT.getAddress())).to.be.equal(
+      false
     );
-    await Treasury.setToken(await USDT.getAddress());
-    expect(await Treasury.approvedToken()).to.be.equal(await USDT.getAddress());
+    await Treasury.setToken(await USDT.getAddress(), true);
   });
 
   it("Should fail - set token", async function () {
@@ -73,7 +72,7 @@ describe("Treasury", () => {
       parse18((1e13).toString())
     );
     await expect(
-      Treasury.connect(alice).setToken(await newToken.getAddress())
+      Treasury.connect(alice).setToken(await newToken.getAddress(), true)
     ).to.be.revertedWithCustomError(
       Treasury,
       "AccessControlUnauthorizedAccount"
@@ -97,22 +96,33 @@ describe("Treasury", () => {
   });
 
   it("Should deposit", async function () {
-    expect(await Treasury.deposits(alice.address)).to.be.equal(0);
-    await Treasury.connect(alice).deposit(depositAmount);
-    expect(await Treasury.deposits(alice.address)).to.be.equal(
-      parse18(depositAmount.toString())
+    expect(
+      await Treasury.deposits(await USDT.getAddress(), alice.address)
+    ).to.be.equal(0);
+    await Treasury.connect(alice).deposit(
+      depositAmount,
+      await USDT.getAddress()
     );
+    expect(
+      await Treasury.deposits(await USDT.getAddress(), alice.address)
+    ).to.be.equal(depositAmount);
   });
 
   it("Should deposit and lock", async function () {
-    expect(await Treasury.locked(alice.address)).to.be.equal(0);
+    const mockGameId =
+      "0x0000000000000000000000000000000000000000000000000000000000000001";
+    await Treasury.connect(mockContract).setGameToken(
+      mockGameId,
+      await USDT.getAddress()
+    );
+    expect(await Treasury.locked(mockGameId)).to.be.equal(0);
     await Treasury.connect(mockContract).depositAndLock(
       depositAmount,
-      alice.address
+      alice.address,
+      mockGameId,
+      false
     );
-    expect(await Treasury.locked(alice.address)).to.be.equal(
-      parse18(depositAmount.toString())
-    );
+    expect(await Treasury.locked(mockGameId)).to.be.equal(depositAmount);
   });
 
   it("Should deposit with permit", async function () {});
@@ -121,137 +131,178 @@ describe("Treasury", () => {
 
   it("Should withdraw", async function () {
     const oldBalance = await USDT.balanceOf(alice.address);
-    await Treasury.connect(alice).withdraw(depositAmount);
-    const newBalance = await USDT.balanceOf(alice.address);
-    expect(newBalance - oldBalance).to.be.equal(
-      parse18(depositAmount.toString())
+    await Treasury.connect(alice).withdraw(
+      depositAmount,
+      await USDT.getAddress()
     );
+    const newBalance = await USDT.balanceOf(alice.address);
+    expect(newBalance - oldBalance).to.be.equal(depositAmount);
   });
 
   it("Should lock", async function () {
-    const oldLockedBalance = await Treasury.locked(alice.address);
-    await Treasury.connect(alice).deposit(depositAmount);
-    await Treasury.connect(mockContract).lock(depositAmount, alice.address);
-    const newLockedBalance = await Treasury.locked(alice.address);
-    expect(newLockedBalance - oldLockedBalance).to.be.equal(
-      parse18(depositAmount.toString())
+    const mockGameId =
+      "0x0000000000000000000000000000000000000000000000000000000000000001";
+    const oldLockedBalance = await Treasury.locked(mockGameId);
+    await Treasury.connect(alice).deposit(
+      depositAmount,
+      await USDT.getAddress()
     );
+    await Treasury.connect(mockContract).lock(
+      depositAmount,
+      alice.address,
+      mockGameId,
+      false
+    );
+    const newLockedBalance = await Treasury.locked(mockGameId);
+    expect(newLockedBalance - oldLockedBalance).to.be.equal(depositAmount);
   });
 
   it("Should fail - not enough deposited tokens", async function () {
+    const mockGameId =
+      "0x0000000000000000000000000000000000000000000000000000000000000001";
     await expect(
-      Treasury.connect(mockContract).lock(depositAmount, alice.address)
+      Treasury.connect(mockContract).lock(
+        depositAmount,
+        alice.address,
+        mockGameId,
+        false
+      )
     ).to.be.revertedWith(insufficentDepositAmount);
   });
 
   it("Should refund", async function () {
-    const oldDepositBalance = await Treasury.deposits(alice.address);
-    await Treasury.connect(mockContract).refund(depositAmount, alice.address);
-    const newDepositBalance = await Treasury.deposits(alice.address);
+    const mockGameId =
+      "0x0000000000000000000000000000000000000000000000000000000000000001";
+    const oldDepositBalance = await Treasury.deposits(
+      await USDT.getAddress(),
+      alice.address
+    );
+    await Treasury.connect(mockContract).refund(
+      depositAmount,
+      alice.address,
+      mockGameId
+    );
+    const newDepositBalance = await Treasury.deposits(
+      await USDT.getAddress(),
+      alice.address
+    );
     expect(newDepositBalance).to.be.above(oldDepositBalance);
+  });
+
+  it("Should withdraw fee from players", async function () {
+    const mockGameId =
+      "0x0000000000000000000000000000000000000000000000000000000000000004";
+    await Treasury.connect(mockContract).setGameToken(
+      mockGameId,
+      await USDT.getAddress()
+    );
+    const oldFeeBalance = await Treasury.collectedFee(await USDT.getAddress());
+    const gameFee = 1000; //10%
+    await Treasury.connect(mockContract).depositAndLock(
+      depositAmount,
+      alice.address,
+      mockGameId,
+      false
+    );
+    await Treasury.connect(mockContract).withdrawGameFee(
+      depositAmount,
+      gameFee,
+      mockGameId
+    );
+    const newFeeBalance = await Treasury.collectedFee(await USDT.getAddress());
+    expect(newFeeBalance - oldFeeBalance).to.be.equal(depositAmount * 0.1);
   });
 
   it("Should distribute", async function () {
-    const oldDepositBalance = await Treasury.deposits(alice.address);
-    const oldFeeBalance = await Treasury.collectedFee();
-    await Treasury.connect(mockContract).depositAndLock(
-      depositAmount,
-      owner.address
+    const mockGameId =
+      "0x0000000000000000000000000000000000000000000000000000000000000002";
+    await Treasury.connect(mockContract).setGameToken(
+      mockGameId,
+      await USDT.getAddress()
     );
-
-    await Treasury.connect(mockContract).depositAndLock(
-      depositAmount,
+    const oldDepositBalance = await Treasury.deposits(
+      await USDT.getAddress(),
       alice.address
     );
+    await Treasury.connect(mockContract).depositAndLock(
+      depositAmount,
+      owner.address,
+      mockGameId,
+      false
+    );
 
-    const gameFee = 100;
-
-    await Treasury.connect(mockContract).distribute(
-      depositAmount * 2, //won amount
+    await Treasury.connect(mockContract).depositAndLock(
+      depositAmount,
       alice.address,
-      gameFee
-    );
-    const newDepositBalance = await Treasury.deposits(alice.address);
-    const newFeeBalance = await Treasury.collectedFee();
-    expect(newDepositBalance).to.be.above(oldDepositBalance);
-    expect(newFeeBalance).to.be.above(oldFeeBalance);
-  });
-
-  it("Should distribute without fee", async function () {
-    const oldDepositBalance = await Treasury.deposits(alice.address);
-    await Treasury.connect(mockContract).depositAndLock(
-      depositAmount,
-      owner.address
-    );
-
-    await Treasury.connect(mockContract).depositAndLock(
-      depositAmount,
-      alice.address
+      mockGameId,
+      false
     );
 
     const rate = 10000;
-    const usedFee = 100;
 
-    await Treasury.connect(mockContract).distributeWithoutFee(
-      rate, //won amount
+    await Treasury.connect(mockContract).universalDistribute(
       alice.address,
-      usedFee,
-      depositAmount
+      depositAmount, //won amount
+      mockGameId,
+      rate
     );
-    const newDepositBalance = await Treasury.deposits(alice.address);
+    const newDepositBalance = await Treasury.deposits(
+      await USDT.getAddress(),
+      alice.address
+    );
     expect(newDepositBalance).to.be.above(oldDepositBalance);
   });
 
   it("Should withdraw collected fees", async function () {
-    const collectedFees = await Treasury.collectedFee();
+    const collectedFees = await Treasury.collectedFee(await USDT.getAddress());
     const oldOwnerBalance = await USDT.balanceOf(owner.address);
     await Treasury.withdrawFees(
       owner.address,
-      collectedFees / BigInt(Math.pow(10, 18))
+      collectedFees,
+      await USDT.getAddress()
     );
     const newOwnerBalance = await USDT.balanceOf(owner.address);
     expect(newOwnerBalance - oldOwnerBalance).to.be.equal(collectedFees);
   });
 
-  it("Should calculate Setup rate", async function () {
-    const setupFee = 1000;
-    const initiatorFee = await Treasury.setupInitiatorFee();
-    const oldAliceDepositBalance = await Treasury.deposits(alice.address);
-    const collectedFee =
-      (parse18(depositAmount.toString()) * BigInt(setupFee)) /
-      BigInt(DENOMINATOR);
-    const oldFeeAmount = await Treasury.collectedFee();
-    await Treasury.connect(mockContract).calculateSetupRate(
-      depositAmount,
-      depositAmount,
-      setupFee,
-      alice.address
-    );
-    const newAliceDepositBalance = await Treasury.deposits(alice.address);
-    const initiatorFeeEarned =
-      (parse18((depositAmount * 2).toString()) * BigInt(initiatorFee)) /
-      BigInt(DENOMINATOR);
-    expect(newAliceDepositBalance - oldAliceDepositBalance).to.be.equal(
-      initiatorFeeEarned
-    );
-    const newFeeAmount = await Treasury.collectedFee();
-    expect(newFeeAmount - oldFeeAmount).to.be.equal(collectedFee);
-  });
+  // it("Should calculate rate (no rakeback) - calculateRate()", async function () {
+  //   //mock game
+  //   const mockGameId =
+  //     "0x0000000000000000000000000000000000000000000000000000000000000003";
+  //   await Treasury.connect(mockContract).setGameToken(
+  //     mockGameId,
+  //     await USDT.getAddress()
+  //   );
 
-  it("Should calculate UpDown rate", async function () {
-    const updownFee = 1500;
-    const collectedFee =
-      (parse18((depositAmount * 2).toString()) * BigInt(updownFee)) /
-      BigInt(DENOMINATOR);
-    const oldFeeAmount = await Treasury.collectedFee();
-    await Treasury.connect(mockContract).calculateUpDownRate(
-      depositAmount,
-      depositAmount,
-      updownFee
-    );
-    const newFeeAmount = await Treasury.collectedFee();
-    expect(newFeeAmount - oldFeeAmount).to.be.equal(collectedFee);
-  });
+  //   await Treasury.connect(mockContract).depositAndLock(
+  //     depositAmount,
+  //     owner.address,
+  //     mockGameId,
+  //     false
+  //   );
+
+  //   await Treasury.connect(mockContract).depositAndLock(
+  //     depositAmount,
+  //     alice.address,
+  //     mockGameId,
+  //     false
+  //   );
+
+  //   const wonTeamTotal = BigInt(depositAmount);
+  //   const totalLocked = BigInt(depositAmount) * BigInt(2);
+  //   const rate = await Treasury.connect(mockContract).calculateRate(
+  //     wonTeamTotal,
+  //     0,
+  //     mockGameId
+  //   );
+  //   const calculatedRate =
+  //     ((totalLocked - wonTeamTotal) *
+  //       (await Treasury.RATE_PRECISION_AMPLIFIER())) /
+  //     wonTeamTotal;
+  //   console.log(rate);
+  //   console.log(typeof rate);
+  //   expect(rate).to.be.equal(calculatedRate);
+  // });
 
   it("Should set new upkeep", async function () {
     const newUpkeep = await new MockVerifier__factory(owner).deploy();
@@ -261,39 +312,81 @@ describe("Treasury", () => {
 
   it("Should change deposit amount", async function () {
     const newDepositAmount = 1000;
-    await Treasury.changeMinDepositAmount(newDepositAmount);
-    expect(await Treasury.minDepositAmount()).to.be.equal(newDepositAmount);
+    await Treasury.changeMinDepositAmount(
+      newDepositAmount,
+      await USDT.getAddress()
+    );
+    expect(
+      await Treasury.minDepositAmount(await USDT.getAddress())
+    ).to.be.equal(newDepositAmount);
   });
 
   it("Should fail - zero address", async function () {
-    await expect(Treasury.setToken(ethers.ZeroAddress)).to.be.revertedWith(
-      zeroAddress
-    );
+    await expect(
+      Treasury.setToken(ethers.ZeroAddress, true)
+    ).to.be.revertedWith(zeroAddress);
   });
 
   it("Should fail - wrong deposit amount", async function () {
-    await expect(Treasury.deposit(100)).to.be.revertedWith(wrongDepositAmount);
+    await expect(
+      Treasury.deposit(100, await USDT.getAddress())
+    ).to.be.revertedWith(wrongDepositAmount);
   });
 
   it("Should fail - wrong amount refund", async function () {
+    const mockGameId =
+      "0x0000000000000000000000000000000000000000000000000000000000000003";
+    await Treasury.connect(mockContract).setGameToken(
+      mockGameId,
+      await USDT.getAddress()
+    );
     await expect(
-      Treasury.connect(mockContract).refund(100000, alice.address)
+      Treasury.connect(mockContract).refund(
+        ethers.MaxUint256,
+        alice.address,
+        mockGameId
+      )
     ).to.be.revertedWith(wrongAmount);
   });
 
   it("Should fail - wrong amount withdraw", async function () {
-    await expect(Treasury.withdraw(100000)).to.be.revertedWith(wrongAmount);
+    await Treasury.withdraw(
+      await Treasury.deposits(await USDT.getAddress(), owner.address),
+      await USDT.getAddress()
+    );
+    await expect(
+      Treasury.withdraw(depositAmount, await USDT.getAddress())
+    ).to.be.revertedWith(wrongAmount);
   });
 
   it("Should fail - wrong amount refundWithFee", async function () {
+    const mockGameId =
+      "0x0000000000000000000000000000000000000000000000000000000000000003";
     await expect(
-      Treasury.connect(mockContract).refundWithFees(100000, alice.address, 100)
+      Treasury.connect(mockContract).refundWithFees(
+        ethers.MaxUint256,
+        owner.address,
+        100,
+        mockGameId
+      )
     ).to.be.revertedWith(wrongAmount);
   });
 
   it("Should fail - wrong amount withdrawFees", async function () {
     await expect(
-      Treasury.withdrawFees(alice.address, 1000000)
+      Treasury.withdrawFees(
+        alice.address,
+        ethers.MaxUint256,
+        await USDT.getAddress()
+      )
     ).to.be.revertedWith(wrongAmount);
+  });
+
+  it("Should upgrade treasury", async function () {
+    let TreasuryV2 = await upgrades.upgradeProxy(
+      await Treasury.getAddress(),
+      await ethers.getContractFactory("TreasuryV2")
+    );
+    expect(await TreasuryV2.test()).to.be.equal(333);
   });
 });

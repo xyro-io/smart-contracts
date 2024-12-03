@@ -259,3 +259,18 @@ export function abiEncodeInt192WithTimestampOld(
 export function timeout(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+export function calculateRakebackRate(XyroBalance: bigint): bigint {
+  const rakebackRate = [
+    500, 2500, 5000, 12500, 25000, 50000, 125000, 250000, 500000, 1250000,
+  ];
+  if (XyroBalance < BigInt(rakebackRate[0] * Math.pow(10, 18))) {
+    return BigInt(0);
+  }
+  for (let i = 10; i > 0; i--) {
+    if (XyroBalance >= BigInt(rakebackRate[i - 1] * Math.pow(10, 18))) {
+      return BigInt(i);
+    }
+  }
+  return BigInt(0);
+}

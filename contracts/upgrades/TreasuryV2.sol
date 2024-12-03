@@ -10,7 +10,7 @@ interface IERC20Mint {
     function decimals() external view returns (uint256);
 }
 
-contract Treasury is Initializable, AccessControlUpgradeable {
+contract TreasuryV2 is Initializable, AccessControlUpgradeable {
     event FeeCollected(uint256 feeEarned, uint256 totalFees, address token);
     event Distributed(address to, uint256 amount, address token);
     event Refunded(address to, uint256 amount, address token);
@@ -35,14 +35,13 @@ contract Treasury is Initializable, AccessControlUpgradeable {
 
     /**
      * @param approvedToken stable token used in games
-     * @param xyroTokenAddress XYRO token address
      */
     function initialize(
         address approvedToken,
-        address xyroTokenAddress
+        address _xyroToken
     ) public initializer {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        xyroToken = xyroTokenAddress;
+        xyroToken = _xyroToken;
         approvedTokens[approvedToken] = true;
         setupInitiatorFee = 1000;
         minDepositAmount[approvedToken] =
@@ -62,7 +61,7 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     }
 
     /**
-     * Approves token for in game usage
+     * Set new token for in game usage
      * @param token new token address
      * @param status true for approved token
      */
@@ -74,11 +73,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         approvedTokens[token] = status;
     }
 
-    /**
-     * Sets token for a game to use
-     * @param gameId to set the token
-     * @param token token for player's deposits
-     */
     function setGameToken(
         bytes32 gameId,
         address token
@@ -98,7 +92,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     /**
      * Deposit token in treasury
      * @param amount token amount
-     * @param token address of a token being deposited
      */
     function deposit(uint256 amount, address token) public {
         require(amount >= minDepositAmount[token], "Wrong deposit amount");
@@ -116,10 +109,8 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     }
 
     /**
-     * Deposits a specified amount of tokens into a player's balance in the treasury
+     * Deposit token to a certain player's balance in treasury
      * @param amount token amount
-     * @param token address of a token being deposited
-     * @param to address of the player whose balance will be updated
      */
     function deposit(uint256 amount, address token, address to) public {
         require(amount >= minDepositAmount[token], "Wrong deposit amount");
@@ -140,8 +131,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
      * Deposit token in treasury and lock them
      * @param amount token amount
      * @param from token sender
-     * @param gameId game ID to check wich token should be deposited
-     * @param isRakeback true if game allow rakeback
      */
     function depositAndLock(
         uint256 amount,
@@ -166,7 +155,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     /**
      * Deposit token in treasury with permit
      * @param amount token amount
-     * @param token address of a token being deposited
      */
     function depositWithPermit(
         uint256 amount,
@@ -200,10 +188,8 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     }
 
     /**
-     * Deposits a specified amount of tokens into a player's balance in the treasury
+     * Deposit token on a certain player balance in treasury with permit
      * @param amount token amount
-     * @param token address of a token being deposited
-     * @param to address of the player whose balance will be updated
      */
     function depositWithPermit(
         uint256 amount,
@@ -238,11 +224,9 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     }
 
     /**
-     * Deposit token in treasury with permit and lock untill game ends
+     * Deposit token in treasury with permit
      * @param amount token amount
      * @param from token sender
-     * @param gameId game ID to check wich token should be deposited
-     * @param isRakeback true if game allow rakeback
      */
     function depositAndLockWithPermit(
         uint256 amount,
@@ -278,9 +262,7 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     }
 
     /**
-     * Withdraw a specific amount of tokens from user's deposit
-     * @param amount to withdraw
-     * @param token to withdraw
+     * Withdraw all tokens from user deposit
      */
     function withdraw(uint256 amount, address token) public {
         require(approvedTokens[token], "Unapproved token");
@@ -290,11 +272,7 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     }
 
     /**
-     * Locks deposited tokens untill game ends
-     * @param amount token amount
-     * @param from token sender
-     * @param gameId game ID to check wich token should be deposited
-     * @param isRakeback true if game allow rakeback
+     * Locks deposited tokens (only game contracts can call)
      */
     function lock(
         uint256 amount,
@@ -318,7 +296,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
      * Refunds tokens
      * @param amount token amount
      * @param to reciever address
-     * @param gameId game ID to check wich token should be deposited
      */
     function refund(
         uint256 amount,
@@ -340,8 +317,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
      * Refunds tokens and withdraws fees
      * @param amount token amount
      * @param to reciever address
-     * @param refundFee a fee to withdraw if refund wasn't called manually
-     * @param gameId game ID to check wich token should be deposited
      */
     function refundWithFees(
         uint256 amount,
@@ -370,9 +345,8 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     /**
      * Withdraws earned fees
      * @param to account that will recieve fee
-     * @param amount of tokens to withdraw
-     * @param token wich token to withdraw
      */
+
     function withdrawFees(address to, uint256 amount, address token) public {
         require(approvedTokens[token], "Unapproved token");
         require(
@@ -385,13 +359,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         SafeERC20.safeTransfer(IERC20(token), to, amount);
     }
 
-    /**
-     * Distributes rewards
-     * @param to winner address
-     * @param initialDeposit winner's initial deposited amount
-     * @param gameId game ID
-     * @param rate reward rate calculated by calculateRate()
-     */
     function universalDistribute(
         address to,
         uint256 initialDeposit,
@@ -410,12 +377,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         emit Distributed(to, wonAmount, token);
     }
 
-    /**
-     * Withdraws game fees
-     * @param lostTeamDeposits total deposits of a team that lost
-     * @param gameFee fee in bp
-     * @param gameId game ID
-     */
     function withdrawGameFee(
         uint256 lostTeamDeposits,
         uint256 gameFee,
@@ -428,12 +389,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         locked[gameId] -= withdrawnFees;
     }
 
-    /**
-     * Calculates reward rate for winners
-     * @param wonTeamTotal total deposits of a team that won
-     * @param lostTeamRakeback total rakeback of a team that lost
-     * @param gameId game ID
-     */
     function calculateRate(
         uint256 wonTeamTotal,
         uint256 lostTeamRakeback,
@@ -447,14 +402,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
             wonTeamTotal;
     }
 
-    /**
-     * Withdraws and adds fees of initiator from Setup game
-     * @param lostTeamDeposits total deposits of a team that lost
-     * @param wonTeamDeposits total deposits of a team that won
-     * @param initiatorFee fee in bp
-     * @param initiator game creator address
-     * @param gameId setup game ID
-     */
     function withdrawInitiatorFee(
         uint256 lostTeamDeposits,
         uint256 wonTeamDeposits,
@@ -473,10 +420,7 @@ contract Treasury is Initializable, AccessControlUpgradeable {
 
     /**
      * Distribute bullseye reward
-     * @param rate calculated rate for reward distribution
-     * @param lostTeamRakeback total rakeback of lost players
      * @param to token reciever
-     * @param gameId bullseye game ID
      */
     function distributeBullseye(
         uint256 rate,
@@ -559,11 +503,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         }
     }
 
-    /**
-     * Changes game status wich allows players to withdraw rakeback
-     * @param gameId game ID to withdraw rakeback from
-     * @param target address of a player who withdraws
-     */
     function withdrawRakebackSetup(
         bytes32 gameId,
         address target
@@ -580,7 +519,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
 
     /**
      * Changes game status wich allows players to withdraw rakeback
-     * @param gameId for what game status is set to "finished"
      */
     function setGameFinished(
         bytes32 gameId
@@ -598,16 +536,15 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         emit UpkeepChanged(newUpkeep);
     }
 
-    /**
-     * Changes minimal deposit amount of a token provided
-     * @param newMinAmount new minimal amount to deposit and lock
-     * @param token token address
-     */
     function changeMinDepositAmount(
         uint256 newMinAmount,
         address token
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(approvedTokens[token], "Unapproved token");
         minDepositAmount[token] = newMinAmount;
+    }
+
+    function test() public pure returns (uint256) {
+        return 333;
     }
 }

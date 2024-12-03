@@ -1,5 +1,5 @@
 import { wrapFnc } from "./helper";
-import { ethers } from "hardhat";
+import { ethers, upgrades } from "hardhat";
 import * as fs from "fs";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
@@ -28,6 +28,7 @@ let contracts: {
   UpDown,
   RealUpkeep,
   FrontHelper,
+  RevenueBank,
   factory: any;
 let deployer: HardhatEthersSigner;
 if (fs.existsSync("./contracts.json")) {
@@ -87,9 +88,13 @@ async function deployTreasury() {
     contracts.Treasury?.address == undefined ||
     contracts.Treasury?.address == ""
   ) {
-    Treasury = await wrapFnc([contracts.USDC.address], factory);
+    const factory = await ethers.getContractFactory("Treasury");
+    Treasury = await upgrades.deployProxy(factory, [contracts.USDC.address], {
+      initializer: "initialize",
+    });
+    await Treasury.waitForDeployment();
     contracts.Treasury = { address: "", url: "" };
-    contracts.Treasury.address = Treasury.target;
+    contracts.Treasury.address = await Treasury.getAddress();
     console.log("Treasury deployed");
   } else {
     console.log("Treasury already deployed skipping...");
@@ -265,6 +270,30 @@ async function deployDAO() {
   }
 }
 
+async function deployBank() {
+  factory = await ethers.getContractFactory("RevenueBank");
+  if (
+    contracts.RevenueBank?.address == undefined ||
+    contracts.RevenueBank?.address == ""
+  ) {
+    RevenueBank = await wrapFnc(
+      [
+        contracts.USDC.address,
+        contracts.XyroToken.address,
+        contracts.Treasury.address,
+        "0x59D74185D879b63e8543073fFA73cD5a12Fc4104",
+        "0x101F443B4d1b059569D643917553c771E1b9663E",
+      ],
+      factory
+    );
+    contracts.RevenueBank = { address: "", url: "" };
+    contracts.RevenueBank.address = RevenueBank.target;
+    console.log("RevenueBank deployed");
+  } else {
+    console.log("RevenueBank already deployed skipping...");
+  }
+}
+
 async function main() {
   [deployer] = await ethers.getSigners();
   console.log("Deployer = ", deployer.address);
@@ -282,6 +311,7 @@ async function main() {
     // await deployMockVerifier();
     // await deployFrontHelper();
     await deployUpDown();
+    await deployBank();
     const mainnetVerifierAdr = "0x478Aa2aC9F6D65F84e09D9185d126c3a17c2a93C";
     const testnetVerifierAdr = "0x2ff010DEbC1297f19579B4246cad07bd24F2488A";
     await deployVerifier(testnetVerifierAdr);

@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 contract MockVerifier {
     int192 public lastRetrievedPrice;
+    mapping(uint8 => bytes32) public assetId;
 
     function setPrice(int192 priceData) public {
         lastRetrievedPrice = priceData;
@@ -34,5 +35,15 @@ contract MockVerifier {
         );
         require(feedNumber == decodedFeed, "Wrong feedNumber");
         return (price, timestamp);
+    }
+
+    function setfeedNumber(uint8 feedNumber, bytes32 _assetId) public {
+        assetId[feedNumber] = _assetId;
+    }
+
+    function setfeedNumberBatch(bytes32[] memory _assetIds) public {
+        for (uint8 i; i < _assetIds.length; i++) {
+            assetId[i] = _assetIds[i];
+        }
     }
 }

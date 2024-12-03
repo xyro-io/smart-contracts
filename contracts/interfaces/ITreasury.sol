@@ -13,58 +13,95 @@ interface ITreasury {
 
     function grantRole(bytes32 role, address account) external;
 
-    function increaseFee(uint256 amount) external;
+    function lockedRakeback(
+        bytes32 gameId,
+        address player
+    ) external returns (uint256);
 
-    function depositAndLock(uint256 amount, address from) external;
+    function calculateBullseyeRate(
+        uint256 wonPercentage,
+        uint256 lostPlayersRakeback,
+        uint256 inititalDeposit,
+        bytes32 gameId
+    ) external returns (uint256);
+
+    function depositAndLock(
+        uint256 amount,
+        address from,
+        bytes32 gameId,
+        bool isRakeback
+    ) external returns (uint256 rakeback);
 
     function depositAndLockWithPermit(
         uint256 amount,
         address from,
+        bytes32 gameId,
+        bool isRakeback,
         uint256 deadline,
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) external;
+    ) external returns (uint256 rakeback);
 
-    function lock(uint256 amount, address from) external;
+    function lock(
+        uint256 amount,
+        address from,
+        bytes32 gameId,
+        bool isRakeback
+    ) external returns (uint256 rakeback);
 
     function upkeep() external view returns (address);
 
-    function distribute(uint256 amount, address to, uint256 gameFee) external;
+    function bullseyeResetLockedAmount(bytes32 gameId) external;
 
     function distributeBullseye(
-        uint256 amount,
+        uint256 rate,
+        uint256 lostTeamRakeback,
         address to,
-        uint256 gameFee
+        bytes32 gameId
     ) external;
 
-    function approvedToken() external returns (address);
+    function approvedTokens(address token) external returns (bool);
 
-    function refund(uint256 amount, address to) external;
+    function refund(uint256 amount, address to, bytes32 gameId) external;
 
     function refundWithFees(
         uint256 amount,
         address to,
-        uint256 refundFee
+        uint256 refundFee,
+        bytes32 gameId
     ) external;
 
-    function distributeWithoutFee(
-        uint256 rate,
+    function universalDistribute(
         address to,
-        uint256 usedFee,
-        uint256 initialDeposit
+        uint256 initialDeposit,
+        bytes32 gameId,
+        uint256 rate
     ) external;
 
-    function calculateSetupRate(
-        uint256 lostTeamTotal,
-        uint256 wonTeamTotal,
-        uint256 setupFee,
-        address initiator
-    ) external returns (uint256, uint256);
+    function withdrawGameFee(
+        uint256 lostTeamDeposits,
+        uint256 gameFee,
+        bytes32 gameId
+    ) external returns (uint256 withdrawnFees);
 
-    function calculateUpDownRate(
-        uint256 lostTeamTotal,
+    function calculateRate(
         uint256 wonTeamTotal,
-        uint256 updownFee
-    ) external returns (uint256 rate);
+        uint256 lostTeamRakeback,
+        bytes32 gameId
+    ) external returns (uint256);
+
+    function withdrawInitiatorFee(
+        uint256 lostTeamDeposits,
+        uint256 wonTeamDeposits,
+        uint256 initiatorFee,
+        address initiator,
+        bytes32 gameId
+    ) external returns (uint256 withdrawnFees);
+
+    function setGameFinished(bytes32 gameId) external;
+
+    function withdrawRakebackSetup(bytes32 gameId, address target) external;
+
+    function setGameToken(bytes32 gameId, address token) external;
 }

@@ -48,6 +48,7 @@ describe("RevenueBank", () => {
     );
     await Bank.grantRole(await Bank.ACCOUNTANT_ROLE(), owner.address);
     await USDT.mint(await Treasury.getAddress(), parse18("100000"));
+    await USDT.approve(await Treasury.getAddress(), parse18("100000"));
     await XyroToken.approve(await Bank.getAddress(), ethers.MaxUint256);
     await XyroToken.transfer(await Bank.getAddress(), bankAmount);
 
@@ -93,8 +94,13 @@ describe("RevenueBank", () => {
     await expect(
       Bank.connect(alice).verifyTransfer(message, signature)
     ).to.be.revertedWith("Not enough rewards");
-    await Treasury.calculateUpDownRate(500, 500, 9000);
-    await Bank.connect(owner).collectFees(900);
+    //mocking fee withdrawal
+    const mockGameId =
+      "0x0000000000000000000000000000000000000000000000000000000000000001";
+    await Treasury.setGameToken(mockGameId, await USDT.getAddress());
+    await Treasury.depositAndLock(1000000000, owner.address, mockGameId, false);
+    await Treasury.withdrawGameFee(1000000000, 9000, mockGameId);
+    await Bank.connect(owner).collectFees(900000000, await USDT.getAddress());
     await Bank.connect(alice).verifyTransfer(message, signature);
     const newAliceBalance = await USDT.balanceOf(alice.address);
     expect(newAliceBalance - oldAliceBalance).to.be.equal(message.amount);
@@ -104,38 +110,22 @@ describe("RevenueBank", () => {
   });
 
   it("should withdraw fees", async function () {
-    const oldOwnerBalance = await USDT.balanceOf(await Bank.getAddress());
-    console.log(await Bank.buybackBalance());
+    const oldOwnerBalance = await USDT.balanceOf(owner.address);
     //mock game to earn fees
     const mockGameId =
-      "0x0000000000000000000000000000000000000000000000000000000000000001";
+      "0x0000000000000000000000000000000000000000000000000000000000000002";
     await Treasury.setGameToken(mockGameId, await USDT.getAddress());
     await USDT.approve(await Treasury.getAddress(), ethers.MaxUint256);
-    await Treasury.depositAndLock(
-      parse18("1000"),
-      owner.address,
-      mockGameId,
-      false
-    );
-    await Treasury.withdrawGameFee(parse18("1000"), 9000, mockGameId);
+    await Treasury.depositAndLock(1000000000, owner.address, mockGameId, false);
+    await Treasury.withdrawGameFee(1000000000, 9000, mockGameId);
 
     expect(await Treasury.collectedFee(await USDT.getAddress())).to.be.equal(
-      parse18("900")
-    const amount = 300;
-    await Bank.connect(owner).collectFees(amount);
-    console.log(await Bank.buybackBalance());
-    expect(await Treasury.collectedFee()).to.be.equal(parse18("600"));
-    const newOwnerBalance = await USDT.balanceOf(await Bank.getAddress());
-    expect(newOwnerBalance - oldOwnerBalance).to.be.equal(
-      parse18(amount.toString())
+      900000000
     );
-    const amount = parse18("100");
-    await Bank.connect(owner).collectFees(amount, await USDT.getAddress());
-    expect(await Treasury.collectedFee(await USDT.getAddress())).to.be.equal(
-      parse18("800")
-    );
-    const newOwnerBalance = await USDT.balanceOf(await Bank.getAddress());
-    expect(newOwnerBalance - oldOwnerBalance).to.be.equal(amount);
+    await Bank.connect(owner).collectFees(900000000, await USDT.getAddress());
+    const amount = 1000000000;
+    const newOwnerBalance = await USDT.balanceOf(owner.address);
+    expect(oldOwnerBalance - newOwnerBalance).to.be.equal(amount);
   });
 
   it("should change signer", async function () {

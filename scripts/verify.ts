@@ -196,6 +196,28 @@ async function verifyVerifier(verifier: string) {
   }
 }
 
+async function verifyBank() {
+  if (contracts.RevenueBank.address !== undefined) {
+    let targetAddress = contracts.RevenueBank.address;
+    try {
+      await hre.run("verify:verify", {
+        address: targetAddress,
+        constructorArguments: [
+          contracts.USDC.address,
+          contracts.XyroToken.address,
+          contracts.Treasury.address,
+          "0x59D74185D879b63e8543073fFA73cD5a12Fc4104",
+          "0x101F443B4d1b059569D643917553c771E1b9663E",
+        ],
+      });
+      contracts.RevenueBank.url = getVerifiedUrl(targetAddress);
+    } catch (e) {
+      if (isAlreadyVerified(e, targetAddress))
+        contracts.RevenueBank.url = getVerifiedUrl(targetAddress);
+    }
+  }
+}
+
 async function verify() {
   await verifyXyroToken();
   // await verifyMockUSDC();
@@ -206,6 +228,7 @@ async function verify() {
   // await verifyFrontHelper();
   // await verifyMockUpkeep();
   await verifySetup();
+  await verifyBank();
   const mainnetVerifierAdr = "0x478Aa2aC9F6D65F84e09D9185d126c3a17c2a93C";
   const testnetVerifierAdr = "0x2ff010DEbC1297f19579B4246cad07bd24F2488A";
   await verifyVerifier(testnetVerifierAdr);

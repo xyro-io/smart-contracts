@@ -57,11 +57,11 @@ describe("OneVsOne", () => {
   let usdtAmount: bigint;
   let xyroAmount: bigint;
   const feedNumber = 3;
-  const assetPrice = 600000000;
-  const initiatorPrice = (assetPrice / 100) * 123;
-  const opponentPrice = (assetPrice / 100) * 105;
-  const equalOpponentDiffPrice = 617000000;
-  const equalInitiatorDiffPrice = 619000000;
+  const assetPrice = parse18("60000");
+  const initiatorPrice = (assetPrice / BigInt(100)) * BigInt(123);
+  const opponentPrice = (assetPrice / BigInt(100)) * BigInt(105);
+  const equalOpponentDiffPrice = parse18("61700");
+  const equalInitiatorDiffPrice = parse18("61900");
   const finalPrice = parse18("61800");
   const finalPrice2 = parse18("73800");
   before(async () => {
@@ -145,11 +145,11 @@ describe("OneVsOne", () => {
       expect(sentUserAmount).to.be.equal(usdtAmount);
       expect(game.initiator).to.be.equal(owner.address);
       expect(game.endTime).to.be.equal(endTime);
-      expect(game.initiatorPrice).to.be.equal(initiatorPrice);
       expect(game.gameStatus).to.be.equal(Status.Created);
       expect(game.feedNumber).to.be.equal(feedNumber);
       let data = await Game.games(currentGameId);
       expect(data.depositAmount).to.be.equal(usdtAmount);
+      expect(data.initiatorPrice).to.be.equal(initiatorPrice);
     });
 
     it("should fail - game creation disabled", async function () {
@@ -271,8 +271,9 @@ describe("OneVsOne", () => {
         oldUserBalance - (await USDT.balanceOf(opponent.address));
       let game = await Game.decodeData(currentGameId);
       expect(sentUserAmount).to.be.equal(usdtAmount);
-      expect(game.opponentPrice).to.be.equal(opponentPrice);
       expect(game.gameStatus).to.be.equal(Status.Started);
+      let data = await Game.games(currentGameId);
+      expect(data.opponentPrice).to.be.equal(opponentPrice);
     });
 
     it("should create and accept exact price open bet with zero address", async function () {
@@ -511,7 +512,6 @@ describe("OneVsOne", () => {
       await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
       let oldBalance = await USDT.balanceOf(opponent.address);
       await time.increase(fortyFiveMinutes);
-      const thisgame = await Game.decodeData(currentGameId);
       await Game.finalizeGame(
         currentGameId,
         abiEncodeInt192WithTimestamp(
@@ -555,9 +555,9 @@ describe("OneVsOne", () => {
       expect(gameData.opponent).to.be.equal(ethers.ZeroAddress);
       let data = await Game.games(currentGameId);
       expect(data.depositAmount).to.be.equal(usdtAmount);
-      expect(gameData.initiatorPrice).to.be.equal(initiatorPrice);
-      expect(gameData.opponentPrice).to.be.equal(0);
-      expect(gameData.finalPrice).to.be.equal(0);
+      expect(data.initiatorPrice).to.be.equal(initiatorPrice);
+      expect(data.opponentPrice).to.be.equal(0);
+      expect(data.finalPrice).to.be.equal(0);
       expect(gameData.gameStatus).to.be.equal(Status.Created);
 
       await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
@@ -570,9 +570,9 @@ describe("OneVsOne", () => {
       expect(gameData.opponent).to.be.equal(opponent.address);
       data = await Game.games(currentGameId);
       expect(data.depositAmount).to.be.equal(usdtAmount);
-      expect(gameData.initiatorPrice).to.be.equal(initiatorPrice);
-      expect(gameData.opponentPrice).to.be.equal(opponentPrice);
-      expect(gameData.finalPrice).to.be.equal(0);
+      expect(data.initiatorPrice).to.be.equal(initiatorPrice);
+      expect(data.opponentPrice).to.be.equal(opponentPrice);
+      expect(data.finalPrice).to.be.equal(0);
       expect(gameData.gameStatus).to.be.equal(Status.Started);
 
       let oldBalance = await USDT.balanceOf(opponent.address);
@@ -595,11 +595,9 @@ describe("OneVsOne", () => {
       expect(gameData.opponent).to.be.equal(opponent.address);
       data = await Game.games(currentGameId);
       expect(data.depositAmount).to.be.equal(usdtAmount);
-      expect(gameData.initiatorPrice).to.be.equal(initiatorPrice);
-      expect(gameData.opponentPrice).to.be.equal(opponentPrice);
-      expect(gameData.finalPrice).to.be.equal(
-        finalPrice / BigInt(Math.pow(10, 14))
-      );
+      expect(data.initiatorPrice).to.be.equal(initiatorPrice);
+      expect(data.opponentPrice).to.be.equal(opponentPrice);
+      expect(data.finalPrice).to.be.equal(finalPrice);
       expect(gameData.gameStatus).to.be.equal(Status.Finished);
 
       await Treasury.connect(opponent).withdraw(
@@ -649,9 +647,9 @@ describe("OneVsOne", () => {
       expect(gameData.opponent).to.be.equal(ethers.ZeroAddress);
       let data = await Game.games(currentGameId);
       expect(data.depositAmount).to.be.equal(usdtAmount);
-      expect(gameData.initiatorPrice).to.be.equal(initiatorPrice);
-      expect(gameData.opponentPrice).to.be.equal(0);
-      expect(gameData.finalPrice).to.be.equal(0);
+      expect(data.initiatorPrice).to.be.equal(initiatorPrice);
+      expect(data.opponentPrice).to.be.equal(0);
+      expect(data.finalPrice).to.be.equal(0);
       expect(gameData.gameStatus).to.be.equal(Status.Created);
 
       const oldOpponentDepositBalance = await Treasury.deposits(
@@ -683,9 +681,9 @@ describe("OneVsOne", () => {
       expect(gameData.opponent).to.be.equal(opponent.address);
       data = await Game.games(currentGameId);
       expect(data.depositAmount).to.be.equal(usdtAmount);
-      expect(gameData.initiatorPrice).to.be.equal(initiatorPrice);
-      expect(gameData.opponentPrice).to.be.equal(opponentPrice);
-      expect(gameData.finalPrice).to.be.equal(0);
+      expect(data.initiatorPrice).to.be.equal(initiatorPrice);
+      expect(data.opponentPrice).to.be.equal(opponentPrice);
+      expect(data.finalPrice).to.be.equal(0);
       expect(gameData.gameStatus).to.be.equal(Status.Started);
 
       let oldBalance = await USDT.balanceOf(opponent.address);
@@ -708,11 +706,9 @@ describe("OneVsOne", () => {
       expect(gameData.opponent).to.be.equal(opponent.address);
       data = await Game.games(currentGameId);
       expect(data.depositAmount).to.be.equal(usdtAmount);
-      expect(gameData.initiatorPrice).to.be.equal(initiatorPrice);
-      expect(gameData.opponentPrice).to.be.equal(opponentPrice);
-      expect(gameData.finalPrice).to.be.equal(
-        finalPrice / BigInt(Math.pow(10, 14))
-      );
+      expect(data.initiatorPrice).to.be.equal(initiatorPrice);
+      expect(data.opponentPrice).to.be.equal(opponentPrice);
+      expect(data.finalPrice).to.be.equal(finalPrice);
       expect(gameData.gameStatus).to.be.equal(Status.Finished);
 
       await Treasury.connect(opponent).withdraw(
@@ -913,11 +909,12 @@ describe("OneVsOne", () => {
       expect(game.initiator).to.be.equal(owner.address);
       expect(game.opponent).to.be.equal(ethers.ZeroAddress);
       expect(game.endTime).to.be.equal(endTime);
-      expect(game.initiatorPrice).to.be.equal(initiatorPrice);
+
       expect(game.gameStatus).to.be.equal(Status.Created);
       expect(game.feedNumber).to.be.equal(feedNumber);
       let data = await Game.games(currentGameId);
       expect(data.depositAmount).to.be.equal(xyroAmount);
+      expect(data.initiatorPrice).to.be.equal(initiatorPrice);
     });
 
     it("should accept exact price bet with XyroToken", async function () {
@@ -927,7 +924,8 @@ describe("OneVsOne", () => {
         oldUserBalance - (await XyroToken.balanceOf(opponent.address));
       let game = await Game.decodeData(currentGameId);
       expect(sentUserAmount).to.be.equal(xyroAmount);
-      expect(game.opponentPrice).to.be.equal(opponentPrice);
+      let data = await Game.games(currentGameId);
+      expect(data.opponentPrice).to.be.equal(opponentPrice);
       expect(game.gameStatus).to.be.equal(Status.Started);
     });
 
@@ -1027,9 +1025,9 @@ describe("OneVsOne", () => {
       expect(gameData.opponent).to.be.equal(ethers.ZeroAddress);
       let data = await Game.games(currentGameId);
       expect(data.depositAmount).to.be.equal(usdtAmount);
-      expect(gameData.initiatorPrice).to.be.equal(initiatorPrice);
-      expect(gameData.opponentPrice).to.be.equal(0);
-      expect(gameData.finalPrice).to.be.equal(0);
+      expect(data.initiatorPrice).to.be.equal(initiatorPrice);
+      expect(data.opponentPrice).to.be.equal(0);
+      expect(data.finalPrice).to.be.equal(0);
       expect(gameData.gameStatus).to.be.equal(Status.Created);
 
       let opponentPermit = await getPermitSignature(
@@ -1059,9 +1057,9 @@ describe("OneVsOne", () => {
       expect(gameData.opponent).to.be.equal(opponent.address);
       data = await Game.games(currentGameId);
       expect(data.depositAmount).to.be.equal(usdtAmount);
-      expect(gameData.initiatorPrice).to.be.equal(initiatorPrice);
-      expect(gameData.opponentPrice).to.be.equal(opponentPrice);
-      expect(gameData.finalPrice).to.be.equal(0);
+      expect(data.initiatorPrice).to.be.equal(initiatorPrice);
+      expect(data.opponentPrice).to.be.equal(opponentPrice);
+      expect(data.finalPrice).to.be.equal(0);
       expect(gameData.gameStatus).to.be.equal(Status.Started);
 
       let oldBalance = await USDT.balanceOf(opponent.address);
@@ -1084,11 +1082,9 @@ describe("OneVsOne", () => {
       expect(gameData.opponent).to.be.equal(opponent.address);
       data = await Game.games(currentGameId);
       expect(data.depositAmount).to.be.equal(usdtAmount);
-      expect(gameData.initiatorPrice).to.be.equal(initiatorPrice);
-      expect(gameData.opponentPrice).to.be.equal(opponentPrice);
-      expect(gameData.finalPrice).to.be.equal(
-        finalPrice / BigInt(Math.pow(10, 14))
-      );
+      expect(data.initiatorPrice).to.be.equal(initiatorPrice);
+      expect(data.opponentPrice).to.be.equal(opponentPrice);
+      expect(data.finalPrice).to.be.equal(finalPrice);
       expect(gameData.gameStatus).to.be.equal(Status.Finished);
 
       await Treasury.connect(opponent).withdraw(
@@ -1142,11 +1138,12 @@ describe("OneVsOne", () => {
       expect(game.initiator).to.be.equal(owner.address);
       expect(game.opponent).to.be.equal(opponent.address);
       expect(game.endTime).to.be.equal(endTime);
-      expect(game.initiatorPrice).to.be.equal(initiatorPrice);
+
       expect(game.gameStatus).to.be.equal(Status.Created);
       expect(game.feedNumber).to.be.equal(feedNumber);
       let data = await Game.games(currentGameId);
       expect(data.depositAmount).to.be.equal(usdtAmount);
+      expect(data.initiatorPrice).to.be.equal(initiatorPrice);
     });
 
     it("should fail - game creation disabled", async function () {
@@ -1311,7 +1308,8 @@ describe("OneVsOne", () => {
         oldUserBalance - (await USDT.balanceOf(opponent.address));
       let game = await Game.decodeData(currentGameId);
       expect(sentUserAmount).to.be.equal(usdtAmount);
-      expect(game.opponentPrice).to.be.equal(opponentPrice);
+      let data = await Game.games(currentGameId);
+      expect(data.opponentPrice).to.be.equal(opponentPrice);
       expect(game.gameStatus).to.be.equal(Status.Started);
     });
 

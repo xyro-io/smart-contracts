@@ -18,13 +18,6 @@ interface ITreasury {
         address player
     ) external returns (uint256);
 
-    function calculateBullseyeRate(
-        uint256 wonPercentage,
-        uint256 lostPlayersRakeback,
-        uint256 inititalDeposit,
-        bytes32 gameId
-    ) external returns (uint256);
-
     function depositAndLock(
         uint256 amount,
         address from,
@@ -58,7 +51,8 @@ interface ITreasury {
         uint256 rate,
         uint256 lostTeamRakeback,
         address to,
-        bytes32 gameId
+        bytes32 gameId,
+        uint256 initialRakeback
     ) external;
 
     function approvedTokens(address token) external returns (bool);
@@ -98,6 +92,11 @@ interface ITreasury {
         address initiator,
         bytes32 gameId
     ) external returns (uint256 withdrawnFees);
+
+    function calculateRakebackAmount(
+        address target,
+        uint256 initialDeposit
+    ) external;
 
     function setGameFinished(bytes32 gameId) external;
 

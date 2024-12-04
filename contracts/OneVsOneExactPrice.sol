@@ -15,14 +15,14 @@ contract OneVsOneExactPrice is AccessControl {
         uint32 startTime,
         uint32 endTime,
         address initiator,
-        uint32 initiatorPrice,
+        uint256 initiatorPrice,
         uint256 depositAmount,
         address gameToken
     );
     event ExactPriceAccepted(
         bytes32 gameId,
         address opponent,
-        uint32 opponentPrice
+        uint256 opponentPrice
     );
     event ExactPriceCancelled(bytes32 gameId);
     event ExactPriceFinalized(
@@ -47,9 +47,6 @@ contract OneVsOneExactPrice is AccessControl {
         uint256 startTime;
         uint256 endTime;
         address opponent;
-        uint256 initiatorPrice;
-        uint256 opponentPrice;
-        uint256 finalPrice;
         Status gameStatus;
     }
 
@@ -57,6 +54,9 @@ contract OneVsOneExactPrice is AccessControl {
         uint256 packedData;
         uint256 packedData2;
         uint256 depositAmount;
+        uint256 initiatorPrice;
+        uint256 opponentPrice;
+        int192 finalPrice;
     }
 
     bytes32 public constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
@@ -85,7 +85,7 @@ contract OneVsOneExactPrice is AccessControl {
         uint8 feedNumber,
         address opponent,
         uint32 endTime,
-        uint32 initiatorPrice,
+        uint256 initiatorPrice,
         uint256 depositAmount,
         address token
     ) public {
@@ -119,10 +119,10 @@ contract OneVsOneExactPrice is AccessControl {
         uint256 packedData = uint(uint160(opponent));
         uint256 packedData2 = uint(uint160(msg.sender));
         packedData |= uint256(endTime) << 160;
-        packedData |= uint256(initiatorPrice) << 192;
         packedData2 |= block.timestamp << 160;
         packedData2 |= uint256(Status.Created) << 208;
         packedData2 |= uint256(feedNumber) << 216;
+        games[gameId].initiatorPrice = initiatorPrice;
         games[gameId].depositAmount = depositAmount;
         games[gameId].packedData = packedData;
         games[gameId].packedData2 = packedData2;
@@ -152,7 +152,7 @@ contract OneVsOneExactPrice is AccessControl {
         uint8 feedNumber,
         address opponent,
         uint32 endTime,
-        uint32 initiatorPrice,
+        uint256 initiatorPrice,
         uint256 depositAmount,
         address token
     ) public {
@@ -181,10 +181,10 @@ contract OneVsOneExactPrice is AccessControl {
         uint256 packedData = uint(uint160(opponent));
         uint256 packedData2 = uint(uint160(msg.sender));
         packedData |= uint256(endTime) << 160;
-        packedData |= uint256(initiatorPrice) << 192;
         packedData2 |= block.timestamp << 160;
         packedData2 |= uint256(Status.Created) << 208;
         packedData2 |= uint256(feedNumber) << 216;
+        games[gameId].initiatorPrice = initiatorPrice;
         games[gameId].depositAmount = depositAmount;
         games[gameId].packedData = packedData;
         games[gameId].packedData2 = packedData2;
@@ -214,7 +214,7 @@ contract OneVsOneExactPrice is AccessControl {
         uint8 feedNumber,
         address opponent,
         uint32 endTime,
-        uint32 initiatorPrice,
+        uint256 initiatorPrice,
         uint256 depositAmount,
         address token,
         ITreasury.PermitData calldata permitData
@@ -253,10 +253,10 @@ contract OneVsOneExactPrice is AccessControl {
         uint256 packedData = uint(uint160(opponent));
         uint256 packedData2 = uint(uint160(msg.sender));
         packedData |= uint256(endTime) << 160;
-        packedData |= uint256(initiatorPrice) << 192;
         packedData2 |= block.timestamp << 160;
         packedData2 |= uint256(Status.Created) << 208;
         packedData2 |= uint256(feedNumber) << 216;
+        games[gameId].initiatorPrice = initiatorPrice;
         games[gameId].depositAmount = depositAmount;
         games[gameId].packedData = packedData;
         games[gameId].packedData2 = packedData2;
@@ -278,7 +278,7 @@ contract OneVsOneExactPrice is AccessControl {
      * @param gameId game id
      * @param opponentPrice picked asset price
      */
-    function acceptGame(bytes32 gameId, uint32 opponentPrice) public {
+    function acceptGame(bytes32 gameId, uint256 opponentPrice) public {
         GameInfo memory game = decodeData(gameId);
         require(game.gameStatus == Status.Created, "Wrong status!");
         require(
@@ -286,7 +286,10 @@ contract OneVsOneExactPrice is AccessControl {
                 block.timestamp,
             "Game is closed for new players"
         );
-        require(game.initiatorPrice != opponentPrice, "Same asset prices");
+        require(
+            games[gameId].initiatorPrice != opponentPrice,
+            "Same asset prices"
+        );
         // If game is not private address should be 0
         if (game.opponent != address(0)) {
             require(
@@ -297,7 +300,7 @@ contract OneVsOneExactPrice is AccessControl {
             require(msg.sender != game.initiator, "Wrong opponent");
             games[gameId].packedData |= uint256(uint160(msg.sender));
         }
-        games[gameId].packedData |= uint256(opponentPrice) << 224;
+        games[gameId].opponentPrice = opponentPrice;
         ITreasury(treasury).depositAndLock(
             games[gameId].depositAmount,
             msg.sender,
@@ -318,7 +321,7 @@ contract OneVsOneExactPrice is AccessControl {
      */
     function acceptGameWithDeposit(
         bytes32 gameId,
-        uint32 opponentPrice
+        uint256 opponentPrice
     ) public {
         GameInfo memory game = decodeData(gameId);
         require(game.gameStatus == Status.Created, "Wrong status!");
@@ -327,7 +330,10 @@ contract OneVsOneExactPrice is AccessControl {
                 block.timestamp,
             "Game is closed for new players"
         );
-        require(game.initiatorPrice != opponentPrice, "Same asset prices");
+        require(
+            games[gameId].initiatorPrice != opponentPrice,
+            "Same asset prices"
+        );
         // If game is not private address should be 0
         if (game.opponent != address(0)) {
             require(
@@ -338,7 +344,7 @@ contract OneVsOneExactPrice is AccessControl {
             require(msg.sender != game.initiator, "Wrong opponent");
             games[gameId].packedData |= uint256(uint160(msg.sender));
         }
-        games[gameId].packedData |= uint256(opponentPrice) << 224;
+        games[gameId].opponentPrice = opponentPrice;
         ITreasury(treasury).lock(
             games[gameId].depositAmount,
             msg.sender,
@@ -359,7 +365,7 @@ contract OneVsOneExactPrice is AccessControl {
      */
     function acceptGameWithPermit(
         bytes32 gameId,
-        uint32 opponentPrice,
+        uint256 opponentPrice,
         ITreasury.PermitData calldata permitData
     ) public {
         GameInfo memory game = decodeData(gameId);
@@ -369,7 +375,10 @@ contract OneVsOneExactPrice is AccessControl {
                 block.timestamp,
             "Game is closed for new players"
         );
-        require(game.initiatorPrice != opponentPrice, "Same asset prices");
+        require(
+            games[gameId].initiatorPrice != opponentPrice,
+            "Same asset prices"
+        );
         // If game is not private address should be 0
         if (game.opponent != address(0)) {
             require(
@@ -380,7 +389,7 @@ contract OneVsOneExactPrice is AccessControl {
             require(msg.sender != game.initiator, "Wrong opponent");
             games[gameId].packedData |= uint256(uint160(msg.sender));
         }
-        games[gameId].packedData |= uint256(opponentPrice) << 224;
+        games[gameId].opponentPrice = opponentPrice;
         ITreasury(treasury).depositAndLockWithPermit(
             games[gameId].depositAmount,
             msg.sender,
@@ -466,12 +475,12 @@ contract OneVsOneExactPrice is AccessControl {
             priceTimestamp - game.endTime <= 1 minutes,
             "Old chainlink report"
         );
-        uint256 diff1 = game.initiatorPrice > uint192(finalPrice) / 1e14
-            ? game.initiatorPrice - uint192(finalPrice) / 1e14
-            : uint192(finalPrice) / 1e14 - game.initiatorPrice;
-        uint256 diff2 = game.opponentPrice > uint192(finalPrice) / 1e14
-            ? game.opponentPrice - uint192(finalPrice) / 1e14
-            : uint192(finalPrice) / 1e14 - game.opponentPrice;
+        uint256 diff1 = games[gameId].initiatorPrice > uint192(finalPrice)
+            ? games[gameId].initiatorPrice - uint192(finalPrice)
+            : uint192(finalPrice) - games[gameId].initiatorPrice;
+        uint256 diff2 = games[gameId].opponentPrice > uint192(finalPrice)
+            ? games[gameId].opponentPrice - uint192(finalPrice)
+            : uint192(finalPrice) - games[gameId].opponentPrice;
         uint256 finalRate;
         if (diff1 != diff2) {
             ITreasury(treasury).withdrawGameFee(
@@ -495,8 +504,8 @@ contract OneVsOneExactPrice is AccessControl {
             ITreasury(treasury).setGameFinished(gameId);
             emit ExactPriceFinalized(
                 gameId,
-                game.initiatorPrice,
-                game.opponentPrice,
+                games[gameId].initiatorPrice,
+                games[gameId].opponentPrice,
                 finalPrice,
                 Status.Finished
             );
@@ -510,8 +519,8 @@ contract OneVsOneExactPrice is AccessControl {
             ITreasury(treasury).setGameFinished(gameId);
             emit ExactPriceFinalized(
                 gameId,
-                game.opponentPrice,
-                game.initiatorPrice,
+                games[gameId].opponentPrice,
+                games[gameId].initiatorPrice,
                 finalPrice,
                 Status.Finished
             );
@@ -532,7 +541,7 @@ contract OneVsOneExactPrice is AccessControl {
         games[gameId].packedData2 =
             (games[gameId].packedData2 & ~(uint256(0xFF) << 208)) |
             (uint256(uint8(Status.Finished)) << 208);
-        games[gameId].packedData2 |= uint256(uint192(finalPrice / 1e14)) << 224;
+        games[gameId].finalPrice = finalPrice;
     }
 
     /**
@@ -546,14 +555,11 @@ contract OneVsOneExactPrice is AccessControl {
         uint256 packedData2 = games[gameId].packedData2;
         gameData.opponent = address(uint160(packedData));
         gameData.endTime = uint256(uint32(packedData >> 160));
-        gameData.initiatorPrice = uint256(uint32(packedData >> 192));
-        gameData.opponentPrice = uint256(uint32(packedData >> 224));
 
         gameData.initiator = address(uint160(packedData2));
         gameData.startTime = uint256(uint32(packedData2 >> 160));
         gameData.gameStatus = Status(uint8(packedData2 >> 208));
         gameData.feedNumber = uint8(packedData2 >> 216);
-        gameData.finalPrice = uint256(uint32(packedData2 >> 224));
     }
 
     /**

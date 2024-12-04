@@ -54,8 +54,8 @@ describe("Setup Game", () => {
   let players: any;
   let usdtAmount: bigint;
   let xyroAmount: bigint;
-  const tpPrice = 650000000;
-  const slPrice = 620000000;
+  const tpPrice = parse18("65000");
+  const slPrice = parse18("62000");
   const finalPriceTP = parse18("66000");
   const finalPriceSL = parse18("61000");
   const feedNumber = 1;
@@ -127,14 +127,12 @@ describe("Setup Game", () => {
       receipt = await tx.wait();
       currentGameId = receipt?.logs[0]?.args[0][0];
       let game = await Game.decodeData(currentGameId);
-
+      let data = await Game.games(currentGameId);
       expect(game.isLong).to.be.equal(isLong);
       expect(game.feedNumber).to.be.equal(feedNumber);
-      expect(game.stopLossPrice).to.be.equal(tpPrice);
-      expect(game.takeProfitPrice).to.be.equal(slPrice);
-      expect(game.startringPrice).to.be.equal(
-        assetPrice / BigInt(Math.pow(10, 14))
-      );
+      expect(data.takeProfitPrice).to.be.equal(slPrice);
+      expect(data.stopLossPrice).to.be.equal(tpPrice);
+      expect(data.startingPrice).to.be.equal(assetPrice);
       expect(game.endTime).to.be.equal(endTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
@@ -161,13 +159,12 @@ describe("Setup Game", () => {
       receipt = await tx.wait();
       currentGameId = receipt?.logs[0]?.args[0][0];
       let game = await Game.decodeData(currentGameId);
+      let data = await Game.games(currentGameId);
       expect(game.isLong).to.be.equal(isLong);
       expect(game.feedNumber).to.be.equal(feedNumber);
-      expect(game.stopLossPrice).to.be.equal(slPrice);
-      expect(game.takeProfitPrice).to.be.equal(tpPrice);
-      expect(game.startringPrice).to.be.equal(
-        assetPrice / BigInt(Math.pow(10, 14))
-      );
+      expect(data.stopLossPrice).to.be.equal(slPrice);
+      expect(data.takeProfitPrice).to.be.equal(tpPrice);
+      expect(data.startingPrice).to.be.equal(assetPrice);
       expect(game.endTime).to.be.equal(endTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
@@ -653,17 +650,14 @@ describe("Setup Game", () => {
       );
       receipt = await tx.wait();
       let game = await Game.decodeData(currentGameId);
+      let data = await Game.games(currentGameId);
       expect(game.gameStatus).to.be.equal(Status.Finished);
-      expect(game.finalPrice).to.be.equal(
-        finalPriceTP / BigInt(Math.pow(10, 14))
-      );
+      expect(data.finalPrice).to.be.equal(finalPriceTP);
       expect(game.isLong).to.be.equal(isLong);
       expect(game.feedNumber).to.be.equal(feedNumber);
-      expect(game.stopLossPrice).to.be.equal(slPrice);
-      expect(game.takeProfitPrice).to.be.equal(tpPrice);
-      expect(game.startringPrice).to.be.equal(
-        assetPrice / BigInt(Math.pow(10, 14))
-      );
+      expect(data.stopLossPrice).to.be.equal(slPrice);
+      expect(data.takeProfitPrice).to.be.equal(tpPrice);
+      expect(data.startingPrice).to.be.equal(assetPrice);
       expect(game.endTime).to.be.equal(finalizeTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
@@ -741,17 +735,14 @@ describe("Setup Game", () => {
       );
       receipt = await tx.wait();
       let game = await Game.decodeData(currentGameId);
+      let data = await Game.games(currentGameId);
       expect(game.gameStatus).to.be.equal(Status.Finished);
-      expect(game.finalPrice).to.be.equal(
-        finalPriceSL / BigInt(Math.pow(10, 14))
-      );
+      expect(data.finalPrice).to.be.equal(finalPriceSL);
       expect(game.isLong).to.be.equal(isLong);
       expect(game.feedNumber).to.be.equal(feedNumber);
-      expect(game.stopLossPrice).to.be.equal(slPrice);
-      expect(game.takeProfitPrice).to.be.equal(tpPrice);
-      expect(game.startringPrice).to.be.equal(
-        assetPrice / BigInt(Math.pow(10, 14))
-      );
+      expect(data.stopLossPrice).to.be.equal(slPrice);
+      expect(data.takeProfitPrice).to.be.equal(tpPrice);
+      expect(data.startingPrice).to.be.equal(assetPrice);
       expect(game.endTime).to.be.equal(finalizeTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
@@ -863,17 +854,14 @@ describe("Setup Game", () => {
       );
       receipt = await tx.wait();
       let game = await Game.decodeData(currentGameId);
+      let data = await Game.games(currentGameId);
       expect(game.gameStatus).to.be.equal(Status.Finished);
-      expect(game.finalPrice).to.be.equal(
-        finalPriceTP / BigInt(Math.pow(10, 14))
-      );
+      expect(data.finalPrice).to.be.equal(finalPriceTP);
       expect(game.isLong).to.be.equal(isLong);
       expect(game.feedNumber).to.be.equal(feedNumber);
-      expect(game.stopLossPrice).to.be.equal(tpPrice);
-      expect(game.takeProfitPrice).to.be.equal(slPrice);
-      expect(game.startringPrice).to.be.equal(
-        assetPrice / BigInt(Math.pow(10, 14))
-      );
+      expect(data.stopLossPrice).to.be.equal(tpPrice);
+      expect(data.takeProfitPrice).to.be.equal(slPrice);
+      expect(data.startingPrice).to.be.equal(assetPrice);
       expect(game.endTime).to.be.equal(finalizeTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
@@ -950,17 +938,14 @@ describe("Setup Game", () => {
       );
       receipt = await tx.wait();
       let game = await Game.decodeData(currentGameId);
+      let data = await Game.games(currentGameId);
       expect(game.gameStatus).to.be.equal(Status.Finished);
-      expect(game.finalPrice).to.be.equal(
-        finalPriceSL / BigInt(Math.pow(10, 14))
-      );
+      expect(data.finalPrice).to.be.equal(finalPriceSL);
       expect(game.isLong).to.be.equal(isLong);
       expect(game.feedNumber).to.be.equal(feedNumber);
-      expect(game.stopLossPrice).to.be.equal(tpPrice);
-      expect(game.takeProfitPrice).to.be.equal(slPrice);
-      expect(game.startringPrice).to.be.equal(
-        assetPrice / BigInt(Math.pow(10, 14))
-      );
+      expect(data.stopLossPrice).to.be.equal(tpPrice);
+      expect(data.takeProfitPrice).to.be.equal(slPrice);
+      expect(data.startingPrice).to.be.equal(assetPrice);
       expect(game.endTime).to.be.equal(finalizeTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
@@ -1276,14 +1261,12 @@ describe("Setup Game", () => {
       receipt = await tx.wait();
       currentGameId = receipt?.logs[0]?.args[0][0];
       let game = await Game.decodeData(currentGameId);
-
+      let data = await Game.games(currentGameId);
       expect(game.isLong).to.be.equal(isLong);
       expect(game.feedNumber).to.be.equal(feedNumber);
-      expect(game.stopLossPrice).to.be.equal(tpPrice);
-      expect(game.takeProfitPrice).to.be.equal(slPrice);
-      expect(game.startringPrice).to.be.equal(
-        assetPrice / BigInt(Math.pow(10, 14))
-      );
+      expect(data.stopLossPrice).to.be.equal(tpPrice);
+      expect(data.takeProfitPrice).to.be.equal(slPrice);
+      expect(data.startingPrice).to.be.equal(assetPrice);
       expect(game.endTime).to.be.equal(endTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
@@ -1310,13 +1293,12 @@ describe("Setup Game", () => {
       receipt = await tx.wait();
       currentGameId = receipt?.logs[0]?.args[0][0];
       let game = await Game.decodeData(currentGameId);
+      let data = await Game.games(currentGameId);
       expect(game.isLong).to.be.equal(isLong);
       expect(game.feedNumber).to.be.equal(feedNumber);
-      expect(game.stopLossPrice).to.be.equal(slPrice);
-      expect(game.takeProfitPrice).to.be.equal(tpPrice);
-      expect(game.startringPrice).to.be.equal(
-        assetPrice / BigInt(Math.pow(10, 14))
-      );
+      expect(data.stopLossPrice).to.be.equal(slPrice);
+      expect(data.takeProfitPrice).to.be.equal(tpPrice);
+      expect(data.startingPrice).to.be.equal(assetPrice);
       expect(game.endTime).to.be.equal(endTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
@@ -1401,17 +1383,14 @@ describe("Setup Game", () => {
       );
       receipt = await tx.wait();
       let game = await Game.decodeData(currentGameId);
+      let data = await Game.games(currentGameId);
       expect(game.gameStatus).to.be.equal(Status.Finished);
-      expect(game.finalPrice).to.be.equal(
-        finalPriceTP / BigInt(Math.pow(10, 14))
-      );
+      expect(data.finalPrice).to.be.equal(finalPriceTP);
       expect(game.isLong).to.be.equal(isLong);
       expect(game.feedNumber).to.be.equal(feedNumber);
-      expect(game.stopLossPrice).to.be.equal(slPrice);
-      expect(game.takeProfitPrice).to.be.equal(tpPrice);
-      expect(game.startringPrice).to.be.equal(
-        assetPrice / BigInt(Math.pow(10, 14))
-      );
+      expect(data.stopLossPrice).to.be.equal(slPrice);
+      expect(data.takeProfitPrice).to.be.equal(tpPrice);
+      expect(data.startingPrice).to.be.equal(assetPrice);
       expect(game.endTime).to.be.equal(finalizeTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);

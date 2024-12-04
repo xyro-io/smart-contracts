@@ -31,7 +31,6 @@ contract UpDown is AccessControl {
         uint256 startTime;
         uint256 endTime;
         uint256 stopPredictAt;
-        uint256 startingPrice;
         uint8 feedNumber;
     }
 
@@ -44,6 +43,7 @@ contract UpDown is AccessControl {
     bytes32 public currentGameId;
     address public treasury;
     uint256 public minDepositAmount;
+    uint256 public startingPrice;
     uint256 public totalDepositsUp;
     uint256 public totalDepositsDown;
     uint256 public totalRakebackUp;
@@ -241,15 +241,14 @@ contract UpDown is AccessControl {
             "Not enough players"
         );
         address upkeep = ITreasury(treasury).upkeep();
-        (int192 startingPrice, uint32 priceTimestamp) = IDataStreamsVerifier(
-            upkeep
-        ).verifyReportWithTimestamp(unverifiedReport, game.feedNumber);
+        (int192 priceData, uint32 priceTimestamp) = IDataStreamsVerifier(upkeep)
+            .verifyReportWithTimestamp(unverifiedReport, game.feedNumber);
         require(
             block.timestamp - priceTimestamp <= 1 minutes,
             "Old chainlink report"
         );
-        packedData |= uint192(startingPrice / 1e14) << 104;
-        emit UpDownStarted(startingPrice, currentGameId);
+        startingPrice = uint192(priceData);
+        emit UpDownStarted(priceData, currentGameId);
     }
 
     /**
@@ -293,7 +292,7 @@ contract UpDown is AccessControl {
             currentGameId = bytes32(0);
             return;
         }
-        require(game.startingPrice != 0, "Starting price must be set");
+        require(startingPrice != 0, "Starting price must be set");
         address upkeep = ITreasury(treasury).upkeep();
         (int192 finalPrice, uint32 priceTimestamp) = IDataStreamsVerifier(
             upkeep
@@ -302,10 +301,7 @@ contract UpDown is AccessControl {
             priceTimestamp - game.endTime <= 1 minutes,
             "Old chainlink report"
         );
-        GameInfo memory _game = game;
-        //убрать деление финальной цены
-        if (uint192(finalPrice / 1e14) > _game.startingPrice) {
-            // -= OR =-
+        if (uint192(finalPrice) > startingPrice) {
             ITreasury(treasury).withdrawGameFee(
                 totalDepositsDown,
                 fee,
@@ -325,7 +321,7 @@ contract UpDown is AccessControl {
                 );
             }
             emit UpDownFinalized(finalPrice, true, currentGameId);
-        } else if (uint192(finalPrice / 1e14) < _game.startingPrice) {
+        } else if (uint192(finalPrice) < startingPrice) {
             ITreasury(treasury).withdrawGameFee(
                 totalDepositsUp,
                 fee,
@@ -345,7 +341,7 @@ contract UpDown is AccessControl {
                 );
             }
             emit UpDownFinalized(finalPrice, false, currentGameId);
-        } else if (uint192(finalPrice / 1e14) == _game.startingPrice) {
+        } else if (uint192(finalPrice) == startingPrice) {
             for (uint i; i < UpPlayers.length; i++) {
                 ITreasury(treasury).refund(
                     depositAmounts[UpPlayers[i]],
@@ -386,6 +382,9 @@ contract UpDown is AccessControl {
         packedData = 0;
         totalDepositsUp = 0;
         totalDepositsDown = 0;
+        totalRakebackUp = 0;
+        totalRakebackDown = 0;
+        startingPrice = 0;
     }
 
     /**
@@ -420,6 +419,7 @@ contract UpDown is AccessControl {
         totalDepositsDown = 0;
         totalRakebackUp = 0;
         totalRakebackDown = 0;
+        startingPrice = 0;
     }
 
     /**
@@ -430,7 +430,6 @@ contract UpDown is AccessControl {
         data.stopPredictAt = uint256(uint32(packedData >> 32));
         data.endTime = uint256(uint32(packedData >> 64));
         data.feedNumber = uint8(packedData >> 96);
-        data.startingPrice = uint256(uint32(packedData >> 104));
     }
 
     /**

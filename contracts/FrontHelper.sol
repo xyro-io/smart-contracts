@@ -26,34 +26,18 @@ contract FrontHelper {
         uint256 etherBalance;
     }
 
-    struct FeeData {
-        uint256 setupFee;
-        uint256 setupInitiatorFee;
-        uint256 oneVsOneFee;
-        uint256 upDownfee;
-        uint256 bullseyeFee;
+    struct DataV2 {
+        uint256 balance;
+        uint256 depositedOld;
+        uint256 deposited;
+        uint256 allowance;
+        uint256 etherBalance;
     }
 
     address public owner;
 
     constructor() {
         owner = msg.sender;
-    }
-
-    function getFeeData(
-        address oneVsOne,
-        address setup,
-        address upDown,
-        address bullseye
-    ) public view returns (FeeData memory) {
-        return
-            FeeData({
-                setupFee: IGame(setup).fee(),
-                setupInitiatorFee: IGame(setup).initiatorFee(),
-                oneVsOneFee: IGame(oneVsOne).fee(),
-                upDownfee: IGame(upDown).fee(),
-                bullseyeFee: IGame(bullseye).fee()
-            });
     }
 
     function getBalanceData(
@@ -93,6 +77,42 @@ contract FrontHelper {
                 });
             }
         }
+        return data;
+    }
+
+    function getBalanceDataV2Batch(
+        address treasury,
+        address oldTreasury,
+        address token,
+        address[] calldata targets
+    ) public view returns (DataV2[] memory) {
+        DataV2[] memory data = new DataV2[](targets.length);
+        for (uint i; i < targets.length; i++) {
+            data[i] = DataV2({
+                balance: IERC20(token).balanceOf(targets[i]),
+                depositedOld: IOldTreasury(oldTreasury).deposits(targets[i]),
+                deposited: ITreasury(treasury).deposits(token, targets[i]),
+                allowance: IERC20(token).allowance(targets[i], treasury),
+                etherBalance: targets[i].balance
+            });
+        }
+        return data;
+    }
+
+    function getBalanceDataV2(
+        address treasury,
+        address oldTreasury,
+        address token,
+        address target
+    ) public view returns (DataV2 memory) {
+        DataV2 memory data;
+        data = DataV2({
+            balance: IERC20(token).balanceOf(target),
+            depositedOld: IOldTreasury(oldTreasury).deposits(target),
+            deposited: ITreasury(treasury).deposits(token, target),
+            allowance: IERC20(token).allowance(target, treasury),
+            etherBalance: target.balance
+        });
         return data;
     }
 

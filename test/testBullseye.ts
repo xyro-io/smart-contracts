@@ -45,12 +45,12 @@ describe("Bullseye", () => {
   let usdtAmount: bigint;
   let xyroAmount: bigint;
   const feedNumber = 4;
-  const guessPriceOpponent = 630000000;
-  const guessPriceAlice = 580000000;
-  const guessBobPrice = 570000000;
-  const guessOwnerPrice = 573870000;
-  const guessMaxPrice = 450000000;
-  const guessJohnPrice = 700000000;
+  const guessPriceOpponent = parse18("63000");
+  const guessPriceAlice = parse18("58000");
+  const guessBobPrice = parse18("57000");
+  const guessOwnerPrice = parse18("57387");
+  const guessMaxPrice = parse18("45000");
+  const guessJohnPrice = parse18("70000");
   const finalPriceExact = parse18("58000");
   const finalPriceCloser = parse18("63500");
   before(async () => {
@@ -153,7 +153,7 @@ describe("Bullseye", () => {
           calculateRakebackRate(await XyroToken.balanceOf(opponent.address))) /
           BigInt(100)
       );
-      const playerGuessData = await Game.decodeGuess(0);
+      const playerGuessData = await Game.playerGuessData(0);
       expect(playerGuessData.player).to.be.equal(opponent.address);
       expect(playerGuessData.assetPrice).to.be.equal(guessPriceOpponent);
     });
@@ -176,7 +176,7 @@ describe("Bullseye", () => {
       expect(await USDT.balanceOf(Treasury.getAddress())).to.equal(
         usdtAmount * BigInt(2)
       );
-      const playerGuessData = await Game.decodeGuess(1);
+      const playerGuessData = await Game.playerGuessData(1);
       expect(playerGuessData.player).to.be.equal(alice.address);
       expect(playerGuessData.assetPrice).to.be.equal(guessPriceAlice);
     });
@@ -460,7 +460,7 @@ describe("Bullseye", () => {
       expect(finalizeEventLog[1][0]).to.be.equal(2);
       expect(finalizeEventLog[1][1]).to.be.equal(0);
       expect(finalizeEventLog[1][2]).to.be.equal(1);
-      expect(finalizeEventLog[2]).to.be.equal(finalPriceExact / BigInt(1e14));
+      expect(finalizeEventLog[2]).to.be.equal(finalPriceExact);
       expect(finalizeEventLog[3]).to.be.equal(true);
       let newAliceDeposit = await Treasury.deposits(
         await USDT.getAddress(),
@@ -533,7 +533,7 @@ describe("Bullseye", () => {
       expect(finalizeEventLog[1][0]).to.be.equal(0);
       expect(finalizeEventLog[1][1]).to.be.equal(1);
       expect(finalizeEventLog[1][2]).to.be.equal(2);
-      expect(finalizeEventLog[2]).to.be.equal(finalPriceExact / BigInt(1e14));
+      expect(finalizeEventLog[2]).to.be.equal(finalPriceExact);
       expect(finalizeEventLog[3]).to.be.equal(false);
 
       const rakebackOpponent = await Treasury.lockedRakeback(
@@ -640,7 +640,7 @@ describe("Bullseye", () => {
       expect(finalizeEventLog[1][0]).to.be.equal(5);
       expect(finalizeEventLog[1][1]).to.be.equal(2);
       expect(finalizeEventLog[1][2]).to.be.equal(0);
-      expect(finalizeEventLog[2]).to.be.equal(finalPriceExact / BigInt(1e14));
+      expect(finalizeEventLog[2]).to.be.equal(finalPriceExact);
       expect(finalizeEventLog[3]).to.be.equal(true);
 
       const totalWithdrawnFees =
@@ -754,7 +754,7 @@ describe("Bullseye", () => {
       expect(finalizeEventLog[1][0]).to.be.equal(2);
       expect(finalizeEventLog[1][1]).to.be.equal(0);
       expect(finalizeEventLog[1][2]).to.be.equal(1);
-      expect(finalizeEventLog[2]).to.be.equal(finalPriceExact / BigInt(1e14));
+      expect(finalizeEventLog[2]).to.be.equal(finalPriceExact);
       expect(finalizeEventLog[3]).to.be.equal(false);
 
       const totalWithdrawnFees =
@@ -826,7 +826,7 @@ describe("Bullseye", () => {
           await Treasury.getAddress(),
           ethers.MaxUint256
         );
-        await Game.connect(signers[i]).play(guessMaxPrice + i);
+        await Game.connect(signers[i]).play(guessMaxPrice + BigInt(i));
       }
       let oldBobDeposit = await Treasury.deposits(
         await USDT.getAddress(),
@@ -882,7 +882,7 @@ describe("Bullseye", () => {
       expect(finalizeEventLog[1][0]).to.be.equal(2);
       expect(finalizeEventLog[1][1]).to.be.equal(0);
       expect(finalizeEventLog[1][2]).to.be.equal(1);
-      expect(finalizeEventLog[2]).to.be.equal(finalPriceExact / BigInt(1e14));
+      expect(finalizeEventLog[2]).to.be.equal(finalPriceExact);
       expect(finalizeEventLog[3]).to.be.equal(false);
 
       const totalWithdrawnFees =
@@ -958,7 +958,7 @@ describe("Bullseye", () => {
           await Treasury.getAddress(),
           ethers.MaxUint256
         );
-        await Game.connect(signers[i]).play(guessMaxPrice + i);
+        await Game.connect(signers[i]).play(guessMaxPrice + BigInt(i));
       }
       let oldBobDeposit = await Treasury.deposits(
         await USDT.getAddress(),
@@ -1014,7 +1014,7 @@ describe("Bullseye", () => {
       expect(finalizeEventLog[1][0]).to.be.equal(5);
       expect(finalizeEventLog[1][1]).to.be.equal(2);
       expect(finalizeEventLog[1][2]).to.be.equal(0);
-      expect(finalizeEventLog[2]).to.be.equal(finalPriceExact / BigInt(1e14));
+      expect(finalizeEventLog[2]).to.be.equal(finalPriceExact);
       expect(finalizeEventLog[3]).to.be.equal(true);
 
       const totalWithdrawnFees =
@@ -1114,7 +1114,7 @@ describe("Bullseye", () => {
       expect(await XyroToken.balanceOf(Treasury.getAddress())).to.equal(
         xyroAmount
       );
-      const playerGuessData = await Game.decodeGuess(0);
+      const playerGuessData = await Game.playerGuessData(0);
       expect(playerGuessData.player).to.be.equal(opponent.address);
       expect(playerGuessData.assetPrice).to.be.equal(guessPriceOpponent);
       await Game.closeGame();
@@ -1156,7 +1156,7 @@ describe("Bullseye", () => {
       expect(finalizeEventLog[1][0]).to.be.equal(2);
       expect(finalizeEventLog[1][1]).to.be.equal(0);
       expect(finalizeEventLog[1][2]).to.be.equal(1);
-      expect(finalizeEventLog[2]).to.be.equal(finalPriceExact / BigInt(1e14));
+      expect(finalizeEventLog[2]).to.be.equal(finalPriceExact);
       expect(finalizeEventLog[3]).to.be.equal(true);
       const rakebackBob = await Treasury.lockedRakeback(gameId, bob.address);
       const rakebackOpponent = await Treasury.lockedRakeback(

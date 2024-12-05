@@ -278,10 +278,7 @@ describe("UpDown", () => {
           await time.latest()
         )
       );
-      let game = await Game.decodeData();
-      expect(game.startingPrice).to.be.equal(
-        assetPrice / BigInt(Math.pow(10, 14))
-      );
+      expect(await Game.startingPrice()).to.be.equal(assetPrice);
     });
 
     it("should fail - too early", async function () {
@@ -724,10 +721,7 @@ describe("UpDown", () => {
           await time.latest()
         )
       );
-      let game = await Game.decodeData();
-      expect(game.startingPrice).to.be.equal(
-        assetPrice / BigInt(Math.pow(10, 14))
-      );
+      expect(await Game.startingPrice()).to.be.equal(assetPrice);
     });
 
     it("should close game and refund XyroToken", async function () {

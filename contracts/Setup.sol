@@ -48,8 +48,8 @@ contract Setup is AccessControl {
         uint32 startTime;
         uint32 endTime;
         int192 startingPrice;
-        uint32 takeProfitPrice;
-        uint32 stopLossPrice;
+        uint256 takeProfitPrice;
+        uint256 stopLossPrice;
         bool isLong;
         address creator;
         address token;
@@ -64,10 +64,6 @@ contract Setup is AccessControl {
         uint256 endTime;
         uint256 SLplayers;
         uint256 TPplayers;
-        uint256 takeProfitPrice;
-        uint256 stopLossPrice;
-        uint256 startringPrice;
-        uint256 finalPrice;
     }
 
     struct GameInfoPacked {
@@ -77,6 +73,10 @@ contract Setup is AccessControl {
         uint256 totalDepositsTP;
         uint256 totalRakebackSL;
         uint256 totalRakebackTP;
+        uint256 takeProfitPrice;
+        uint256 stopLossPrice;
+        uint256 startingPrice;
+        uint256 finalPrice;
         uint256 finalRate;
     }
 
@@ -110,8 +110,8 @@ contract Setup is AccessControl {
     function createSetup(
         bool isLong,
         uint32 endTime,
-        uint32 takeProfitPrice,
-        uint32 stopLossPrice,
+        uint256 takeProfitPrice,
+        uint256 stopLossPrice,
         uint8 feedNumber,
         address token,
         bytes memory unverifiedReport
@@ -144,14 +144,14 @@ contract Setup is AccessControl {
         );
         if (isLong) {
             require(
-                uint192(startingPrice) / 1e14 > stopLossPrice &&
-                    uint192(startingPrice) / 1e14 < takeProfitPrice,
+                uint192(startingPrice) > stopLossPrice &&
+                    uint192(startingPrice) < takeProfitPrice,
                 "Wrong tp or sl price"
             );
         } else {
             require(
-                uint192(startingPrice) / 1e14 < stopLossPrice &&
-                    uint192(startingPrice) / 1e14 > takeProfitPrice,
+                uint192(startingPrice) < stopLossPrice &&
+                    uint192(startingPrice) > takeProfitPrice,
                 "Wrong tp or sl price"
             );
         }
@@ -160,11 +160,9 @@ contract Setup is AccessControl {
         data.packedData = uint256(uint160(msg.sender));
         data.packedData |= uint256(startTime) << 160;
         data.packedData |= uint256(endTime) << 192;
-        data.packedData |=
-            uint256(uint32(uint192(startingPrice / 1e14))) <<
-            224;
-        data.packedData2 = uint256(takeProfitPrice);
-        data.packedData2 |= uint256(stopLossPrice) << 32;
+        data.startingPrice = uint192(startingPrice);
+        data.takeProfitPrice = takeProfitPrice;
+        data.stopLossPrice = stopLossPrice;
         data.packedData2 |= uint256(feedNumber) << 64;
         data.packedData2 |= uint256(uint8(Status.Created)) << 72;
         if (isLong) {
@@ -414,9 +412,7 @@ contract Setup is AccessControl {
             games[gameId].packedData2 =
                 (games[gameId].packedData2 & ~(uint256(0xFF) << 72)) |
                 (uint256(uint8(Status.Cancelled)) << 72);
-            games[gameId].packedData2 |=
-                uint256(uint192(finalPrice) / 1e14) <<
-                145;
+            games[gameId].finalPrice = uint192(finalPrice);
             emit SetupCancelled(gameId, data.initiator);
             return;
         }
@@ -425,11 +421,11 @@ contract Setup is AccessControl {
         uint256 withdrawnInitiatorFees;
         if (data.isLong) {
             require(
-                uint192(finalPrice) / 1e14 <= data.stopLossPrice ||
-                    uint192(finalPrice) / 1e14 >= data.takeProfitPrice,
+                uint192(finalPrice) <= games[gameId].stopLossPrice ||
+                    uint192(finalPrice) >= games[gameId].takeProfitPrice,
                 "Can't end"
             );
-            if (uint192(finalPrice) / 1e14 >= data.takeProfitPrice) {
+            if (uint192(finalPrice) >= games[gameId].takeProfitPrice) {
                 ITreasury(treasury).withdrawGameFee(
                     games[gameId].totalDepositsSL,
                     fee,
@@ -458,7 +454,7 @@ contract Setup is AccessControl {
                     withdrawnInitiatorFees,
                     finalRate
                 );
-            } else if (uint192(finalPrice) / 1e14 <= data.stopLossPrice) {
+            } else if (uint192(finalPrice) <= games[gameId].stopLossPrice) {
                 ITreasury(treasury).withdrawGameFee(
                     games[gameId].totalDepositsTP,
                     fee,
@@ -491,11 +487,11 @@ contract Setup is AccessControl {
             }
         } else {
             require(
-                uint192(finalPrice) / 1e14 >= data.stopLossPrice ||
-                    uint192(finalPrice) / 1e14 <= data.takeProfitPrice,
+                uint192(finalPrice) >= games[gameId].stopLossPrice ||
+                    uint192(finalPrice) <= games[gameId].takeProfitPrice,
                 "Can't end"
             );
-            if (uint192(finalPrice) / 1e14 >= data.stopLossPrice) {
+            if (uint192(finalPrice) >= games[gameId].stopLossPrice) {
                 // sl team wins
                 ITreasury(treasury).withdrawGameFee(
                     games[gameId].totalDepositsTP,
@@ -526,7 +522,7 @@ contract Setup is AccessControl {
                     withdrawnInitiatorFees,
                     finalRate
                 );
-            } else if (uint192(finalPrice) / 1e14 <= data.takeProfitPrice) {
+            } else if (uint192(finalPrice) <= games[gameId].takeProfitPrice) {
                 ITreasury(treasury).withdrawGameFee(
                     games[gameId].totalDepositsSL,
                     fee,
@@ -568,7 +564,7 @@ contract Setup is AccessControl {
         packedData2 =
             (packedData2 & ~(uint256(0xFF) << 72)) |
             (uint256(uint8(Status.Finished)) << 72);
-        packedData2 |= uint256(uint192(finalPrice) / 1e14) << 145;
+        games[gameId].finalPrice = uint192(finalPrice);
         games[gameId].packedData2 = packedData2;
     }
 
@@ -586,7 +582,10 @@ contract Setup is AccessControl {
                 "Already claimed"
             );
             if (data.isLong) {
-                if (data.finalPrice >= data.takeProfitPrice) {
+                if (
+                    games[gameIds[i]].finalPrice >=
+                    games[gameIds[i]].takeProfitPrice
+                ) {
                     if (
                         withdrawStatus[gameIds[i]][msg.sender] == UserStatus.SL
                     ) {
@@ -613,7 +612,10 @@ contract Setup is AccessControl {
                             games[gameIds[i]].finalRate
                         );
                     }
-                } else if (data.finalPrice <= data.stopLossPrice) {
+                } else if (
+                    games[gameIds[i]].finalPrice <=
+                    games[gameIds[i]].stopLossPrice
+                ) {
                     // sl team wins
                     if (
                         withdrawStatus[gameIds[i]][msg.sender] == UserStatus.TP
@@ -643,7 +645,10 @@ contract Setup is AccessControl {
                     }
                 }
             } else {
-                if (data.finalPrice >= data.stopLossPrice) {
+                if (
+                    games[gameIds[i]].finalPrice >=
+                    games[gameIds[i]].stopLossPrice
+                ) {
                     // sl team wins
                     if (
                         withdrawStatus[gameIds[i]][msg.sender] == UserStatus.TP
@@ -671,7 +676,10 @@ contract Setup is AccessControl {
                             games[gameIds[i]].finalRate
                         );
                     }
-                } else if (data.finalPrice <= data.takeProfitPrice) {
+                } else if (
+                    games[gameIds[i]].finalPrice <=
+                    games[gameIds[i]].takeProfitPrice
+                ) {
                     if (
                         withdrawStatus[gameIds[i]][msg.sender] == UserStatus.SL
                     ) {
@@ -720,14 +728,10 @@ contract Setup is AccessControl {
         gameData.initiator = address(uint160(packedData));
         gameData.startTime = uint256(uint32(packedData >> 160));
         gameData.endTime = uint256(uint32(packedData >> 192));
-        gameData.startringPrice = uint256(uint32(packedData >> 224));
 
-        gameData.takeProfitPrice = uint32(packedData2);
-        gameData.stopLossPrice = uint256(uint32(packedData2 >> 32));
         gameData.feedNumber = uint8(packedData2 >> 64);
         gameData.gameStatus = Status(uint8(packedData2 >> 72));
         gameData.isLong = packedData2 >> 250 == 1;
-        gameData.finalPrice = uint256(uint32(packedData2 >> 145));
         gameData.TPplayers = uint256(uint32(packedData2 >> 177));
         gameData.SLplayers = uint256(uint32(packedData2 >> 209));
     }

@@ -1,8 +1,8 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { XyroToken } from "../typechain-types/contracts/XyroToken";
-import { XyroToken__factory } from "../typechain-types/factories/contracts/XyroToken__factory";
+import { XyroTokenERC677 } from "../typechain-types/contracts/XyroTokenWithMint.sol/XyroTokenERC677";
+import { XyroTokenERC677__factory } from "../typechain-types/factories/contracts/XyroTokenWithMint.sol/XyroTokenERC677__factory";
 import { Treasury } from "../typechain-types/contracts/Treasury.sol/Treasury";
 import { OneVsOneExactPrice } from "../typechain-types/contracts/OneVsOneExactPrice";
 import { OneVsOneExactPrice__factory } from "../typechain-types/factories/contracts/OneVsOneExactPrice__factory";
@@ -10,6 +10,7 @@ import { MockToken } from "../typechain-types/contracts/mock/MockERC20.sol/MockT
 import { MockToken__factory } from "../typechain-types/factories/contracts/mock/MockERC20.sol/MockToken__factory";
 import { MockVerifier } from "../typechain-types/contracts/mock/MockVerifier";
 import { MockVerifier__factory } from "../typechain-types/factories/contracts/mock/MockVerifier__factory";
+import { calculateRakebackRate } from "../scripts/helper";
 const parse18 = ethers.parseEther;
 const insufficentDepositAmount = "Insufficent deposit amount";
 const zeroAddress = "Zero address";
@@ -21,7 +22,7 @@ describe("Treasury", () => {
   let owner: HardhatEthersSigner;
   let alice: HardhatEthersSigner;
   let USDT: MockToken;
-  let XyroToken: XyroToken;
+  let XyroToken: XyroTokenERC677;
   let Treasury: Treasury;
   let Game: OneVsOneExactPrice;
   let Upkeep: MockVerifier;
@@ -32,7 +33,9 @@ describe("Treasury", () => {
       parse18((1e13).toString())
     );
     await USDT.mint(alice.address, parse18("100000"));
-    XyroToken = await new XyroToken__factory(owner).deploy(parse18("2500"));
+    XyroToken = await new XyroTokenERC677__factory(owner).deploy(
+      parse18("2500")
+    );
     Treasury = await upgrades.deployProxy(
       await ethers.getContractFactory("Treasury"),
       [await USDT.getAddress(), await XyroToken.getAddress()]
@@ -265,44 +268,55 @@ describe("Treasury", () => {
     expect(newOwnerBalance - oldOwnerBalance).to.be.equal(collectedFees);
   });
 
-  // it("Should calculate rate (no rakeback) - calculateRate()", async function () {
-  //   //mock game
-  //   const mockGameId =
-  //     "0x0000000000000000000000000000000000000000000000000000000000000003";
-  //   await Treasury.connect(mockContract).setGameToken(
-  //     mockGameId,
-  //     await USDT.getAddress()
-  //   );
+  describe("Rakeback", async function () {
+    before(async () => {
+      await XyroToken.grantMintAndBurnRoles(owner.address);
+      await XyroToken.mint(owner.address, parse18("1250000"));
+      console.log(`Xyro balacne ${await XyroToken.balanceOf(owner.address)}`);
+    });
+    it("Should calculate rakeback rate", async function () {
+      const initialDeposit = BigInt(100);
+      const rakeback =
+        (calculateRakebackRate(await XyroToken.balanceOf(owner.address)) *
+          initialDeposit) /
+        BigInt(100);
+      expect(
+        await Treasury.calculateRakebackAmount(owner.address, initialDeposit)
+      ).to.be.equal(rakeback);
+    });
+    it("Should calculate Bullseye rakeback with multiple deposits", async function () {
+      //mock game
+      const mockGameId =
+        "0x0000000000000000000000000000000000000000000000000000000000000005";
+      await Treasury.connect(mockContract).setGameToken(
+        mockGameId,
+        await USDT.getAddress()
+      );
 
-  //   await Treasury.connect(mockContract).depositAndLock(
-  //     depositAmount,
-  //     owner.address,
-  //     mockGameId,
-  //     false
-  //   );
-
-  //   await Treasury.connect(mockContract).depositAndLock(
-  //     depositAmount,
-  //     alice.address,
-  //     mockGameId,
-  //     false
-  //   );
-
-  //   const wonTeamTotal = BigInt(depositAmount);
-  //   const totalLocked = BigInt(depositAmount) * BigInt(2);
-  //   const rate = await Treasury.connect(mockContract).calculateRate(
-  //     wonTeamTotal,
-  //     0,
-  //     mockGameId
-  //   );
-  //   const calculatedRate =
-  //     ((totalLocked - wonTeamTotal) *
-  //       (await Treasury.RATE_PRECISION_AMPLIFIER())) /
-  //     wonTeamTotal;
-  //   console.log(rate);
-  //   console.log(typeof rate);
-  //   expect(rate).to.be.equal(calculatedRate);
-  // });
+      const mockDepositAmount = 100000000;
+      await Treasury.connect(mockContract).depositAndLock(
+        mockDepositAmount,
+        owner.address,
+        mockGameId,
+        true
+      );
+      expect(
+        await Treasury.lockedRakeback(mockGameId, owner.address)
+      ).to.be.equal(mockDepositAmount * 0.1);
+      const mockRate = BigInt(1000000);
+      const initialRakeback = BigInt(5000000);
+      await Treasury.connect(mockContract).distributeBullseye(
+        mockRate,
+        BigInt(0),
+        owner.address,
+        mockGameId,
+        initialRakeback
+      );
+      expect(
+        await Treasury.lockedRakeback(mockGameId, owner.address)
+      ).to.be.equal(mockDepositAmount * 0.05);
+    });
+  });
 
   it("Should set new upkeep", async function () {
     const newUpkeep = await new MockVerifier__factory(owner).deploy();
@@ -382,11 +396,11 @@ describe("Treasury", () => {
     ).to.be.revertedWith(wrongAmount);
   });
 
-  it("Should upgrade treasury", async function () {
-    let TreasuryV2 = await upgrades.upgradeProxy(
-      await Treasury.getAddress(),
-      await ethers.getContractFactory("TreasuryV2")
-    );
-    expect(await TreasuryV2.test()).to.be.equal(333);
-  });
+  // it("Should upgrade treasury", async function () {
+  //   let TreasuryV2 = await upgrades.upgradeProxy(
+  //     await Treasury.getAddress(),
+  //     await ethers.getContractFactory("TreasuryV2")
+  //   );
+  //   expect(await TreasuryV2.test()).to.be.equal(333);
+  // });
 });

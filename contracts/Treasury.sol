@@ -482,11 +482,12 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         uint256 rate,
         uint256 lostTeamRakeback,
         address to,
-        bytes32 gameId
+        bytes32 gameId,
+        uint256 initialRakeback
     ) public onlyRole(DISTRIBUTOR_ROLE) {
         address token = gameToken[gameId];
-        if (lockedRakeback[gameId][to] != 0) {
-            lockedRakeback[gameId][to] = 0;
+        if (initialRakeback != 0) {
+            lockedRakeback[gameId][to] -= initialRakeback;
         }
         uint256 wonAmount;
         if (rate == FEE_DENOMINATOR) {

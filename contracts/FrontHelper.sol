@@ -28,7 +28,6 @@ contract FrontHelper {
 
     struct DataV2 {
         uint256 balance;
-        uint256 allowanceOld;
         uint256 depositedOld;
         uint256 deposited;
         uint256 allowance;
@@ -91,7 +90,6 @@ contract FrontHelper {
         for (uint i; i < targets.length; i++) {
             data[i] = DataV2({
                 balance: IERC20(token).balanceOf(targets[i]),
-                allowanceOld: IERC20(token).allowance(targets[i], oldTreasury),
                 depositedOld: IOldTreasury(oldTreasury).deposits(targets[i]),
                 deposited: ITreasury(treasury).deposits(token, targets[i]),
                 allowance: IERC20(token).allowance(targets[i], treasury),
@@ -110,7 +108,6 @@ contract FrontHelper {
         DataV2 memory data;
         data = DataV2({
             balance: IERC20(token).balanceOf(target),
-            allowanceOld: IERC20(token).allowance(target, oldTreasury),
             depositedOld: IOldTreasury(oldTreasury).deposits(target),
             deposited: ITreasury(treasury).deposits(token, target),
             allowance: IERC20(token).allowance(target, treasury),

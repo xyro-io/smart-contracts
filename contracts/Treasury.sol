@@ -5,6 +5,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "hardhat/console.sol";
 
 interface IERC20Mint {
     function decimals() external view returns (uint256);
@@ -19,7 +20,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     mapping(address => bool) public approvedTokens;
     address public xyroToken;
     address public upkeep;
-    uint256 public setupInitiatorFee;
     uint256 public constant FEE_DENOMINATOR = 10000;
     uint256 public constant RATE_PRECISION_AMPLIFIER = 1000000000;
     bytes32 public constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
@@ -44,7 +44,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         xyroToken = xyroTokenAddress;
         approvedTokens[approvedToken] = true;
-        setupInitiatorFee = 1000;
         minDepositAmount[approvedToken] =
             10 ** IERC20Mint(approvedToken).decimals();
         rakebackRate = [
@@ -85,14 +84,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     ) public onlyRole(DISTRIBUTOR_ROLE) {
         require(approvedTokens[token], "Unapproved token");
         gameToken[gameId] = token;
-    }
-
-    /**
-     * Set new fee for setup games
-     * @param newFee fee in bp
-     */
-    function setSetupFee(uint256 newFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        setupInitiatorFee = newFee;
     }
 
     /**
@@ -464,7 +455,7 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     ) external onlyRole(DISTRIBUTOR_ROLE) returns (uint256 withdrawnFees) {
         address token = gameToken[gameId];
         withdrawnFees =
-            (wonTeamDeposits + lostTeamDeposits * initiatorFee) /
+            ((wonTeamDeposits + lostTeamDeposits) * initiatorFee) /
             FEE_DENOMINATOR;
         deposits[token][initiator] += withdrawnFees;
         emit Distributed(initiator, withdrawnFees, token);

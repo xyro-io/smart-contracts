@@ -5,7 +5,6 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "hardhat/console.sol";
 
 interface IERC20Mint {
     function decimals() external view returns (uint256);
@@ -301,7 +300,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
             lockedRakeback[gameId][from] += rakeback;
         }
         deposits[token][from] -= amount;
-        // locked[token][from] += amount;
         locked[gameId] += amount;
     }
 

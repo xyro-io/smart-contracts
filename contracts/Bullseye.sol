@@ -246,9 +246,9 @@ contract Bullseye is AccessControl {
         require(currentGameId != bytes32(0), "Start the game first");
         require(block.timestamp >= game.endTime, "Too early to finish");
         if (playerGuessData.length < 2) {
+            emit BullseyeCancelled(currentGameId);
             if (playerGuessData.length == 1) {
                 GuessStruct memory currentGuessData = playerGuessData[0];
-                emit BullseyeCancelled(currentGameId);
                 ITreasury(treasury).refund(
                     depositAmount,
                     currentGuessData.player,

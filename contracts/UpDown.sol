@@ -152,6 +152,7 @@ contract UpDown is AccessControl {
         }
         depositAmounts[msg.sender] = depositAmount;
         ITreasury(treasury).lock(depositAmount, msg.sender);
+        isParticipating[msg.sender] = true;
         emit UpDownNewPlayer(msg.sender, isLong, depositAmount, currentGameId);
     }
 

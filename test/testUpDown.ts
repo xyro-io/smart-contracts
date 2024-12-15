@@ -154,6 +154,7 @@ describe("UpDown", () => {
       const newTreasuryBalance = await USDT.balanceOf(
         await Treasury.getAddress()
       );
+      expect(await Game.isParticipating(bob.address)).to.be.equal(true);
       expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(usdtAmount);
       expect(oldBobBalance - newBobBalance).to.be.equal(usdtAmount);
       expect(await Treasury.locked(await Game.currentGameId())).to.be.equal(
@@ -193,6 +194,7 @@ describe("UpDown", () => {
       const newTreasuryBalance = await USDT.balanceOf(
         await Treasury.getAddress()
       );
+      expect(await Game.isParticipating(opponent.address)).to.be.equal(true);
       expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(usdtAmount);
       expect(oldOpponentBalance - newOpponentBalance).to.be.equal(usdtAmount);
 
@@ -1186,6 +1188,7 @@ describe("UpDown", () => {
         r: result.r,
         s: result.s,
       });
+      expect(await Game.isParticipating(owner.address)).to.be.equal(true);
       expect(await Game.DownPlayers(0)).to.equal(owner.address);
     });
 

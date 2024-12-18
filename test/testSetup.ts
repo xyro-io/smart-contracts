@@ -35,6 +35,7 @@ const youLost = "You lost";
 const disabledGame = "Game is disabled";
 const requireSufficentDepositAmount = "Insufficent deposit amount";
 const requireApprovedToken = "Unapproved token";
+const requireWrongusdtAmount = "Wrong deposit amount";
 const Status = {
   Created: 0,
   Cancelled: 1,
@@ -457,6 +458,28 @@ describe("Setup Game", () => {
       await expect(
         Game.playWithDeposit(true, usdtAmount, currentGameId)
       ).to.be.revertedWith(requireSufficentDepositAmount);
+    });
+
+    it("should fail - Wrong deposit amount", async function () {
+      const startTime = await time.latest();
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const isLong = true;
+      let tx = await Game.createSetup(
+        isLong,
+        endTime,
+        tpPrice,
+        slPrice,
+        feedNumber,
+        await USDT.getAddress(),
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          startTime
+        )
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt?.logs[0]?.args[0][0];
+      await expect(Game.connect(bob).play(true, 0, currentGameId)).to.be.revertedWith(requireWrongusdtAmount);
     });
 
     it("should play and rewrite totalDepositsTP", async function () {

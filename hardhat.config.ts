@@ -13,6 +13,10 @@ const config: HardhatUserConfig = {
   networks: {
     hardhat: {
       chainId: 1337,
+      accounts: {
+        count: 101,
+        accountsBalance: '10000000000000000000000'
+      },
     },
     arbsepolia: {
       url: "https://arbitrum-sepolia.infura.io/v3/e835b1abe0dc4e7283a019b732e34366",

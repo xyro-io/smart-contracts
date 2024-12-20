@@ -347,12 +347,9 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         emit FeeCollected(withdrawnFees, collectedFee[token], token);
         if (rakeback != 0) {
             lockedRakeback[gameId][to] = 0;
-            locked[gameId] -= (amount + rakeback);
-            deposits[token][to] += (amount + rakeback - withdrawnFees);
-        } else {
-            locked[gameId] -= amount;
-            deposits[token][to] += (amount - withdrawnFees);
         }
+        locked[gameId] -= amount;
+        deposits[token][to] += (amount - withdrawnFees);
         emit Refunded(to, (amount - withdrawnFees), token);
     }
 

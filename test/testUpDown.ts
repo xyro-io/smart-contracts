@@ -32,6 +32,7 @@ const requireNewPlayer = "Already participating";
 const requireSufficentDepositAmount = "Insufficent deposit amount";
 const requireHigherDepositAmount = "Wrong deposit amount";
 const requireApprovedToken = "Unapproved token";
+const maxPlayersReached = "Max player amount reached";
 
 describe("UpDown", () => {
   let owner: HardhatEthersSigner;
@@ -369,6 +370,53 @@ describe("UpDown", () => {
       expect(await Game.startingPrice()).to.be.equal(assetPrice);
     });
 
+    it("should fail - cannot play after start price was set", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = (await time.latest()) + fifteenMinutes;
+      await Game.startGame(
+        endTime,
+        stopPredictAt,
+        usdtAmount,
+        await USDT.getAddress(),
+        feedNumber
+      );
+      await Game.connect(alice).play(true, usdtAmount);
+      await Game.connect(opponent).play(false, usdtAmount);
+      await time.increase(fifteenMinutes);
+      await Game.setStartingPrice(
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          await time.latest()
+        )
+      );
+      await expect(Game.connect(bob).play(true, usdtAmount)).to.be.revertedWith(requireOpenedGame);
+    });
+
+    it("should fail - max amount of players reached", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = (await time.latest()) + fifteenMinutes;
+      await Game.startGame(
+        endTime,
+        stopPredictAt,
+        usdtAmount,
+        await USDT.getAddress(),
+        feedNumber
+      );
+
+      const signers = await ethers.getSigners();
+      for (let i = 0; i < 100; i++) {  
+        await USDT.mint(signers[i].address, parse18("10000000"));
+        await USDT.connect(signers[i]).approve(
+          await Treasury.getAddress(),
+          ethers.MaxUint256
+        );
+        await Game.connect(signers[i]).play(true, usdtAmount);
+      }
+      await expect(Game.connect(signers[100]).play(true, usdtAmount)).to.be.revertedWith(maxPlayersReached);
+    });
+
+
     it("should fail - too early", async function () {
       await Game.startGame(
         (await time.latest()) + fortyFiveMinutes,
@@ -600,6 +648,52 @@ describe("UpDown", () => {
       let fee = (usdtAmount * (await Game.fee())) / DENOMENATOR;
       let wonAmount = BigInt(2) * usdtAmount - (fee + rakeback);
       expect(newDeposit - oldDeposit).to.be.equal(wonAmount);
+      await Treasury.connect(alice).withdraw(
+        await Treasury.deposits(await USDT.getAddress(), alice.address),
+        await USDT.getAddress()
+      );
+    });
+
+    it("should pay out equivalently (up wins)", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = (await time.latest()) + fifteenMinutes;
+      await Game.startGame(
+        endTime,
+        stopPredictAt,
+        usdtAmount,
+        await USDT.getAddress(),
+        feedNumber
+      );
+      await Game.connect(alice).play(true, usdtAmount);
+      await Game.connect(opponent).play(true, usdtAmount * BigInt(4));
+      await Game.connect(bob).play(false, usdtAmount * BigInt(5));
+      await Game.connect(owner).play(false, usdtAmount * BigInt(5));
+      await time.increase(fifteenMinutes);
+      await Game.setStartingPrice(
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          await time.latest()
+        )
+      );
+      await time.increase(fifteenMinutes * 2);
+      await Game.finalizeGame(
+        abiEncodeInt192WithTimestamp(
+          finalPriceUp.toString(),
+          feedNumber,
+          await time.latest()
+        )
+      );
+      let newOpponentDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        opponent.address
+      );
+
+      let newAliceDeposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      expect(newOpponentDeposit).to.be.equal(newAliceDeposit * BigInt(4))
       await Treasury.connect(alice).withdraw(
         await Treasury.deposits(await USDT.getAddress(), alice.address),
         await USDT.getAddress()

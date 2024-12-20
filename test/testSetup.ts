@@ -14,6 +14,8 @@ import { XyroTokenERC677__factory } from "../typechain-types/factories/contracts
 
 import {
   abiEncodeInt192WithTimestamp,
+  calculateRate,
+  calculateWonAmount,
   getPermitSignature,
 } from "../scripts/helper";
 
@@ -33,6 +35,7 @@ const youLost = "You lost";
 const disabledGame = "Game is disabled";
 const requireSufficentDepositAmount = "Insufficent deposit amount";
 const requireApprovedToken = "Unapproved token";
+const requireWrongusdtAmount = "Wrong deposit amount";
 const Status = {
   Created: 0,
   Cancelled: 1,
@@ -60,7 +63,7 @@ describe("Setup Game", () => {
   const finalPriceSL = parse18("61000");
   const feedNumber = 1;
   const assetPrice = parse18("62500");
-  before(async () => {
+  beforeEach(async () => {
     [owner, bob, alice, harry] = await ethers.getSigners();
     players = [owner, bob, alice, harry];
     USDT = await new MockToken__factory(owner).deploy(
@@ -323,6 +326,24 @@ describe("Setup Game", () => {
 
   describe("Play game", async function () {
     it("should play SL game", async function () {
+      const startTime = await time.latest();
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const isLong = true;
+      let tx = await Game.createSetup(
+        isLong,
+        endTime,
+        tpPrice,
+        slPrice,
+        feedNumber,
+        await USDT.getAddress(),
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          startTime
+        )
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt?.logs[0]?.args[0][0];
       const oldUserBalance = await USDT.balanceOf(bob.address);
       const oldTreasuryBalance = await USDT.balanceOf(
         await Treasury.getAddress()
@@ -332,7 +353,6 @@ describe("Setup Game", () => {
       const newTreasuryBalance = await USDT.balanceOf(
         await Treasury.getAddress()
       );
-      let game = await Game.decodeData(currentGameId);
 
       expect(oldUserBalance - newUserBalance).to.be.equal(usdtAmount);
       expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(usdtAmount);
@@ -341,6 +361,24 @@ describe("Setup Game", () => {
     });
 
     it("should play TP game", async function () {
+      const startTime = await time.latest();
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const isLong = true;
+      let tx = await Game.createSetup(
+        isLong,
+        endTime,
+        tpPrice,
+        slPrice,
+        feedNumber,
+        await USDT.getAddress(),
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          startTime
+        )
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt?.logs[0]?.args[0][0];
       const oldUserBalance = await USDT.balanceOf(alice.address);
       const oldTreasuryBalance = await USDT.balanceOf(
         await Treasury.getAddress()
@@ -350,7 +388,6 @@ describe("Setup Game", () => {
       const newTreasuryBalance = await USDT.balanceOf(
         await Treasury.getAddress()
       );
-      let game = await Game.decodeData(currentGameId);
       expect(oldUserBalance - newUserBalance).to.be.equal(usdtAmount);
       expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(usdtAmount);
       let data = await Game.games(currentGameId);
@@ -358,6 +395,24 @@ describe("Setup Game", () => {
     });
 
     it("should play with deposited amount", async function () {
+      const startTime = await time.latest();
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const isLong = true;
+      let tx = await Game.createSetup(
+        isLong,
+        endTime,
+        tpPrice,
+        slPrice,
+        feedNumber,
+        await USDT.getAddress(),
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          startTime
+        )
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt?.logs[0]?.args[0][0];
       const oldUserBalance = await USDT.balanceOf(harry.address);
       const oldTreasuryBalance = await USDT.balanceOf(
         await Treasury.getAddress()
@@ -375,20 +430,77 @@ describe("Setup Game", () => {
       const newTreasuryBalance = await USDT.balanceOf(
         await Treasury.getAddress()
       );
-      let game = await Game.decodeData(currentGameId);
       expect(oldUserBalance - newUserBalance).to.be.equal(usdtAmount);
       expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(usdtAmount);
       let data = await Game.games(currentGameId);
-      expect(data.totalDepositsTP).to.equal(usdtAmount * BigInt(2));
+      expect(data.totalDepositsTP).to.equal(usdtAmount);
     });
 
     it("should fail - insufficent deposit amount", async function () {
+      const startTime = await time.latest();
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const isLong = true;
+      let tx = await Game.createSetup(
+        isLong,
+        endTime,
+        tpPrice,
+        slPrice,
+        feedNumber,
+        await USDT.getAddress(),
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          startTime
+        )
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt?.logs[0]?.args[0][0];
       await expect(
         Game.playWithDeposit(true, usdtAmount, currentGameId)
       ).to.be.revertedWith(requireSufficentDepositAmount);
     });
 
+    it("should fail - Wrong deposit amount", async function () {
+      const startTime = await time.latest();
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const isLong = true;
+      let tx = await Game.createSetup(
+        isLong,
+        endTime,
+        tpPrice,
+        slPrice,
+        feedNumber,
+        await USDT.getAddress(),
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          startTime
+        )
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt?.logs[0]?.args[0][0];
+      await expect(Game.connect(bob).play(true, 0, currentGameId)).to.be.revertedWith(requireWrongusdtAmount);
+    });
+
     it("should play and rewrite totalDepositsTP", async function () {
+      const startTime = await time.latest();
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const isLong = true;
+      let tx = await Game.createSetup(
+        isLong,
+        endTime,
+        tpPrice,
+        slPrice,
+        feedNumber,
+        await USDT.getAddress(),
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          startTime
+        )
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt?.logs[0]?.args[0][0];
       const oldUserBalance = await USDT.balanceOf(owner.address);
       const oldTreasuryBalance = await USDT.balanceOf(
         await Treasury.getAddress()
@@ -402,12 +514,31 @@ describe("Setup Game", () => {
       expect(oldUserBalance - newUserBalance).to.be.equal(usdtAmount);
       expect(newTreasuryBalance - oldTreasuryBalance).to.be.equal(usdtAmount);
       let data = await Game.games(currentGameId);
-      expect(data.totalDepositsTP).to.equal(usdtAmount * BigInt(3));
+      expect(data.totalDepositsTP).to.equal(usdtAmount);
     });
 
     it("should fail - can't enter twice", async function () {
+      const startTime = await time.latest();
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const isLong = true;
+      let tx = await Game.createSetup(
+        isLong,
+        endTime,
+        tpPrice,
+        slPrice,
+        feedNumber,
+        await USDT.getAddress(),
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          startTime
+        )
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt?.logs[0]?.args[0][0];
+      await Game.connect(alice).play(false, usdtAmount, currentGameId);
       await expect(
-        Game.connect(alice).play(false, usdtAmount, currentGameId)
+        Game.connect(alice).play(true, usdtAmount, currentGameId)
       ).to.be.revertedWith(isParticipating);
     });
 
@@ -615,9 +746,18 @@ describe("Setup Game", () => {
       const oldTreasuryBalance = await USDT.balanceOf(
         await Treasury.getAddress()
       );
-      const oldAliceBalance = await USDT.balanceOf(alice);
-      const oldOwnerBalance = await USDT.balanceOf(owner);
-      const oldBobBalance = await USDT.balanceOf(bob);
+      const oldAliceBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      const oldOwnerBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        owner.address
+      );
+      const oldBobBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        bob.address
+      );
       const isLong = true;
       const startTime = await time.latest();
       const endTime = (await time.latest()) + fortyFiveMinutes;
@@ -651,6 +791,18 @@ describe("Setup Game", () => {
       receipt = await tx.wait();
       let game = await Game.decodeData(currentGameId);
       let data = await Game.games(currentGameId);
+      const wonTeamTotalWithoutFee =
+        data.totalDepositsTP -
+        (data.totalDepositsTP * (await Game.initiatorFee())) / BigInt(10000);
+      const lostTeamTotalWithoutFee =
+        data.totalDepositsSL -
+        (data.totalDepositsSL * (await Game.initiatorFee())) / BigInt(10000) -
+        (data.totalDepositsSL * (await Game.fee())) / BigInt(10000) -
+        data.totalRakebackSL;
+      const finalRate = calculateRate(
+        wonTeamTotalWithoutFee,
+        lostTeamTotalWithoutFee
+      );
       expect(game.gameStatus).to.be.equal(Status.Finished);
       expect(data.finalPrice).to.be.equal(finalPriceTP);
       expect(game.isLong).to.be.equal(isLong);
@@ -658,6 +810,7 @@ describe("Setup Game", () => {
       expect(data.stopLossPrice).to.be.equal(slPrice);
       expect(data.takeProfitPrice).to.be.equal(tpPrice);
       expect(data.startingPrice).to.be.equal(assetPrice);
+      expect(data.finalRate).to.be.equal(finalRate);
       expect(game.endTime).to.be.equal(finalizeTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
@@ -670,39 +823,47 @@ describe("Setup Game", () => {
       await expect(
         Game.connect(bob).retrieveRewards([currentGameId])
       ).to.be.emit(Treasury, "UsedRakeback");
-      await Treasury.connect(owner).withdraw(
-        await Treasury.deposits(await USDT.getAddress(), owner.address),
-        await USDT.getAddress()
+      const finalAliceBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
       );
-      await Treasury.connect(bob).withdraw(
-        await Treasury.deposits(await USDT.getAddress(), bob.address),
-        await USDT.getAddress()
+      const finalOwnerBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        owner.address
       );
-      await Treasury.connect(alice).withdraw(
-        await Treasury.deposits(await USDT.getAddress(), alice.address),
-        await USDT.getAddress()
+      const finalBobBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        bob.address
       );
-      const finalAliceBalance = await USDT.balanceOf(alice);
-      const finalOwnerBalance = await USDT.balanceOf(owner);
-      const finalBobBalance = await USDT.balanceOf(bob);
       const finalTreasuryBalance = await USDT.balanceOf(
         await Treasury.getAddress()
       );
       expect(finalTreasuryBalance).to.be.above(oldTreasuryBalance);
       expect(finalOwnerBalance).to.be.above(oldOwnerBalance);
-      expect(finalAliceBalance).to.be.above(oldAliceBalance);
-      expect(oldBobBalance - finalBobBalance).to.be.equal(
-        usdtAmount - bobRakeback
+      const wonAmountAlice = calculateWonAmount(
+        usdtAmount - (usdtAmount * (await Game.initiatorFee())) / BigInt(10000),
+        finalRate
       );
+      expect(finalAliceBalance - oldAliceBalance).to.be.equal(wonAmountAlice);
+      expect(finalBobBalance - oldBobBalance).to.be.equal(bobRakeback);
     });
 
     it("should end setup game (long) sl wins", async function () {
       const oldTreasuryBalance = await USDT.balanceOf(
         await Treasury.getAddress()
       );
-      const oldAliceBalance = await USDT.balanceOf(alice);
-      const oldOwnerBalance = await USDT.balanceOf(owner);
-      const oldBobBalance = await USDT.balanceOf(bob);
+      const oldAliceBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      const oldOwnerBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        owner.address
+      );
+      const oldBobBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        bob.address
+      );
       const isLong = true;
       const startTime = await time.latest();
       const endTime = (await time.latest()) + fortyFiveMinutes;
@@ -736,6 +897,18 @@ describe("Setup Game", () => {
       receipt = await tx.wait();
       let game = await Game.decodeData(currentGameId);
       let data = await Game.games(currentGameId);
+      const wonTeamTotalWithoutFee =
+        data.totalDepositsSL -
+        (data.totalDepositsSL * (await Game.initiatorFee())) / BigInt(10000);
+      const lostTeamTotalWithoutFee =
+        data.totalDepositsTP -
+        (data.totalDepositsTP * (await Game.initiatorFee())) / BigInt(10000) -
+        (data.totalDepositsTP * (await Game.fee())) / BigInt(10000) -
+        data.totalRakebackTP;
+      const finalRate = calculateRate(
+        wonTeamTotalWithoutFee,
+        lostTeamTotalWithoutFee
+      );
       expect(game.gameStatus).to.be.equal(Status.Finished);
       expect(data.finalPrice).to.be.equal(finalPriceSL);
       expect(game.isLong).to.be.equal(isLong);
@@ -743,6 +916,7 @@ describe("Setup Game", () => {
       expect(data.stopLossPrice).to.be.equal(slPrice);
       expect(data.takeProfitPrice).to.be.equal(tpPrice);
       expect(data.startingPrice).to.be.equal(assetPrice);
+      expect(data.finalRate).to.be.equal(finalRate);
       expect(game.endTime).to.be.equal(finalizeTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
@@ -754,30 +928,29 @@ describe("Setup Game", () => {
         Game.connect(alice).retrieveRewards([currentGameId])
       ).to.be.emit(Treasury, "UsedRakeback");
       await Game.connect(bob).retrieveRewards([currentGameId]);
-      await Treasury.connect(owner).withdraw(
-        await Treasury.deposits(await USDT.getAddress(), owner.address),
-        await USDT.getAddress()
+      const finalAliceBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
       );
-      await Treasury.connect(bob).withdraw(
-        await Treasury.deposits(await USDT.getAddress(), bob.address),
-        await USDT.getAddress()
+      const finalOwnerBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        owner.address
       );
-      await Treasury.connect(alice).withdraw(
-        await Treasury.deposits(await USDT.getAddress(), alice.address),
-        await USDT.getAddress()
+      const finalBobBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        bob.address
       );
-      const finalAliceBalance = await USDT.balanceOf(alice);
-      const finalOwnerBalance = await USDT.balanceOf(owner);
-      const finalBobBalance = await USDT.balanceOf(bob);
       const finalTreasuryBalance = await USDT.balanceOf(
         await Treasury.getAddress()
       );
       expect(finalTreasuryBalance).to.be.above(oldTreasuryBalance);
       expect(finalOwnerBalance).to.be.above(oldOwnerBalance);
-      expect(oldAliceBalance - finalAliceBalance).to.be.equal(
-        usdtAmount - aliceRakeback
+      expect(finalAliceBalance - oldAliceBalance).to.be.equal(aliceRakeback);
+      const wonAmountBob = calculateWonAmount(
+        usdtAmount - (usdtAmount * (await Game.initiatorFee())) / BigInt(10000),
+        finalRate
       );
-      expect(finalBobBalance).to.be.above(oldBobBalance);
+      expect(finalBobBalance - oldBobBalance).to.be.equal(wonAmountBob);
     });
 
     it("should fail - can't end (long)", async function () {
@@ -819,9 +992,18 @@ describe("Setup Game", () => {
       const oldTreasuryBalance = await USDT.balanceOf(
         await Treasury.getAddress()
       );
-      const oldAliceBalance = await USDT.balanceOf(alice);
-      const oldOwnerBalance = await USDT.balanceOf(owner);
-      const oldBobBalance = await USDT.balanceOf(bob);
+      const oldAliceBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      const oldOwnerBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        owner.address
+      );
+      const oldBobBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        bob.address
+      );
       const isLong = false;
       const startTime = await time.latest();
       const endTime = (await time.latest()) + fortyFiveMinutes;
@@ -855,6 +1037,18 @@ describe("Setup Game", () => {
       receipt = await tx.wait();
       let game = await Game.decodeData(currentGameId);
       let data = await Game.games(currentGameId);
+      const wonTeamTotalWithoutFee =
+        data.totalDepositsTP -
+        (data.totalDepositsTP * (await Game.initiatorFee())) / BigInt(10000);
+      const lostTeamTotalWithoutFee =
+        data.totalDepositsSL -
+        (data.totalDepositsSL * (await Game.initiatorFee())) / BigInt(10000) -
+        (data.totalDepositsSL * (await Game.fee())) / BigInt(10000) -
+        data.totalRakebackSL;
+      const finalRate = calculateRate(
+        wonTeamTotalWithoutFee,
+        lostTeamTotalWithoutFee
+      );
       expect(game.gameStatus).to.be.equal(Status.Finished);
       expect(data.finalPrice).to.be.equal(finalPriceTP);
       expect(game.isLong).to.be.equal(isLong);
@@ -862,6 +1056,7 @@ describe("Setup Game", () => {
       expect(data.stopLossPrice).to.be.equal(tpPrice);
       expect(data.takeProfitPrice).to.be.equal(slPrice);
       expect(data.startingPrice).to.be.equal(assetPrice);
+      expect(data.finalRate).to.be.equal(finalRate);
       expect(game.endTime).to.be.equal(finalizeTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
@@ -873,35 +1068,139 @@ describe("Setup Game", () => {
         Game.connect(alice).retrieveRewards([currentGameId])
       ).to.be.emit(Treasury, "UsedRakeback");
       await Game.connect(bob).retrieveRewards([currentGameId]);
-      await Treasury.connect(owner).withdraw(
-        await Treasury.deposits(await USDT.getAddress(), owner.address),
-        await USDT.getAddress()
+      const finalAliceBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
       );
-      await Treasury.connect(bob).withdraw(
-        await Treasury.deposits(await USDT.getAddress(), bob.address),
-        await USDT.getAddress()
+      const finalOwnerBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        owner.address
       );
-      await Treasury.connect(alice).withdraw(
-        await Treasury.deposits(await USDT.getAddress(), alice.address),
-        await USDT.getAddress()
+      const finalBobBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        bob.address
       );
-      const finalAliceBalance = await USDT.balanceOf(alice);
-      const finalOwnerBalance = await USDT.balanceOf(owner);
-      const finalBobBalance = await USDT.balanceOf(bob);
       const finalTreasuryBalance = await USDT.balanceOf(
         await Treasury.getAddress()
       );
       expect(finalTreasuryBalance).to.be.above(oldTreasuryBalance);
       expect(finalOwnerBalance).to.be.above(oldOwnerBalance);
-      expect(oldAliceBalance - finalAliceBalance).to.be.equal(
-        usdtAmount - aliceRakeback
+      expect(finalAliceBalance - oldAliceBalance).to.be.equal(aliceRakeback);
+      const wonAmountBob = calculateWonAmount(
+        usdtAmount - (usdtAmount * (await Game.initiatorFee())) / BigInt(10000),
+        finalRate
       );
-      expect(finalBobBalance).to.be.above(oldBobBalance);
+      expect(finalBobBalance - oldBobBalance).to.be.equal(wonAmountBob);
     });
 
     it("should end setup game (short) sl wins", async function () {
       const oldTreasuryBalance = await USDT.balanceOf(
         await Treasury.getAddress()
+      );
+      const oldAliceBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      const oldOwnerBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        owner.address
+      );
+      const oldBobBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        bob.address
+      );
+      const isLong = false;
+      const startTime = await time.latest();
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      let tx = await Game.createSetup(
+        isLong,
+        endTime,
+        slPrice,
+        tpPrice,
+        feedNumber,
+        await USDT.getAddress(),
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          startTime
+        )
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt?.logs[0]?.args[0][0];
+      await Game.connect(bob).play(false, usdtAmount, currentGameId);
+      await Game.connect(alice).play(true, usdtAmount, currentGameId);
+      await time.increase(fortyFiveMinutes);
+      const finalizeTime = await time.latest();
+      tx = await Game.finalizeGame(
+        abiEncodeInt192WithTimestamp(
+          finalPriceSL.toString(),
+          feedNumber,
+          finalizeTime
+        ),
+        currentGameId
+      );
+      receipt = await tx.wait();
+      let game = await Game.decodeData(currentGameId);
+      let data = await Game.games(currentGameId);
+      const wonTeamTotalWithoutFee =
+        data.totalDepositsSL -
+        (data.totalDepositsSL * (await Game.initiatorFee())) / BigInt(10000);
+      const lostTeamTotalWithoutFee =
+        data.totalDepositsTP -
+        (data.totalDepositsTP * (await Game.initiatorFee())) / BigInt(10000) -
+        (data.totalDepositsTP * (await Game.fee())) / BigInt(10000) -
+        data.totalRakebackTP;
+      const finalRate = calculateRate(
+        wonTeamTotalWithoutFee,
+        lostTeamTotalWithoutFee
+      );
+      expect(game.gameStatus).to.be.equal(Status.Finished);
+      expect(data.finalPrice).to.be.equal(finalPriceSL);
+      expect(game.isLong).to.be.equal(isLong);
+      expect(game.feedNumber).to.be.equal(feedNumber);
+      expect(data.stopLossPrice).to.be.equal(tpPrice);
+      expect(data.takeProfitPrice).to.be.equal(slPrice);
+      expect(data.startingPrice).to.be.equal(assetPrice);
+      expect(data.finalRate).to.be.equal(finalRate);
+      expect(game.endTime).to.be.equal(finalizeTime);
+      expect(game.startTime).to.be.equal(startTime);
+      expect(game.initiator).to.be.equal(owner.address);
+      await Game.connect(alice).retrieveRewards([currentGameId]);
+      const bobRakeback = await Treasury.lockedRakeback(
+        currentGameId,
+        bob.address
+      );
+      await expect(
+        Game.connect(bob).retrieveRewards([currentGameId])
+      ).to.be.emit(Treasury, "UsedRakeback");
+      const finalAliceBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      const finalOwnerBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        owner.address
+      );
+      const finalBobBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        bob.address
+      );
+      const finalTreasuryBalance = await USDT.balanceOf(
+        await Treasury.getAddress()
+      );
+      expect(finalTreasuryBalance).to.be.above(oldTreasuryBalance);
+      expect(finalOwnerBalance).to.be.above(oldOwnerBalance);
+      const wonAmountAlice = calculateWonAmount(
+        usdtAmount - (usdtAmount * (await Game.initiatorFee())) / BigInt(10000),
+        finalRate
+      );
+      expect(finalAliceBalance - oldAliceBalance).to.be.equal(wonAmountAlice);
+      expect(finalBobBalance - oldBobBalance).to.be.equal(bobRakeback);
+    });
+
+    it("should end setup game with different setup and initiator fees (10%, 5%)", async function () {
+      const oldFeeBalance = await Treasury.collectedFee(
+        await USDT.getAddress()
       );
       const oldAliceBalance = await USDT.balanceOf(alice);
       const oldOwnerBalance = await USDT.balanceOf(owner);
@@ -909,6 +1208,7 @@ describe("Setup Game", () => {
       const isLong = false;
       const startTime = await time.latest();
       const endTime = (await time.latest()) + fortyFiveMinutes;
+      await Game.setInitiatorFee(500);
       let tx = await Game.createSetup(
         isLong,
         endTime,
@@ -972,11 +1272,15 @@ describe("Setup Game", () => {
       const finalAliceBalance = await USDT.balanceOf(alice);
       const finalOwnerBalance = await USDT.balanceOf(owner);
       const finalBobBalance = await USDT.balanceOf(bob);
-      const finalTreasuryBalance = await USDT.balanceOf(
-        await Treasury.getAddress()
+      const finalFeeBalance = await Treasury.collectedFee(
+        await USDT.getAddress()
       );
-      expect(finalTreasuryBalance).to.be.above(oldTreasuryBalance);
-      expect(finalOwnerBalance).to.be.above(oldOwnerBalance);
+      expect(finalFeeBalance - oldFeeBalance).to.be.equal(
+        (usdtAmount * BigInt(10)) / BigInt(100)
+      );
+      expect(finalOwnerBalance - oldOwnerBalance).to.be.equal(
+        (usdtAmount * BigInt(2) * BigInt(5)) / BigInt(100)
+      );
       expect(finalAliceBalance).to.be.above(oldAliceBalance);
       expect(oldBobBalance - finalBobBalance).to.be.equal(
         usdtAmount - bobRakeback
@@ -1168,9 +1472,6 @@ describe("Setup Game", () => {
     });
 
     it("should fail - withdraw rakeback twice", async function () {
-      const oldAliceBalance = await USDT.balanceOf(alice);
-      const oldOwnerBalance = await USDT.balanceOf(owner);
-      const oldBobBalance = await USDT.balanceOf(bob);
       const isLong = true;
       const startTime = await time.latest();
       const endTime = (await time.latest()) + fortyFiveMinutes;
@@ -1202,11 +1503,6 @@ describe("Setup Game", () => {
         currentGameId
       );
       receipt = await tx.wait();
-
-      const bobRakeback = await Treasury.lockedRakeback(
-        currentGameId,
-        bob.address
-      );
 
       //get rakeback for bob
       await expect(
@@ -1274,6 +1570,7 @@ describe("Setup Game", () => {
     });
 
     it("should create TP setup game with XyroToken", async function () {
+      await Treasury.setToken(await XyroToken.getAddress(), true);
       const startTime = await time.latest();
       const endTime = (await time.latest()) + fortyFiveMinutes;
       const isLong = true;
@@ -1306,6 +1603,25 @@ describe("Setup Game", () => {
     });
 
     it("should play SL game with XyroToken", async function () {
+      await Treasury.setToken(await XyroToken.getAddress(), true);
+      const startTime = await time.latest();
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const isLong = true;
+      let tx = await Game.createSetup(
+        isLong,
+        endTime,
+        tpPrice,
+        slPrice,
+        feedNumber,
+        await XyroToken.getAddress(),
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          startTime
+        )
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt?.logs[0]?.args[0][0];
       const oldUserBalance = await XyroToken.balanceOf(bob.address);
       const oldTreasuryBalance = await XyroToken.balanceOf(
         await Treasury.getAddress()
@@ -1322,6 +1638,25 @@ describe("Setup Game", () => {
     });
 
     it("should play TP game with XyroToken", async function () {
+      await Treasury.setToken(await XyroToken.getAddress(), true);
+      const startTime = await time.latest();
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const isLong = true;
+      let tx = await Game.createSetup(
+        isLong,
+        endTime,
+        tpPrice,
+        slPrice,
+        feedNumber,
+        await XyroToken.getAddress(),
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          startTime
+        )
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt?.logs[0]?.args[0][0];
       const oldUserBalance = await XyroToken.balanceOf(alice.address);
       const oldTreasuryBalance = await XyroToken.balanceOf(
         await Treasury.getAddress()
@@ -1338,6 +1673,25 @@ describe("Setup Game", () => {
     });
 
     it("should close setup game with XyroToken", async function () {
+      await Treasury.setToken(await XyroToken.getAddress(), true);
+      const startTime = await time.latest();
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const isLong = true;
+      let tx = await Game.createSetup(
+        isLong,
+        endTime,
+        tpPrice,
+        slPrice,
+        feedNumber,
+        await XyroToken.getAddress(),
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          startTime
+        )
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt?.logs[0]?.args[0][0];
       await time.increase(fortyFiveMinutes);
       await Game.closeGame(currentGameId);
       let game = await Game.decodeData(currentGameId);
@@ -1345,12 +1699,22 @@ describe("Setup Game", () => {
     });
 
     it("should end setup game (long) tp wins with XyroToken", async function () {
+      await Treasury.setToken(await XyroToken.getAddress(), true);
       const oldTreasuryBalance = await XyroToken.balanceOf(
         await Treasury.getAddress()
       );
-      const oldAliceBalance = await XyroToken.balanceOf(alice);
-      const oldOwnerBalance = await XyroToken.balanceOf(owner);
-      const oldBobBalance = await XyroToken.balanceOf(bob);
+      const oldAliceBalance = await Treasury.deposits(
+        await XyroToken.getAddress(),
+        alice.address
+      );
+      const oldOwnerBalance = await Treasury.deposits(
+        await XyroToken.getAddress(),
+        owner.address
+      );
+      const oldBobBalance = await Treasury.deposits(
+        await XyroToken.getAddress(),
+        bob.address
+      );
       const isLong = true;
       const startTime = await time.latest();
       const endTime = (await time.latest()) + fortyFiveMinutes;
@@ -1384,6 +1748,18 @@ describe("Setup Game", () => {
       receipt = await tx.wait();
       let game = await Game.decodeData(currentGameId);
       let data = await Game.games(currentGameId);
+      const wonTeamTotalWithoutFee =
+        data.totalDepositsTP -
+        (data.totalDepositsTP * (await Game.initiatorFee())) / BigInt(10000);
+      const lostTeamTotalWithoutFee =
+        data.totalDepositsSL -
+        (data.totalDepositsSL * (await Game.initiatorFee())) / BigInt(10000) -
+        (data.totalDepositsSL * (await Game.fee())) / BigInt(10000) -
+        data.totalRakebackSL;
+      const finalRate = calculateRate(
+        wonTeamTotalWithoutFee,
+        lostTeamTotalWithoutFee
+      );
       expect(game.gameStatus).to.be.equal(Status.Finished);
       expect(data.finalPrice).to.be.equal(finalPriceTP);
       expect(game.isLong).to.be.equal(isLong);
@@ -1391,6 +1767,7 @@ describe("Setup Game", () => {
       expect(data.stopLossPrice).to.be.equal(slPrice);
       expect(data.takeProfitPrice).to.be.equal(tpPrice);
       expect(data.startingPrice).to.be.equal(assetPrice);
+      expect(data.finalRate).to.be.equal(finalRate);
       expect(game.endTime).to.be.equal(finalizeTime);
       expect(game.startTime).to.be.equal(startTime);
       expect(game.initiator).to.be.equal(owner.address);
@@ -1402,30 +1779,376 @@ describe("Setup Game", () => {
       await expect(
         Game.connect(bob).retrieveRewards([currentGameId])
       ).to.be.emit(Treasury, "UsedRakeback");
-      await Treasury.connect(owner).withdraw(
-        await Treasury.deposits(await XyroToken.getAddress(), owner.address),
-        await XyroToken.getAddress()
+      const finalAliceBalance = await Treasury.deposits(
+        await XyroToken.getAddress(),
+        alice.address
       );
-      await Treasury.connect(bob).withdraw(
-        await Treasury.deposits(await XyroToken.getAddress(), bob.address),
-        await XyroToken.getAddress()
+      const finalOwnerBalance = await Treasury.deposits(
+        await XyroToken.getAddress(),
+        owner.address
       );
-      await Treasury.connect(alice).withdraw(
-        await Treasury.deposits(await XyroToken.getAddress(), alice.address),
-        await XyroToken.getAddress()
+      const finalBobBalance = await Treasury.deposits(
+        await XyroToken.getAddress(),
+        bob.address
       );
-      const finalAliceBalance = await XyroToken.balanceOf(alice);
-      const finalOwnerBalance = await XyroToken.balanceOf(owner);
-      const finalBobBalance = await XyroToken.balanceOf(bob);
       const finalTreasuryBalance = await XyroToken.balanceOf(
         await Treasury.getAddress()
       );
       expect(finalTreasuryBalance).to.be.above(oldTreasuryBalance);
       expect(finalOwnerBalance).to.be.above(oldOwnerBalance);
-      expect(finalAliceBalance).to.be.above(oldAliceBalance);
-      expect(oldBobBalance - finalBobBalance).to.be.above(
-        usdtAmount - bobRakeback
+      const wonAmountAlice = calculateWonAmount(
+        xyroAmount - (xyroAmount * (await Game.initiatorFee())) / BigInt(10000),
+        finalRate
       );
+      expect(finalAliceBalance - oldAliceBalance).to.be.equal(wonAmountAlice);
+      expect(finalBobBalance - oldBobBalance).to.be.equal(bobRakeback);
+    });
+  });
+
+  describe("Various rakeback rates", () => {
+    beforeEach(async () => {
+      //alice = 3%, bob = 1%, owner = 10%, harry = 0%
+      await XyroToken.grantMintAndBurnRoles(bob);
+      await XyroToken.connect(bob)["burn(uint256)"](parse18("9000"));
+      await XyroToken.grantMintAndBurnRoles(harry);
+      await XyroToken.connect(harry)["burn(uint256)"](parse18("10000"));
+    });
+
+    it("should check rakeback rates", async function () {
+      const startTime = await time.latest();
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const isLong = true;
+      let tx = await Game.createSetup(
+        isLong,
+        endTime,
+        tpPrice,
+        slPrice,
+        feedNumber,
+        await USDT.getAddress(),
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          startTime
+        )
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt?.logs[0]?.args[0][0];
+      //1%
+      await Game.connect(bob).play(true, usdtAmount, currentGameId);
+      expect(
+        await Treasury.lockedRakeback(currentGameId, bob.address)
+      ).to.be.equal(usdtAmount / BigInt(100));
+      //3%
+      await Game.connect(alice).play(true, usdtAmount, currentGameId);
+      expect(
+        await Treasury.lockedRakeback(currentGameId, alice.address)
+      ).to.be.equal((usdtAmount / BigInt(100)) * BigInt(3));
+      //0%
+      await Game.connect(harry).play(false, usdtAmount, currentGameId);
+      expect(
+        await Treasury.lockedRakeback(currentGameId, harry.address)
+      ).to.be.equal(0);
+      //10%
+      await Game.play(true, usdtAmount, currentGameId);
+      expect(
+        await Treasury.lockedRakeback(currentGameId, owner.address)
+      ).to.be.equal((usdtAmount / BigInt(100)) * BigInt(10));
+    });
+
+    it("should end setup game (long) tp wins", async function () {
+      const oldTreasuryBalance = await USDT.balanceOf(
+        await Treasury.getAddress()
+      );
+      const oldAliceBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      const oldOwnerBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        owner.address
+      );
+      const oldBobBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        bob.address
+      );
+      const oldHarryBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        harry.address
+      );
+      const isLong = true;
+      const startTime = await time.latest();
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      let tx = await Game.createSetup(
+        isLong,
+        endTime,
+        tpPrice,
+        slPrice,
+        feedNumber,
+        await USDT.getAddress(),
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          startTime
+        )
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt?.logs[0]?.args[0][0];
+      await Game.connect(bob).play(false, usdtAmount, currentGameId);
+      await Game.connect(owner).play(false, usdtAmount, currentGameId);
+      await Game.connect(alice).play(true, usdtAmount, currentGameId);
+      await Game.connect(harry).play(true, usdtAmount, currentGameId);
+      await time.increase(fortyFiveMinutes);
+      const finalizeTime = await time.latest();
+      tx = await Game.finalizeGame(
+        abiEncodeInt192WithTimestamp(
+          finalPriceTP.toString(),
+          feedNumber,
+          finalizeTime
+        ),
+        currentGameId
+      );
+      receipt = await tx.wait();
+      let game = await Game.decodeData(currentGameId);
+      let data = await Game.games(currentGameId);
+      const wonTeamTotalWithoutFee =
+        data.totalDepositsTP -
+        (data.totalDepositsTP * (await Game.initiatorFee())) / BigInt(10000);
+      const lostTeamTotalWithoutFee =
+        data.totalDepositsSL -
+        (data.totalDepositsSL * (await Game.initiatorFee())) / BigInt(10000) -
+        (data.totalDepositsSL * (await Game.fee())) / BigInt(10000) -
+        data.totalRakebackSL;
+      const finalRate = calculateRate(
+        wonTeamTotalWithoutFee,
+        lostTeamTotalWithoutFee
+      );
+      expect(game.gameStatus).to.be.equal(Status.Finished);
+      expect(data.finalPrice).to.be.equal(finalPriceTP);
+      expect(game.isLong).to.be.equal(isLong);
+      expect(game.feedNumber).to.be.equal(feedNumber);
+      expect(data.stopLossPrice).to.be.equal(slPrice);
+      expect(data.takeProfitPrice).to.be.equal(tpPrice);
+      expect(data.startingPrice).to.be.equal(assetPrice);
+      expect(data.finalRate).to.be.equal(finalRate);
+      expect(game.endTime).to.be.equal(finalizeTime);
+      expect(game.startTime).to.be.equal(startTime);
+      expect(game.initiator).to.be.equal(owner.address);
+      const bobRakeback = await Treasury.lockedRakeback(
+        currentGameId,
+        bob.address
+      );
+      await Game.connect(alice).retrieveRewards([currentGameId]);
+      await Game.connect(harry).retrieveRewards([currentGameId]);
+      //get rakeback for bob
+      await expect(
+        Game.connect(bob).retrieveRewards([currentGameId])
+      ).to.be.emit(Treasury, "UsedRakeback");
+
+      await expect(
+        Game.connect(owner).retrieveRewards([currentGameId])
+      ).to.be.emit(Treasury, "UsedRakeback");
+
+      const finalAliceBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      const finalOwnerBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        owner.address
+      );
+      const finalBobBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        bob.address
+      );
+
+      const finalHarryBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        harry.address
+      );
+      const finalTreasuryBalance = await USDT.balanceOf(
+        await Treasury.getAddress()
+      );
+      expect(finalTreasuryBalance).to.be.above(oldTreasuryBalance);
+      expect(finalOwnerBalance).to.be.above(oldOwnerBalance);
+      const wonAmount = calculateWonAmount(
+        usdtAmount - (usdtAmount * (await Game.initiatorFee())) / BigInt(10000),
+        finalRate
+      );
+      expect(finalAliceBalance - oldAliceBalance).to.be.equal(wonAmount);
+      expect(finalHarryBalance - oldHarryBalance).to.be.equal(wonAmount);
+      expect(finalBobBalance - oldBobBalance).to.be.equal(bobRakeback);
+    });
+  });
+
+  describe("No rakeback", () => {
+    beforeEach(async () => {
+      for (let i = 0; i < players.length; i++) {
+        await XyroToken.grantMintAndBurnRoles(players[i].address);
+        await XyroToken.connect(players[i])["burn(uint256)"](parse18("10000"));
+      }
+    });
+
+    it("should play SL game", async function () {
+      const startTime = await time.latest();
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const isLong = true;
+      let tx = await Game.createSetup(
+        isLong,
+        endTime,
+        tpPrice,
+        slPrice,
+        feedNumber,
+        await USDT.getAddress(),
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          startTime
+        )
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt?.logs[0]?.args[0][0];
+      await Game.connect(bob).play(false, usdtAmount, currentGameId);
+
+      expect(
+        await Treasury.lockedRakeback(currentGameId, bob.address)
+      ).to.be.equal(0);
+
+      let data = await Game.games(currentGameId);
+      expect(data.totalRakebackSL).to.equal(0);
+    });
+
+    it("should play TP game", async function () {
+      const startTime = await time.latest();
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const isLong = true;
+      let tx = await Game.createSetup(
+        isLong,
+        endTime,
+        tpPrice,
+        slPrice,
+        feedNumber,
+        await USDT.getAddress(),
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          startTime
+        )
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt?.logs[0]?.args[0][0];
+      await Game.connect(alice).play(true, usdtAmount, currentGameId);
+      expect(
+        await Treasury.lockedRakeback(currentGameId, alice.address)
+      ).to.be.equal(0);
+
+      let data = await Game.games(currentGameId);
+      expect(data.totalRakebackTP).to.equal(0);
+    });
+
+    it("should end setup game (long) tp wins", async function () {
+      const oldTreasuryBalance = await USDT.balanceOf(
+        await Treasury.getAddress()
+      );
+      const oldAliceBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      const oldOwnerBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        owner.address
+      );
+      const oldBobBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        bob.address
+      );
+      const isLong = true;
+      const startTime = await time.latest();
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      let tx = await Game.createSetup(
+        isLong,
+        endTime,
+        tpPrice,
+        slPrice,
+        feedNumber,
+        await USDT.getAddress(),
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          startTime
+        )
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt?.logs[0]?.args[0][0];
+      await Game.connect(bob).play(false, usdtAmount, currentGameId);
+      await Game.connect(alice).play(true, usdtAmount, currentGameId);
+      await time.increase(fortyFiveMinutes);
+      const finalizeTime = await time.latest();
+      tx = await Game.finalizeGame(
+        abiEncodeInt192WithTimestamp(
+          finalPriceTP.toString(),
+          feedNumber,
+          finalizeTime
+        ),
+        currentGameId
+      );
+      receipt = await tx.wait();
+      let game = await Game.decodeData(currentGameId);
+      let data = await Game.games(currentGameId);
+      const wonTeamTotalWithoutFee =
+        data.totalDepositsTP -
+        (data.totalDepositsTP * (await Game.initiatorFee())) / BigInt(10000);
+      const lostTeamTotalWithoutFee =
+        data.totalDepositsSL -
+        (data.totalDepositsSL * (await Game.initiatorFee())) / BigInt(10000) -
+        (data.totalDepositsSL * (await Game.fee())) / BigInt(10000) -
+        data.totalRakebackSL;
+      const finalRate = calculateRate(
+        wonTeamTotalWithoutFee,
+        lostTeamTotalWithoutFee
+      );
+      expect(game.gameStatus).to.be.equal(Status.Finished);
+      expect(data.finalPrice).to.be.equal(finalPriceTP);
+      expect(game.isLong).to.be.equal(isLong);
+      expect(game.feedNumber).to.be.equal(feedNumber);
+      expect(data.stopLossPrice).to.be.equal(slPrice);
+      expect(data.takeProfitPrice).to.be.equal(tpPrice);
+      expect(data.startingPrice).to.be.equal(assetPrice);
+      expect(data.finalRate).to.be.equal(finalRate);
+      expect(game.endTime).to.be.equal(finalizeTime);
+      expect(game.startTime).to.be.equal(startTime);
+      expect(game.initiator).to.be.equal(owner.address);
+      const bobRakeback = await Treasury.lockedRakeback(
+        currentGameId,
+        bob.address
+      );
+      await Game.connect(alice).retrieveRewards([currentGameId]);
+      //get rakeback for bob
+      await expect(
+        Game.connect(bob).retrieveRewards([currentGameId])
+      ).to.be.revertedWith(youLost);
+      const finalAliceBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      const finalOwnerBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        owner.address
+      );
+      const finalBobBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        bob.address
+      );
+      const finalTreasuryBalance = await USDT.balanceOf(
+        await Treasury.getAddress()
+      );
+      expect(finalTreasuryBalance).to.be.above(oldTreasuryBalance);
+      expect(finalOwnerBalance).to.be.above(oldOwnerBalance);
+      const wonAmountAlice = calculateWonAmount(
+        usdtAmount - (usdtAmount * (await Game.initiatorFee())) / BigInt(10000),
+        finalRate
+      );
+      expect(finalAliceBalance - oldAliceBalance).to.be.equal(wonAmountAlice);
+      expect(finalBobBalance - oldBobBalance).to.be.equal(bobRakeback);
     });
   });
 

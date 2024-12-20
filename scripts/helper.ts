@@ -274,3 +274,18 @@ export function calculateRakebackRate(XyroBalance: bigint): bigint {
   }
   return BigInt(0);
 }
+
+export function calculateRate(
+  wonTeamTotal: bigint,
+  lostTeamWithoutRakeback: bigint
+): bigint {
+  return (lostTeamWithoutRakeback * BigInt(1000000000)) / wonTeamTotal;
+}
+
+export function calculateWonAmount(
+  initialDeposit: bigint,
+  rate: bigint
+): bigint {
+  const won = (initialDeposit * rate) / BigInt(1000000000);
+  return initialDeposit + won;
+}

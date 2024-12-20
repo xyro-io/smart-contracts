@@ -19,7 +19,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     mapping(address => bool) public approvedTokens;
     address public xyroToken;
     address public upkeep;
-    uint256 public setupInitiatorFee;
     uint256 public constant FEE_DENOMINATOR = 10000;
     uint256 public constant RATE_PRECISION_AMPLIFIER = 1000000000;
     bytes32 public constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
@@ -44,7 +43,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         xyroToken = xyroTokenAddress;
         approvedTokens[approvedToken] = true;
-        setupInitiatorFee = 1000;
         minDepositAmount[approvedToken] =
             10 ** IERC20Mint(approvedToken).decimals();
         rakebackRate = [
@@ -85,14 +83,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     ) public onlyRole(DISTRIBUTOR_ROLE) {
         require(approvedTokens[token], "Unapproved token");
         gameToken[gameId] = token;
-    }
-
-    /**
-     * Set new fee for setup games
-     * @param newFee fee in bp
-     */
-    function setSetupFee(uint256 newFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        setupInitiatorFee = newFee;
     }
 
     /**
@@ -310,7 +300,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
             lockedRakeback[gameId][from] += rakeback;
         }
         deposits[token][from] -= amount;
-        // locked[token][from] += amount;
         locked[gameId] += amount;
     }
 
@@ -358,12 +347,9 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         emit FeeCollected(withdrawnFees, collectedFee[token], token);
         if (rakeback != 0) {
             lockedRakeback[gameId][to] = 0;
-            locked[gameId] -= (amount + rakeback);
-            deposits[token][to] += (amount + rakeback - withdrawnFees);
-        } else {
-            locked[gameId] -= amount;
-            deposits[token][to] += (amount - withdrawnFees);
         }
+        locked[gameId] -= amount;
+        deposits[token][to] += (amount - withdrawnFees);
         emit Refunded(to, (amount - withdrawnFees), token);
     }
 
@@ -464,7 +450,7 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     ) external onlyRole(DISTRIBUTOR_ROLE) returns (uint256 withdrawnFees) {
         address token = gameToken[gameId];
         withdrawnFees =
-            (wonTeamDeposits + lostTeamDeposits * initiatorFee) /
+            ((wonTeamDeposits + lostTeamDeposits) * initiatorFee) /
             FEE_DENOMINATOR;
         deposits[token][initiator] += withdrawnFees;
         emit Distributed(initiator, withdrawnFees, token);

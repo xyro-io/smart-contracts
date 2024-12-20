@@ -64,7 +64,7 @@ describe("OneVsOne", () => {
   const equalInitiatorDiffPrice = parse18("61900");
   const finalPrice = parse18("61800");
   const finalPrice2 = parse18("73800");
-  before(async () => {
+  beforeEach(async () => {
     [owner, opponent, alice] = await ethers.getSigners();
     players = [owner, opponent, alice];
     USDT = await new MockToken__factory(owner).deploy(
@@ -168,6 +168,7 @@ describe("OneVsOne", () => {
     });
 
     it("should fail - game creation with deposit disabled", async function () {
+      await Game.toggleActive();
       const endTime = (await time.latest()) + fortyFiveMinutes;
       await expect(
         Game.createGameWithDeposit(
@@ -179,7 +180,6 @@ describe("OneVsOne", () => {
           await USDT.getAddress()
         )
       ).to.be.revertedWith(requireCreationEnabled);
-      await Game.toggleActive();
     });
 
     it("should fail - wrong min bet duration", async function () {
@@ -209,7 +209,7 @@ describe("OneVsOne", () => {
       ).to.be.revertedWith(requireApprovedFeedNumber);
     });
 
-    it("should fail - wrong feedNumber createGameWithDepisit", async function () {
+    it("should fail - wrong feedNumber createGameWithDeposit", async function () {
       const wrongFeedNumber = 9;
       await expect(
         Game.createGameWithDeposit(
@@ -265,6 +265,16 @@ describe("OneVsOne", () => {
 
   describe("Accept game", async function () {
     it("should accept exact price bet", async function () {
+      let tx = await Game.createGame(
+        feedNumber,
+        opponent.address,
+        (await time.latest()) + fortyFiveMinutes,
+        initiatorPrice,
+        usdtAmount,
+        await USDT.getAddress()
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt!.logs[1]!.args[0];
       const oldUserBalance = await USDT.balanceOf(opponent.address);
       await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
       const sentUserAmount =
@@ -530,6 +540,32 @@ describe("OneVsOne", () => {
       expect(newBalance - oldBalance).to.be.equal(
         usdtAmount * BigInt(2) -
           (usdtAmount * (await Game.fee())) / BigInt(10000)
+      );
+    });
+
+    it("should fail - impossible for third user to play the game", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+
+      const tx = await Game.createGame(
+        feedNumber,
+        ethers.ZeroAddress,
+        endTime,
+        initiatorPrice,
+        usdtAmount,
+        await USDT.getAddress()
+      );      
+      receipt = await tx.wait();
+      currentGameId = receipt!.logs[1]!.args[0];
+      await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
+      await expect(Game.connect(alice).acceptGame(currentGameId, opponentPrice + BigInt(1))).to.be.revertedWith(requireWrongStatus);
+      await time.increase(fortyFiveMinutes);
+      await Game.finalizeGame(
+        currentGameId,
+        abiEncodeInt192WithTimestamp(
+          finalPrice.toString(),
+          feedNumber,
+          await time.latest()
+        )
       );
     });
 
@@ -909,7 +945,6 @@ describe("OneVsOne", () => {
       expect(game.initiator).to.be.equal(owner.address);
       expect(game.opponent).to.be.equal(ethers.ZeroAddress);
       expect(game.endTime).to.be.equal(endTime);
-
       expect(game.gameStatus).to.be.equal(Status.Created);
       expect(game.feedNumber).to.be.equal(feedNumber);
       let data = await Game.games(currentGameId);
@@ -918,6 +953,17 @@ describe("OneVsOne", () => {
     });
 
     it("should accept exact price bet with XyroToken", async function () {
+      await Treasury.setToken(await XyroToken.getAddress(), true);
+      let tx = await Game.createGame(
+        feedNumber,
+        ethers.ZeroAddress,
+        (await time.latest()) + fortyFiveMinutes,
+        initiatorPrice,
+        xyroAmount,
+        await XyroToken.getAddress()
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt!.logs[1]!.args[0];
       const oldUserBalance = await XyroToken.balanceOf(opponent.address);
       await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
       const sentUserAmount =
@@ -930,6 +976,7 @@ describe("OneVsOne", () => {
     });
 
     it("should create and close game with XyroToken", async function () {
+      await Treasury.setToken(await XyroToken.getAddress(), true);
       const tx = await Game.createGame(
         feedNumber,
         opponent.address,
@@ -952,6 +999,7 @@ describe("OneVsOne", () => {
     });
 
     it("should end the game with XyroToken", async function () {
+      await Treasury.setToken(await XyroToken.getAddress(), true);
       const tx = await Game.createGame(
         feedNumber,
         opponent.address,
@@ -1286,6 +1334,13 @@ describe("OneVsOne", () => {
 
     it("should accept game with permit", async function () {
       const deadline = (await time.latest()) + fortyFiveMinutes;
+      let ownerPermit = await getPermitSignature(
+        owner,
+        USDT,
+        await Treasury.getAddress(),
+        usdtAmount,
+        BigInt(deadline)
+      );
       let opponentPermit = await getPermitSignature(
         opponent,
         USDT,
@@ -1294,6 +1349,21 @@ describe("OneVsOne", () => {
         BigInt(deadline)
       );
       const oldUserBalance = await USDT.balanceOf(opponent.address);
+      const tx = await Game.createGameWithPermit(
+        feedNumber,
+        opponent.address,
+        (await time.latest()) + fortyFiveMinutes,        initiatorPrice,
+        usdtAmount,
+        await USDT.getAddress(),
+        {
+          deadline: deadline,
+          v: ownerPermit.v,
+          r: ownerPermit.r,
+          s: ownerPermit.s,
+        }
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt!.logs[2]!.args[0];
       await Game.connect(opponent).acceptGameWithPermit(
         currentGameId,
         opponentPrice,

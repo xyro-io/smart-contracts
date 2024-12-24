@@ -36,6 +36,7 @@ const disabledGame = "Game is disabled";
 const requireSufficentDepositAmount = "Insufficent deposit amount";
 const requireApprovedToken = "Unapproved token";
 const requireWrongusdtAmount = "Wrong deposit amount";
+const oldChainlinkReport = "Old chainlink report";
 const Status = {
   Created: 0,
   Cancelled: 1,
@@ -479,7 +480,9 @@ describe("Setup Game", () => {
       );
       receipt = await tx.wait();
       currentGameId = receipt?.logs[0]?.args[0][0];
-      await expect(Game.connect(bob).play(true, 0, currentGameId)).to.be.revertedWith(requireWrongusdtAmount);
+      await expect(
+        Game.connect(bob).play(true, 0, currentGameId)
+      ).to.be.revertedWith(requireWrongusdtAmount);
     });
 
     it("should play and rewrite totalDepositsTP", async function () {
@@ -779,7 +782,7 @@ describe("Setup Game", () => {
       await Game.connect(bob).play(false, usdtAmount, currentGameId);
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
       await time.increase(fortyFiveMinutes);
-      const finalizeTime = await time.latest();
+      const finalizeTime = endTime - 60;
       tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
           finalPriceTP.toString(),
@@ -885,7 +888,7 @@ describe("Setup Game", () => {
       await Game.connect(bob).play(false, usdtAmount, currentGameId);
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
       await time.increase(fortyFiveMinutes);
-      const finalizeTime = await time.latest();
+      const finalizeTime = endTime - 60;
       tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
           finalPriceSL.toString(),
@@ -975,7 +978,7 @@ describe("Setup Game", () => {
       await Game.connect(bob).play(false, usdtAmount, currentGameId);
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
       await time.increase(fortyFiveMinutes);
-      const finalizeTime = await time.latest();
+      const finalizeTime = endTime - 60;
       await expect(
         Game.finalizeGame(
           abiEncodeInt192WithTimestamp(
@@ -986,6 +989,40 @@ describe("Setup Game", () => {
           currentGameId
         )
       ).to.be.revertedWith(cantEnd);
+    });
+
+    it("should fail - old chainlink report", async function () {
+      const isLong = true;
+      const startTime = await time.latest();
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      let tx = await Game.createSetup(
+        isLong,
+        endTime,
+        tpPrice,
+        slPrice,
+        feedNumber,
+        await USDT.getAddress(),
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          startTime
+        )
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt?.logs[0]?.args[0][0];
+      await Game.connect(bob).play(false, usdtAmount, currentGameId);
+      await Game.connect(alice).play(true, usdtAmount, currentGameId);
+      await time.increase(fortyFiveMinutes);
+      await expect(
+        Game.finalizeGame(
+          abiEncodeInt192WithTimestamp(
+            assetPrice.toString(),
+            feedNumber,
+            endTime + fifteenMinutes
+          ),
+          currentGameId
+        )
+      ).to.be.revertedWith(oldChainlinkReport);
     });
 
     it("should end setup game (short) tp wins", async function () {
@@ -1025,7 +1062,7 @@ describe("Setup Game", () => {
       await Game.connect(bob).play(false, usdtAmount, currentGameId);
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
       await time.increase(fortyFiveMinutes);
-      const finalizeTime = await time.latest();
+      const finalizeTime = endTime - 60;
       tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
           finalPriceTP.toString(),
@@ -1130,7 +1167,7 @@ describe("Setup Game", () => {
       await Game.connect(bob).play(false, usdtAmount, currentGameId);
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
       await time.increase(fortyFiveMinutes);
-      const finalizeTime = await time.latest();
+      const finalizeTime = endTime - 60;
       tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
           finalPriceSL.toString(),
@@ -1227,7 +1264,7 @@ describe("Setup Game", () => {
       await Game.connect(bob).play(false, usdtAmount, currentGameId);
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
       await time.increase(fortyFiveMinutes);
-      const finalizeTime = await time.latest();
+      const finalizeTime = endTime - 60;
       tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
           finalPriceSL.toString(),
@@ -1309,7 +1346,7 @@ describe("Setup Game", () => {
       await Game.connect(bob).play(false, usdtAmount, currentGameId);
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
       await time.increase(fortyFiveMinutes);
-      const finalizeTime = await time.latest();
+      const finalizeTime = endTime - 60;
       await expect(
         Game.finalizeGame(
           abiEncodeInt192WithTimestamp(
@@ -1374,7 +1411,7 @@ describe("Setup Game", () => {
       await Game.connect(bob).play(false, usdtAmount, currentGameId);
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
       await time.increase(fortyFiveMinutes);
-      const finalizeTime = await time.latest();
+      const finalizeTime = endTime - 60;
       await expect(
         Game.connect(alice).finalizeGame(
           abiEncodeInt192WithTimestamp(
@@ -1493,7 +1530,7 @@ describe("Setup Game", () => {
       await Game.connect(bob).play(false, usdtAmount, currentGameId);
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
       await time.increase(fortyFiveMinutes);
-      const finalizeTime = await time.latest();
+      const finalizeTime = endTime - 60;
       tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
           finalPriceTP.toString(),
@@ -1736,7 +1773,7 @@ describe("Setup Game", () => {
       await Game.connect(bob).play(false, xyroAmount, currentGameId);
       await Game.connect(alice).play(true, xyroAmount, currentGameId);
       await time.increase(fortyFiveMinutes);
-      const finalizeTime = await time.latest();
+      const finalizeTime = endTime - 60;
       tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
           finalPriceTP.toString(),
@@ -1898,7 +1935,7 @@ describe("Setup Game", () => {
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
       await Game.connect(harry).play(true, usdtAmount, currentGameId);
       await time.increase(fortyFiveMinutes);
-      const finalizeTime = await time.latest();
+      const finalizeTime = endTime - 60;
       tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
           finalPriceTP.toString(),
@@ -2082,7 +2119,7 @@ describe("Setup Game", () => {
       await Game.connect(bob).play(false, usdtAmount, currentGameId);
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
       await time.increase(fortyFiveMinutes);
-      const finalizeTime = await time.latest();
+      const finalizeTime = endTime - 60;
       tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
           finalPriceTP.toString(),

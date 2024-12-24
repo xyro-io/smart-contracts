@@ -479,7 +479,9 @@ describe("Setup Game", () => {
       );
       receipt = await tx.wait();
       currentGameId = receipt?.logs[0]?.args[0][0];
-      await expect(Game.connect(bob).play(true, 0, currentGameId)).to.be.revertedWith(requireWrongusdtAmount);
+      await expect(
+        Game.connect(bob).play(true, 0, currentGameId)
+      ).to.be.revertedWith(requireWrongusdtAmount);
     });
 
     it("should play and rewrite totalDepositsTP", async function () {
@@ -609,6 +611,29 @@ describe("Setup Game", () => {
       await Game.closeGame(currentGameId);
       let game = await Game.decodeData(currentGameId);
       expect(game.gameStatus).to.be.equal(Status.Cancelled);
+    });
+
+    it("should fail - attempt to close game twice", async function () {
+      let tx = await Game.createSetup(
+        true,
+        (await time.latest()) + fortyFiveMinutes,
+        tpPrice,
+        slPrice,
+        feedNumber,
+        await USDT.getAddress(),
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          await time.latest()
+        )
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt?.logs[0]?.args[0][0];
+      await time.increase(fortyFiveMinutes);
+      await Game.closeGame(currentGameId);
+      await expect(Game.closeGame(currentGameId)).to.be.revertedWith(
+        wrongStatus
+      );
     });
 
     it("should close game and refund for TP team", async function () {

@@ -354,10 +354,11 @@ contract Setup is AccessControl {
         GameInfo memory data = decodeData(gameId);
         require(data.startTime != 0, "Game doesn't exist");
         require(
-            ((data.startTime + (data.endTime - data.startTime) / 3 <
-                block.timestamp &&
-                (data.SLplayers == 0 || data.TPplayers == 0)) ||
-                block.timestamp > data.endTime),
+            data.gameStatus == Status.Created &&
+                ((data.startTime + (data.endTime - data.startTime) / 3 <
+                    block.timestamp &&
+                    (data.SLplayers == 0 || data.TPplayers == 0)) ||
+                    block.timestamp > data.endTime),
             "Wrong status!"
         );
         //rewrites status

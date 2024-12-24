@@ -293,6 +293,7 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         bool isRakeback
     ) public onlyRole(DISTRIBUTOR_ROLE) returns (uint256 rakeback) {
         address token = gameToken[gameId];
+        require(amount >= minDepositAmount[token], "Wrong deposit amount");
         require(approvedTokens[token], "Unapproved token");
         require(deposits[token][from] >= amount, "Insufficent deposit amount");
         if (isRakeback) {

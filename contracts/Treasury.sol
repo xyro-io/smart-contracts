@@ -40,6 +40,7 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         address approvedToken,
         address xyroTokenAddress
     ) public initializer {
+        __AccessControl_init();
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         xyroToken = xyroTokenAddress;
         approvedTokens[approvedToken] = true;

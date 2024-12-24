@@ -236,6 +236,7 @@ contract UpDown is AccessControl {
         bytes memory unverifiedReport
     ) public onlyRole(GAME_MASTER_ROLE) {
         GameInfo memory game = decodeData();
+        require(startingPrice == 0, "Starting price already set");
         require(block.timestamp >= game.stopPredictAt, "Too early");
         require(
             UpPlayers.length != 0 || DownPlayers.length != 0,
@@ -245,7 +246,7 @@ contract UpDown is AccessControl {
         (int192 priceData, uint32 priceTimestamp) = IDataStreamsVerifier(upkeep)
             .verifyReportWithTimestamp(unverifiedReport, game.feedNumber);
         require(
-            block.timestamp - priceTimestamp <= 1 minutes,
+            priceTimestamp - game.stopPredictAt <= 1 minutes,
             "Old chainlink report"
         );
         startingPrice = uint192(priceData);

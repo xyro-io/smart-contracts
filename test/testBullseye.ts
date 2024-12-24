@@ -29,6 +29,7 @@ const requireValidChainlinkReport = "Old chainlink report";
 const requireSufficentDepositAmount = "Insufficent deposit amount";
 const requireApprovedToken = "Unapproved token";
 const maxPlayersReached = "Max player amount reached";
+const requireAboveMinDepositAmount = "Wrong min deposit amount";
 
 describe("Bullseye", () => {
   let owner: HardhatEthersSigner;
@@ -138,6 +139,18 @@ describe("Bullseye", () => {
         )
       ).to.be.revertedWith(requireFinishedGame);
       await Game.closeGame();
+    });
+
+    it("should fail - wrong min deposit amount", async function () {
+      await expect(
+        Game.startGame(
+          (await time.latest()) + fortyFiveMinutes,
+          (await time.latest()) + fifteenMinutes,
+          1,
+          feedNumber,
+          await USDT.getAddress()
+        )
+      ).to.be.revertedWith(requireAboveMinDepositAmount);
     });
   });
 
@@ -1256,18 +1269,19 @@ describe("Bullseye", () => {
 
     it("should fail - max amount of players reached", async function () {
       const signers = await ethers.getSigners();
-      for (let i = 0; i < 100; i++) {  
-          await USDT.mint(signers[i].address, parse18("10000000"));
-          await USDT.connect(signers[i]).approve(
-            await Treasury.getAddress(),
-            ethers.MaxUint256
-          );
-          await Game.connect(signers[i]).play(guessMaxPrice + BigInt(i));
-        }
-    
-    await expect(Game.connect(signers[100]).play(guessBobPrice)).to.be.revertedWith(maxPlayersReached);
-  });
-  
+      for (let i = 0; i < 100; i++) {
+        await USDT.mint(signers[i].address, parse18("10000000"));
+        await USDT.connect(signers[i]).approve(
+          await Treasury.getAddress(),
+          ethers.MaxUint256
+        );
+        await Game.connect(signers[i]).play(guessMaxPrice + BigInt(i));
+      }
+
+      await expect(
+        Game.connect(signers[100]).play(guessBobPrice)
+      ).to.be.revertedWith(maxPlayersReached);
+    });
   });
 
   describe("Games with XyroToken", async function () {

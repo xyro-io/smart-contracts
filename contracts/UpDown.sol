@@ -72,6 +72,10 @@ contract UpDown is AccessControl {
     ) public onlyRole(GAME_MASTER_ROLE) {
         require(packedData == 0, "Finish previous game first");
         require(endTime > stopPredictAt, "Ending time must be higher");
+        require(
+            depositAmount >= ITreasury(treasury).minDepositAmount(token),
+            "Wrong min deposit amount"
+        );
         packedData = (block.timestamp |
             (uint256(stopPredictAt) << 32) |
             (uint256(endTime) << 64) |

@@ -103,4 +103,6 @@ interface ITreasury {
     function withdrawRakebackSetup(bytes32 gameId, address target) external;
 
     function setGameToken(bytes32 gameId, address token) external;
+
+    function minDepositAmount(address token) external returns (uint256 amount);
 }

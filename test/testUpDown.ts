@@ -33,6 +33,7 @@ const requireSufficentDepositAmount = "Insufficent deposit amount";
 const requireHigherDepositAmount = "Wrong deposit amount";
 const requireApprovedToken = "Unapproved token";
 const maxPlayersReached = "Max player amount reached";
+const requireAboveMinDepositAmount = "Wrong min deposit amount";
 
 describe("UpDown", () => {
   let owner: HardhatEthersSigner;
@@ -131,6 +132,20 @@ describe("UpDown", () => {
           feedNumber
         )
       ).to.be.revertedWith(requireFinishedGame);
+    });
+
+    it("should fail - wrong min deposit amount", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = (await time.latest()) + fifteenMinutes;
+      await expect(
+        Game.startGame(
+          (await time.latest()) + fortyFiveMinutes,
+          (await time.latest()) + fifteenMinutes,
+          0,
+          await USDT.getAddress(),
+          feedNumber
+        )
+      ).to.be.revertedWith(requireAboveMinDepositAmount);
     });
   });
 
@@ -390,7 +405,9 @@ describe("UpDown", () => {
           await time.latest()
         )
       );
-      await expect(Game.connect(bob).play(true, usdtAmount)).to.be.revertedWith(requireOpenedGame);
+      await expect(Game.connect(bob).play(true, usdtAmount)).to.be.revertedWith(
+        requireOpenedGame
+      );
     });
 
     it("should fail - max amount of players reached", async function () {
@@ -405,7 +422,7 @@ describe("UpDown", () => {
       );
 
       const signers = await ethers.getSigners();
-      for (let i = 0; i < 100; i++) {  
+      for (let i = 0; i < 100; i++) {
         await USDT.mint(signers[i].address, parse18("10000000"));
         await USDT.connect(signers[i]).approve(
           await Treasury.getAddress(),
@@ -413,9 +430,10 @@ describe("UpDown", () => {
         );
         await Game.connect(signers[i]).play(true, usdtAmount);
       }
-      await expect(Game.connect(signers[100]).play(true, usdtAmount)).to.be.revertedWith(maxPlayersReached);
+      await expect(
+        Game.connect(signers[100]).play(true, usdtAmount)
+      ).to.be.revertedWith(maxPlayersReached);
     });
-
 
     it("should fail - too early", async function () {
       await Game.startGame(
@@ -693,7 +711,7 @@ describe("UpDown", () => {
         await USDT.getAddress(),
         alice.address
       );
-      expect(newOpponentDeposit).to.be.equal(newAliceDeposit * BigInt(4))
+      expect(newOpponentDeposit).to.be.equal(newAliceDeposit * BigInt(4));
       await Treasury.connect(alice).withdraw(
         await Treasury.deposits(await USDT.getAddress(), alice.address),
         await USDT.getAddress()

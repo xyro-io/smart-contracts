@@ -90,6 +90,12 @@ contract Bullseye is AccessControl {
     ) public onlyRole(GAME_MASTER_ROLE) {
         require(packedData == 0, "Finish previous game first");
         require(endTime > block.timestamp, "Wrong ending time");
+        require(
+            IDataStreamsVerifier(ITreasury(treasury).upkeep()).assetId(
+                feedNumber
+            ) != bytes32(0),
+            "Wrong feed number"
+        );
         packedData = (block.timestamp |
             (uint256(stopPredictAt) << 32) |
             (uint256(endTime) << 64) |

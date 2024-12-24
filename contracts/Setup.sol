@@ -125,6 +125,12 @@ contract Setup is AccessControl {
             endTime - block.timestamp <= maxDuration,
             "Max game duration must be lower"
         );
+        require(
+            IDataStreamsVerifier(ITreasury(treasury).upkeep()).assetId(
+                feedNumber
+            ) != bytes32(0),
+            "Wrong feed number"
+        );
         bytes32 gameId = keccak256(
             abi.encodePacked(
                 block.timestamp,

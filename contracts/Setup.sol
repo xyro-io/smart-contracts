@@ -94,6 +94,7 @@ contract Setup is AccessControl {
 
     constructor(address newTreasury) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        require(newTreasury != address(0), "Zero address");
         treasury = newTreasury;
     }
 

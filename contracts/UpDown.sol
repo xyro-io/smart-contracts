@@ -168,6 +168,7 @@ contract UpDown is AccessControl {
             totalDepositsDown += depositAmount;
             DownPlayers.push(msg.sender);
         }
+        isParticipating[msg.sender] = true;
         emit UpDownNewPlayer(
             msg.sender,
             isLong,

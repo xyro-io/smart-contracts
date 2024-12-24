@@ -31,7 +31,7 @@ const gameClosed = "Game is closed for new players";
 const isParticipating = "You are already in the game";
 const dontExist = "Game doesn't exist";
 const cantEnd = "Can't end";
-const youLost = "You lost";
+const noRakeback = "No rakeback available";
 const disabledGame = "Game is disabled";
 const requireSufficentDepositAmount = "Insufficent deposit amount";
 const requireApprovedToken = "Unapproved token";
@@ -479,7 +479,9 @@ describe("Setup Game", () => {
       );
       receipt = await tx.wait();
       currentGameId = receipt?.logs[0]?.args[0][0];
-      await expect(Game.connect(bob).play(true, 0, currentGameId)).to.be.revertedWith(requireWrongusdtAmount);
+      await expect(
+        Game.connect(bob).play(true, 0, currentGameId)
+      ).to.be.revertedWith(requireWrongusdtAmount);
     });
 
     it("should play and rewrite totalDepositsTP", async function () {
@@ -1510,7 +1512,7 @@ describe("Setup Game", () => {
       ).to.be.emit(Treasury, "UsedRakeback");
       await expect(
         Game.connect(bob).retrieveRewards([currentGameId])
-      ).to.revertedWith(youLost);
+      ).to.revertedWith(noRakeback);
     });
   });
 
@@ -2125,7 +2127,7 @@ describe("Setup Game", () => {
       //get rakeback for bob
       await expect(
         Game.connect(bob).retrieveRewards([currentGameId])
-      ).to.be.revertedWith(youLost);
+      ).to.be.revertedWith(noRakeback);
       const finalAliceBalance = await Treasury.deposits(
         await USDT.getAddress(),
         alice.address

@@ -131,7 +131,8 @@ contract Setup is AccessControl {
                 endTime,
                 takeProfitPrice,
                 stopLossPrice,
-                msg.sender
+                msg.sender,
+                address(this)
             )
         );
         ITreasury(treasury).setGameToken(gameId, token);

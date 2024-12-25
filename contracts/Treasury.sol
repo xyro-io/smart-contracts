@@ -32,6 +32,11 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     mapping(bytes32 => bool) public gameStatus;
     mapping(bytes32 => mapping(address => uint256)) public lockedRakeback;
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     /**
      * @param approvedToken stable token used in games
      * @param xyroTokenAddress XYRO token address

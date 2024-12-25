@@ -33,6 +33,7 @@ const requireSufficentDepositAmount = "Insufficent deposit amount";
 const requireHigherDepositAmount = "Wrong deposit amount";
 const requireApprovedToken = "Unapproved token";
 const maxPlayersReached = "Max player amount reached";
+const requireAboveMinDepositAmount = "Wrong min deposit amount";
 const requireApprovedFeedNumber = "Wrong feed number";
 const requireHigherGap = "Timeframe gap must be higher";
 const requireStartingPriceNotSet = "Starting price already set";
@@ -165,6 +166,19 @@ describe("UpDown", () => {
       ).to.be.revertedWith(requireFinishedGame);
     });
 
+    it("should fail - wrong min deposit amount", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = (await time.latest()) + fifteenMinutes;
+      await expect(
+        Game.startGame(
+          (await time.latest()) + fortyFiveMinutes,
+          (await time.latest()) + fifteenMinutes,
+          0,
+          await USDT.getAddress(),
+          feedNumber
+        )
+      ).to.be.revertedWith(requireAboveMinDepositAmount);
+    });
     it("should fail - incorrect timeframe gap", async function () {
       const endTime = (await time.latest()) + fortyFiveMinutes;
       const stopPredictAt = endTime - 10;

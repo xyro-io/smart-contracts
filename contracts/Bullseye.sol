@@ -91,6 +91,10 @@ contract Bullseye is AccessControl {
         require(packedData == 0, "Finish previous game first");
         require(endTime > block.timestamp, "Wrong ending time");
         require(
+            newDepositAmount >= ITreasury(treasury).minDepositAmount(token),
+            "Wrong min deposit amount"
+        );
+        require(
             IDataStreamsVerifier(ITreasury(treasury).upkeep()).assetId(
                 feedNumber
             ) != bytes32(0),

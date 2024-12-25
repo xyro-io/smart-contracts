@@ -29,6 +29,7 @@ const requireValidChainlinkReport = "Old chainlink report";
 const requireSufficentDepositAmount = "Insufficent deposit amount";
 const requireApprovedToken = "Unapproved token";
 const maxPlayersReached = "Max player amount reached";
+const requireAboveMinDepositAmount = "Wrong min deposit amount";
 const requireApprovedFeedNumber = "Wrong feed number";
 
 describe("Bullseye", () => {
@@ -167,6 +168,18 @@ describe("Bullseye", () => {
         )
       ).to.be.revertedWith(requireFinishedGame);
       await Game.closeGame();
+    });
+
+    it("should fail - wrong min deposit amount", async function () {
+      await expect(
+        Game.startGame(
+          (await time.latest()) + fortyFiveMinutes,
+          (await time.latest()) + fifteenMinutes,
+          1,
+          feedNumber,
+          await USDT.getAddress()
+        )
+      ).to.be.revertedWith(requireAboveMinDepositAmount);
     });
   });
 

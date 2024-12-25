@@ -394,6 +394,36 @@ describe("OneVsOne", () => {
       );
     });
 
+    it("should close after 3 days and refund to both players", async function () {
+      const fourDays = 345600;
+      const tx = await Game.createGame(
+        feedNumber,
+        opponent.address,
+        (await time.latest()) + fortyFiveMinutes,
+        initiatorPrice,
+        usdtAmount,
+        await USDT.getAddress()
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt!.logs[1]!.args[0];
+      await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
+      await time.increase(fourDays);
+      await Game.closeGame(currentGameId);
+      expect((await Game.decodeData(currentGameId)).gameStatus).to.equal(
+        Status.Cancelled
+      );
+      expect(
+        await Treasury.deposits(await USDT.getAddress(), owner.address)
+      ).to.be.equal(usdtAmount);
+      expect(
+        await Treasury.deposits(await USDT.getAddress(), opponent.address)
+      ).to.be.equal(usdtAmount);
+      await Treasury.connect(owner).withdraw(
+        await Treasury.deposits(await USDT.getAddress(), owner.address),
+        await USDT.getAddress()
+      );
+    });
+
     it("should close game accepted game if 3 days passed without finish", async function () {
       const threeDaysUnix = 259205;
       const tx = await Game.createGame(
@@ -553,11 +583,13 @@ describe("OneVsOne", () => {
         initiatorPrice,
         usdtAmount,
         await USDT.getAddress()
-      );      
+      );
       receipt = await tx.wait();
       currentGameId = receipt!.logs[1]!.args[0];
       await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
-      await expect(Game.connect(alice).acceptGame(currentGameId, opponentPrice + BigInt(1))).to.be.revertedWith(requireWrongStatus);
+      await expect(
+        Game.connect(alice).acceptGame(currentGameId, opponentPrice + BigInt(1))
+      ).to.be.revertedWith(requireWrongStatus);
       await time.increase(fortyFiveMinutes);
       await Game.finalizeGame(
         currentGameId,
@@ -1352,7 +1384,8 @@ describe("OneVsOne", () => {
       const tx = await Game.createGameWithPermit(
         feedNumber,
         opponent.address,
-        (await time.latest()) + fortyFiveMinutes,        initiatorPrice,
+        (await time.latest()) + fortyFiveMinutes,
+        initiatorPrice,
         usdtAmount,
         await USDT.getAddress(),
         {

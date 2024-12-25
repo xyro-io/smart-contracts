@@ -595,13 +595,6 @@ contract Setup is AccessControl {
                     if (
                         withdrawStatus[gameIds[i]][msg.sender] == UserStatus.SL
                     ) {
-                        require(
-                            ITreasury(treasury).lockedRakeback(
-                                gameIds[i],
-                                msg.sender
-                            ) != 0,
-                            "You lost"
-                        );
                         ITreasury(treasury).withdrawRakebackSetup(
                             gameIds[i],
                             msg.sender
@@ -626,13 +619,6 @@ contract Setup is AccessControl {
                     if (
                         withdrawStatus[gameIds[i]][msg.sender] == UserStatus.TP
                     ) {
-                        require(
-                            ITreasury(treasury).lockedRakeback(
-                                gameIds[i],
-                                msg.sender
-                            ) != 0,
-                            "You lost"
-                        );
                         ITreasury(treasury).withdrawRakebackSetup(
                             gameIds[i],
                             msg.sender
@@ -659,13 +645,6 @@ contract Setup is AccessControl {
                     if (
                         withdrawStatus[gameIds[i]][msg.sender] == UserStatus.TP
                     ) {
-                        require(
-                            ITreasury(treasury).lockedRakeback(
-                                gameIds[i],
-                                msg.sender
-                            ) != 0,
-                            "You lost"
-                        );
                         ITreasury(treasury).withdrawRakebackSetup(
                             gameIds[i],
                             msg.sender
@@ -689,13 +668,6 @@ contract Setup is AccessControl {
                     if (
                         withdrawStatus[gameIds[i]][msg.sender] == UserStatus.SL
                     ) {
-                        require(
-                            ITreasury(treasury).lockedRakeback(
-                                gameIds[i],
-                                msg.sender
-                            ) != 0,
-                            "You lost"
-                        );
                         ITreasury(treasury).withdrawRakebackSetup(
                             gameIds[i],
                             msg.sender

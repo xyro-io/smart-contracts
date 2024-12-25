@@ -377,6 +377,11 @@ contract UpDown is AccessControl {
             }
             delete DownPlayers;
             emit UpDownCancelled(currentGameId);
+            totalDepositsUp = 0;
+            totalDepositsDown = 0;
+            totalRakebackUp = 0;
+            totalRakebackDown = 0;
+            startingPrice = 0;
             packedData = 0;
             currentGameId = bytes32(0);
             return;

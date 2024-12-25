@@ -47,6 +47,7 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     ) public initializer {
         __AccessControl_init();
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        require(xyroTokenAddress != address(0), "Zero address");
         xyroToken = xyroTokenAddress;
         approvedTokens[approvedToken] = true;
         minDepositAmount[approvedToken] =
@@ -87,6 +88,7 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         bytes32 gameId,
         address token
     ) public onlyRole(DISTRIBUTOR_ROLE) {
+        require(token != address(0), "Zero address");
         require(approvedTokens[token], "Unapproved token");
         gameToken[gameId] = token;
     }

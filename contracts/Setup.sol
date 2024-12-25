@@ -30,6 +30,7 @@ contract Setup is AccessControl {
     event SetupRetrieved(bytes32 gameId, address player, uint256 depositAmount);
 
     enum Status {
+        Default,
         Created,
         Cancelled,
         Finished

@@ -37,9 +37,10 @@ const requireSufficentDepositAmount = "Insufficent deposit amount";
 const requireApprovedToken = "Unapproved token";
 const requireWrongusdtAmount = "Wrong deposit amount";
 const Status = {
-  Created: 0,
-  Cancelled: 1,
-  Finished: 2,
+  Default: 0,
+  Created: 1,
+  Cancelled: 2,
+  Finished: 3,
 };
 
 describe("Setup Game", () => {
@@ -479,7 +480,9 @@ describe("Setup Game", () => {
       );
       receipt = await tx.wait();
       currentGameId = receipt?.logs[0]?.args[0][0];
-      await expect(Game.connect(bob).play(true, 0, currentGameId)).to.be.revertedWith(requireWrongusdtAmount);
+      await expect(
+        Game.connect(bob).play(true, 0, currentGameId)
+      ).to.be.revertedWith(requireWrongusdtAmount);
     });
 
     it("should play and rewrite totalDepositsTP", async function () {

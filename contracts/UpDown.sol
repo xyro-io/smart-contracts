@@ -305,6 +305,8 @@ contract UpDown is AccessControl {
             packedData = 0;
             totalDepositsUp = 0;
             totalDepositsDown = 0;
+            totalRakebackUp = 0;
+            totalRakebackDown = 0;
             currentGameId = bytes32(0);
             return;
         }
@@ -383,6 +385,8 @@ contract UpDown is AccessControl {
             totalRakebackDown = 0;
             startingPrice = 0;
             packedData = 0;
+            totalRakebackUp = 0;
+            totalRakebackDown = 0;
             currentGameId = bytes32(0);
             return;
         }

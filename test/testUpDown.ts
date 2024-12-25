@@ -34,6 +34,7 @@ const requireHigherDepositAmount = "Wrong deposit amount";
 const requireApprovedToken = "Unapproved token";
 const maxPlayersReached = "Max player amount reached";
 const requireHigherGap = "Timeframe gap must be higher";
+const requireStartingPriceNotSet = "Starting price already set";
 
 describe("UpDown", () => {
   let owner: HardhatEthersSigner;
@@ -356,10 +357,65 @@ describe("UpDown", () => {
           abiEncodeInt192WithTimestamp(
             assetPrice.toString(),
             feedNumber,
-            (await time.latest()) - 660
+            (await time.latest()) + 61
           )
         )
       ).to.be.revertedWith(requireValidChainlinkReport);
+    });
+
+    it("should fail - early chainlink report", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = (await time.latest()) + fifteenMinutes;
+      await Game.startGame(
+        endTime,
+        stopPredictAt,
+        usdtAmount,
+        await USDT.getAddress(),
+        feedNumber
+      );
+      await Game.connect(alice).play(true, usdtAmount);
+      await Game.connect(opponent).play(false, usdtAmount);
+      await time.increase(fifteenMinutes);
+      await expect(
+        Game.setStartingPrice(
+          abiEncodeInt192WithTimestamp(
+            assetPrice.toString(),
+            feedNumber,
+            (await time.latest()) - 61
+          )
+        )
+      ).to.be.reverted;
+    });
+
+    it("should fail - starting price already set", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = (await time.latest()) + fifteenMinutes;
+      await Game.startGame(
+        endTime,
+        stopPredictAt,
+        usdtAmount,
+        await USDT.getAddress(),
+        feedNumber
+      );
+      await Game.connect(alice).play(true, usdtAmount);
+      await Game.connect(opponent).play(false, usdtAmount);
+      await time.increase(fifteenMinutes);
+      Game.setStartingPrice(
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          await time.latest()
+        )
+      );
+      await expect(
+        Game.setStartingPrice(
+          abiEncodeInt192WithTimestamp(
+            assetPrice.toString(),
+            feedNumber,
+            await time.latest()
+          )
+        )
+      ).to.be.revertedWith(requireStartingPriceNotSet);
     });
 
     it("should set starting price", async function () {

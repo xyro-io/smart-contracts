@@ -423,6 +423,13 @@ contract OneVsOneExactPrice is AccessControl {
                 ),
             "Wrong status!"
         );
+        if (game.gameStatus == Status.Started) {
+            ITreasury(treasury).refund(
+                games[gameId].depositAmount,
+                game.opponent,
+                gameId
+            );
+        }
         ITreasury(treasury).refund(
             games[gameId].depositAmount,
             game.initiator,

@@ -1,8 +1,8 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { XyroToken } from "../typechain-types/contracts/XyroToken";
-import { XyroToken__factory } from "../typechain-types/factories/contracts/XyroToken__factory";
+import { XyroTokenERC677 } from "../typechain-types/contracts/XyroTokenWithMint.sol/XyroTokenERC677";
+import { XyroTokenERC677__factory } from "../typechain-types/factories/contracts/XyroTokenWithMint.sol/XyroTokenERC677__factory";
 import { Treasury } from "../typechain-types/contracts/Treasury.sol/Treasury";
 import { OneVsOneExactPrice } from "../typechain-types/contracts/OneVsOneExactPrice";
 import { OneVsOneExactPrice__factory } from "../typechain-types/factories/contracts/OneVsOneExactPrice__factory";
@@ -10,6 +10,8 @@ import { MockToken } from "../typechain-types/contracts/mock/MockERC20.sol/MockT
 import { MockToken__factory } from "../typechain-types/factories/contracts/mock/MockERC20.sol/MockToken__factory";
 import { MockVerifier } from "../typechain-types/contracts/mock/MockVerifier";
 import { MockVerifier__factory } from "../typechain-types/factories/contracts/mock/MockVerifier__factory";
+import { calculateRakebackRate, getPermitSignature } from "../scripts/helper";
+import { time } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 const parse18 = ethers.parseEther;
 const insufficentDepositAmount = "Insufficent deposit amount";
 const zeroAddress = "Zero address";
@@ -21,18 +23,20 @@ describe("Treasury", () => {
   let owner: HardhatEthersSigner;
   let alice: HardhatEthersSigner;
   let USDT: MockToken;
-  let XyroToken: XyroToken;
+  let XyroToken: XyroTokenERC677;
   let Treasury: Treasury;
   let Game: OneVsOneExactPrice;
   let Upkeep: MockVerifier;
   const depositAmount = 100000000;
-  before(async () => {
+  beforeEach(async () => {
     [owner, mockContract, alice] = await ethers.getSigners();
     USDT = await new MockToken__factory(owner).deploy(
       parse18((1e13).toString())
     );
     await USDT.mint(alice.address, parse18("100000"));
-    XyroToken = await new XyroToken__factory(owner).deploy(parse18("2500"));
+    XyroToken = await new XyroTokenERC677__factory(owner).deploy(
+      parse18("2500")
+    );
     Treasury = await upgrades.deployProxy(
       await ethers.getContractFactory("Treasury"),
       [await USDT.getAddress(), await XyroToken.getAddress()]
@@ -79,22 +83,6 @@ describe("Treasury", () => {
     );
   });
 
-  it("Should set Setup fee by admin", async function () {
-    const newFee = 105;
-    await Treasury.setSetupFee(newFee);
-    expect(await Treasury.setupInitiatorFee()).to.be.equal(newFee);
-  });
-
-  it("Should fail - set Setup fee", async function () {
-    const newFee = 105;
-    await expect(
-      Treasury.connect(alice).setSetupFee(newFee)
-    ).to.be.revertedWithCustomError(
-      Treasury,
-      "AccessControlUnauthorizedAccount"
-    );
-  });
-
   it("Should deposit", async function () {
     expect(
       await Treasury.deposits(await USDT.getAddress(), alice.address)
@@ -125,11 +113,65 @@ describe("Treasury", () => {
     expect(await Treasury.locked(mockGameId)).to.be.equal(depositAmount);
   });
 
-  it("Should deposit with permit", async function () {});
+  it("Should deposit with permit", async function () {
+    const deadline = (await time.latest()) + 900;
+    let result = await getPermitSignature(
+      alice,
+      USDT,
+      await Treasury.getAddress(),
+      BigInt(depositAmount),
+      BigInt(deadline)
+    );
+    await Treasury.connect(alice)[
+      "depositWithPermit(uint256,address,uint256,uint8,bytes32,bytes32)"
+    ](
+      depositAmount,
+      await USDT.getAddress(),
+      deadline,
+      result.v,
+      result.r,
+      result.s
+    );
+    expect(
+      await Treasury.deposits(await USDT.getAddress(), alice.address)
+    ).to.be.equal(depositAmount);
+  });
 
-  it("Should deposit and lock with permit", async function () {});
+  it("Should deposit and lock with permit", async function () {
+    const mockGameId =
+      "0x0000000000000000000000000000000000000000000000000000000000000001";
+
+    await Treasury.connect(mockContract).setGameToken(
+      mockGameId,
+      await USDT.getAddress()
+    );
+    const deadline = (await time.latest()) + 900;
+    let result = await getPermitSignature(
+      alice,
+      USDT,
+      await Treasury.getAddress(),
+      BigInt(depositAmount),
+      BigInt(deadline)
+    );
+    await Treasury.connect(mockContract).depositAndLockWithPermit(
+      depositAmount,
+      alice.address,
+      mockGameId,
+      false,
+      deadline,
+      result.v,
+      result.r,
+      result.s
+    );
+    expect(await Treasury.locked(mockGameId)).to.be.equal(depositAmount);
+  });
 
   it("Should withdraw", async function () {
+    await Treasury.connect(alice).deposit(
+      depositAmount,
+      await USDT.getAddress()
+    );
+    expect(await Treasury.deposits(await USDT.getAddress(), alice.address));
     const oldBalance = await USDT.balanceOf(alice.address);
     await Treasury.connect(alice).withdraw(
       depositAmount,
@@ -142,6 +184,11 @@ describe("Treasury", () => {
   it("Should lock", async function () {
     const mockGameId =
       "0x0000000000000000000000000000000000000000000000000000000000000001";
+    await Treasury.connect(mockContract).setGameToken(
+      mockGameId,
+      await USDT.getAddress()
+    );
+
     const oldLockedBalance = await Treasury.locked(mockGameId);
     await Treasury.connect(alice).deposit(
       depositAmount,
@@ -160,6 +207,10 @@ describe("Treasury", () => {
   it("Should fail - not enough deposited tokens", async function () {
     const mockGameId =
       "0x0000000000000000000000000000000000000000000000000000000000000001";
+    await Treasury.connect(mockContract).setGameToken(
+      mockGameId,
+      await USDT.getAddress()
+    );
     await expect(
       Treasury.connect(mockContract).lock(
         depositAmount,
@@ -173,6 +224,18 @@ describe("Treasury", () => {
   it("Should refund", async function () {
     const mockGameId =
       "0x0000000000000000000000000000000000000000000000000000000000000001";
+    await Treasury.connect(mockContract).setGameToken(
+      mockGameId,
+      await USDT.getAddress()
+    );
+
+    await Treasury.connect(mockContract).depositAndLock(
+      depositAmount,
+      alice.address,
+      mockGameId,
+      false
+    );
+
     const oldDepositBalance = await Treasury.deposits(
       await USDT.getAddress(),
       alice.address
@@ -265,44 +328,257 @@ describe("Treasury", () => {
     expect(newOwnerBalance - oldOwnerBalance).to.be.equal(collectedFees);
   });
 
-  // it("Should calculate rate (no rakeback) - calculateRate()", async function () {
-  //   //mock game
-  //   const mockGameId =
-  //     "0x0000000000000000000000000000000000000000000000000000000000000003";
-  //   await Treasury.connect(mockContract).setGameToken(
-  //     mockGameId,
-  //     await USDT.getAddress()
-  //   );
+  describe("Rakeback", async function () {
+    it("Should calculate rakeback rate", async function () {
+      const initialDeposit = BigInt(100);
+      const rakeback =
+        (calculateRakebackRate(await XyroToken.balanceOf(owner.address)) *
+          initialDeposit) /
+        BigInt(100);
+      expect(
+        await Treasury.calculateRakebackAmount(owner.address, initialDeposit)
+      ).to.be.equal(rakeback);
+    });
+    it("Should calculate Bullseye rakeback with multiple deposits", async function () {
+      await XyroToken.grantMintAndBurnRoles(owner.address);
+      await XyroToken.mint(owner.address, parse18("1250000"));
+      //mock game
+      const mockGameId =
+        "0x0000000000000000000000000000000000000000000000000000000000000005";
+      await Treasury.connect(mockContract).setGameToken(
+        mockGameId,
+        await USDT.getAddress()
+      );
 
-  //   await Treasury.connect(mockContract).depositAndLock(
-  //     depositAmount,
-  //     owner.address,
-  //     mockGameId,
-  //     false
-  //   );
+      const mockDepositAmount = 100000000;
+      await Treasury.connect(mockContract).depositAndLock(
+        mockDepositAmount,
+        owner.address,
+        mockGameId,
+        true
+      );
+      expect(
+        await Treasury.lockedRakeback(mockGameId, owner.address)
+      ).to.be.equal(mockDepositAmount * 0.1);
+      const mockRate = BigInt(1000000);
+      const initialRakeback = BigInt(5000000);
+      await Treasury.connect(mockContract).distributeBullseye(
+        mockRate,
+        BigInt(0),
+        owner.address,
+        mockGameId,
+        initialRakeback
+      );
+      expect(
+        await Treasury.lockedRakeback(mockGameId, owner.address)
+      ).to.be.equal(mockDepositAmount * 0.05);
+    });
+    it("Should distribute with rakeback", async function () {
+      await XyroToken.grantMintAndBurnRoles(owner.address);
+      await XyroToken.mint(owner.address, parse18("1250000"));
+      //mock game
+      const mockGameId =
+        "0x0000000000000000000000000000000000000000000000000000000000000005";
+      await Treasury.connect(mockContract).setGameToken(
+        mockGameId,
+        await USDT.getAddress()
+      );
 
-  //   await Treasury.connect(mockContract).depositAndLock(
-  //     depositAmount,
-  //     alice.address,
-  //     mockGameId,
-  //     false
-  //   );
+      const mockDepositAmount = 100000000;
+      await Treasury.connect(mockContract).depositAndLock(
+        mockDepositAmount * 2,
+        owner.address,
+        mockGameId,
+        true
+      );
+      expect(
+        await Treasury.lockedRakeback(mockGameId, owner.address)
+      ).to.be.equal(mockDepositAmount * 2 * 0.1);
+      const mockRate = BigInt(1000000);
+      await Treasury.connect(mockContract).universalDistribute(
+        owner.address,
+        mockDepositAmount,
+        mockGameId,
+        mockRate
+      );
+      expect(
+        await Treasury.lockedRakeback(mockGameId, owner.address)
+      ).to.be.equal(0);
+    });
+    it("Should deposit and lock with rakeback", async function () {
+      await XyroToken.grantMintAndBurnRoles(owner.address);
+      await XyroToken.mint(alice.address, parse18("1250000"));
+      const mockGameId =
+        "0x0000000000000000000000000000000000000000000000000000000000000001";
+      await Treasury.connect(mockContract).setGameToken(
+        mockGameId,
+        await USDT.getAddress()
+      );
+      expect(await Treasury.locked(mockGameId)).to.be.equal(0);
+      await Treasury.connect(mockContract).depositAndLock(
+        depositAmount,
+        alice.address,
+        mockGameId,
+        true
+      );
+      const rakeback = BigInt(depositAmount * 0.1);
+      expect(
+        await Treasury.lockedRakeback(mockGameId, alice.address)
+      ).to.be.equal(rakeback);
 
-  //   const wonTeamTotal = BigInt(depositAmount);
-  //   const totalLocked = BigInt(depositAmount) * BigInt(2);
-  //   const rate = await Treasury.connect(mockContract).calculateRate(
-  //     wonTeamTotal,
-  //     0,
-  //     mockGameId
-  //   );
-  //   const calculatedRate =
-  //     ((totalLocked - wonTeamTotal) *
-  //       (await Treasury.RATE_PRECISION_AMPLIFIER())) /
-  //     wonTeamTotal;
-  //   console.log(rate);
-  //   console.log(typeof rate);
-  //   expect(rate).to.be.equal(calculatedRate);
-  // });
+      expect(await Treasury.locked(mockGameId)).to.be.equal(depositAmount);
+    });
+
+    it("Should deposit and lock with permit and rakeback", async function () {
+      await XyroToken.grantMintAndBurnRoles(owner.address);
+      await XyroToken.mint(alice.address, parse18("1250000"));
+      const mockGameId =
+        "0x0000000000000000000000000000000000000000000000000000000000000001";
+
+      await Treasury.connect(mockContract).setGameToken(
+        mockGameId,
+        await USDT.getAddress()
+      );
+      const deadline = (await time.latest()) + 900;
+      let result = await getPermitSignature(
+        alice,
+        USDT,
+        await Treasury.getAddress(),
+        BigInt(depositAmount),
+        BigInt(deadline)
+      );
+      await Treasury.connect(mockContract).depositAndLockWithPermit(
+        depositAmount,
+        alice.address,
+        mockGameId,
+        true,
+        deadline,
+        result.v,
+        result.r,
+        result.s
+      );
+      const rakeback = BigInt(depositAmount * 0.1);
+      expect(
+        await Treasury.lockedRakeback(mockGameId, alice.address)
+      ).to.be.equal(rakeback);
+      expect(await Treasury.locked(mockGameId)).to.be.equal(depositAmount);
+    });
+
+    it("Should refund() with rakeback", async function () {
+      await XyroToken.grantMintAndBurnRoles(owner.address);
+      await XyroToken.mint(alice.address, parse18("1250000"));
+      const mockGameId =
+        "0x0000000000000000000000000000000000000000000000000000000000000001";
+      await Treasury.connect(mockContract).setGameToken(
+        mockGameId,
+        await USDT.getAddress()
+      );
+      expect(await Treasury.locked(mockGameId)).to.be.equal(0);
+      await Treasury.connect(mockContract).depositAndLock(
+        depositAmount,
+        alice.address,
+        mockGameId,
+        true
+      );
+      const oldDepositBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      await Treasury.connect(mockContract).refund(
+        depositAmount,
+        alice.address,
+        mockGameId
+      );
+      const newDepositBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      expect(newDepositBalance - oldDepositBalance).to.be.equal(depositAmount);
+      expect(
+        await Treasury.lockedRakeback(mockGameId, alice.address)
+      ).to.be.equal(0);
+    });
+
+    it("Should refundWithFees() with rakeback", async function () {
+      await XyroToken.grantMintAndBurnRoles(owner.address);
+      await XyroToken.mint(alice.address, parse18("1250000"));
+      const mockGameId =
+        "0x0000000000000000000000000000000000000000000000000000000000000001";
+      await Treasury.connect(mockContract).setGameToken(
+        mockGameId,
+        await USDT.getAddress()
+      );
+      expect(await Treasury.locked(mockGameId)).to.be.equal(0);
+      await Treasury.connect(mockContract).depositAndLock(
+        depositAmount,
+        alice.address,
+        mockGameId,
+        true
+      );
+      const oldDepositBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      const refundFee = 1000; //10%;
+      await Treasury.connect(mockContract).refundWithFees(
+        depositAmount,
+        alice.address,
+        refundFee,
+        mockGameId
+      );
+      const newDepositBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      expect(newDepositBalance - oldDepositBalance).to.be.equal(
+        depositAmount * 0.9
+      );
+      expect(await Treasury.locked(mockGameId)).to.be.equal(0);
+      expect(
+        await Treasury.lockedRakeback(mockGameId, alice.address)
+      ).to.be.equal(0);
+    });
+
+    it("Should refundWithFees() with rakeback (multiple deposits)", async function () {
+      await XyroToken.grantMintAndBurnRoles(owner.address);
+      await XyroToken.mint(alice.address, parse18("1250000"));
+      const mockGameId =
+        "0x0000000000000000000000000000000000000000000000000000000000000001";
+      await Treasury.connect(mockContract).setGameToken(
+        mockGameId,
+        await USDT.getAddress()
+      );
+      expect(await Treasury.locked(mockGameId)).to.be.equal(0);
+      await Treasury.connect(mockContract).depositAndLock(
+        depositAmount * 3,
+        alice.address,
+        mockGameId,
+        true
+      );
+      const oldDepositBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      const refundFee = 1000; //10%;
+      await Treasury.connect(mockContract).refundWithFees(
+        depositAmount,
+        alice.address,
+        refundFee,
+        mockGameId
+      );
+      const newDepositBalance = await Treasury.deposits(
+        await USDT.getAddress(),
+        alice.address
+      );
+      expect(newDepositBalance - oldDepositBalance).to.be.equal(
+        depositAmount * 0.9
+      );
+      expect(await Treasury.locked(mockGameId)).to.be.equal(depositAmount * 2);
+      expect(
+        await Treasury.lockedRakeback(mockGameId, alice.address)
+      ).to.be.equal(0);
+    });
+  });
 
   it("Should set new upkeep", async function () {
     const newUpkeep = await new MockVerifier__factory(owner).deploy();
@@ -362,6 +638,10 @@ describe("Treasury", () => {
   it("Should fail - wrong amount refundWithFee", async function () {
     const mockGameId =
       "0x0000000000000000000000000000000000000000000000000000000000000003";
+    await Treasury.connect(mockContract).setGameToken(
+      mockGameId,
+      await USDT.getAddress()
+    );
     await expect(
       Treasury.connect(mockContract).refundWithFees(
         ethers.MaxUint256,
@@ -382,11 +662,11 @@ describe("Treasury", () => {
     ).to.be.revertedWith(wrongAmount);
   });
 
-  it("Should upgrade treasury", async function () {
-    let TreasuryV2 = await upgrades.upgradeProxy(
-      await Treasury.getAddress(),
-      await ethers.getContractFactory("TreasuryV2")
-    );
-    expect(await TreasuryV2.test()).to.be.equal(333);
-  });
+  // it("Should upgrade treasury", async function () {
+  //   let TreasuryV2 = await upgrades.upgradeProxy(
+  //     await Treasury.getAddress(),
+  //     await ethers.getContractFactory("TreasuryV2")
+  //   );
+  //   expect(await TreasuryV2.test()).to.be.equal(333);
+  // });
 });

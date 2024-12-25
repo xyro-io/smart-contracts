@@ -94,6 +94,12 @@ contract Bullseye is AccessControl {
             newDepositAmount >= ITreasury(treasury).minDepositAmount(token),
             "Wrong min deposit amount"
         );
+        require(
+            IDataStreamsVerifier(ITreasury(treasury).upkeep()).assetId(
+                feedNumber
+            ) != bytes32(0),
+            "Wrong feed number"
+        );
         packedData = (block.timestamp |
             (uint256(stopPredictAt) << 32) |
             (uint256(endTime) << 64) |

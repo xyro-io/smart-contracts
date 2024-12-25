@@ -30,6 +30,7 @@ contract Setup is AccessControl {
     event SetupRetrieved(bytes32 gameId, address player, uint256 depositAmount);
 
     enum Status {
+        Default,
         Created,
         Cancelled,
         Finished
@@ -125,6 +126,12 @@ contract Setup is AccessControl {
             endTime - block.timestamp <= maxDuration,
             "Max game duration must be lower"
         );
+        require(
+            IDataStreamsVerifier(ITreasury(treasury).upkeep()).assetId(
+                feedNumber
+            ) != bytes32(0),
+            "Wrong feed number"
+        );
         bytes32 gameId = keccak256(
             abi.encodePacked(
                 block.timestamp,
@@ -134,6 +141,7 @@ contract Setup is AccessControl {
                 msg.sender
             )
         );
+        require(games[gameId].packedData == 0, "Game exists");
         ITreasury(treasury).setGameToken(gameId, token);
         (int192 startingPrice, uint32 startTime) = IDataStreamsVerifier(
             ITreasury(treasury).upkeep()
@@ -354,10 +362,11 @@ contract Setup is AccessControl {
         GameInfo memory data = decodeData(gameId);
         require(data.startTime != 0, "Game doesn't exist");
         require(
-            ((data.startTime + (data.endTime - data.startTime) / 3 <
-                block.timestamp &&
-                (data.SLplayers == 0 || data.TPplayers == 0)) ||
-                block.timestamp > data.endTime),
+            data.gameStatus == Status.Created &&
+                ((data.startTime + (data.endTime - data.startTime) / 3 <
+                    block.timestamp &&
+                    (data.SLplayers == 0 || data.TPplayers == 0)) ||
+                    block.timestamp > data.endTime),
             "Wrong status!"
         );
         //rewrites status
@@ -403,10 +412,13 @@ contract Setup is AccessControl {
     ) public onlyRole(GAME_MASTER_ROLE) {
         GameInfo memory data = decodeData(gameId);
         require(data.gameStatus == Status.Created, "Wrong status!");
-        (int192 finalPrice, uint256 endTime) = IDataStreamsVerifier(
+        (int192 finalPrice, uint256 priceTimestamp) = IDataStreamsVerifier(
             ITreasury(treasury).upkeep()
         ).verifyReportWithTimestamp(unverifiedReport, data.feedNumber);
-
+        require(
+            priceTimestamp > data.startTime && priceTimestamp <= data.endTime,
+            "Old chainlink report"
+        );
         if (data.SLplayers == 0 || data.TPplayers == 0) {
             //rewrites status
             games[gameId].packedData2 =
@@ -450,7 +462,7 @@ contract Setup is AccessControl {
                     gameId,
                     true,
                     finalPrice,
-                    endTime,
+                    priceTimestamp,
                     withdrawnInitiatorFees,
                     finalRate
                 );
@@ -480,7 +492,7 @@ contract Setup is AccessControl {
                     gameId,
                     false,
                     finalPrice,
-                    endTime,
+                    priceTimestamp,
                     withdrawnInitiatorFees,
                     finalRate
                 );
@@ -518,7 +530,7 @@ contract Setup is AccessControl {
                     gameId,
                     false,
                     finalPrice,
-                    endTime,
+                    priceTimestamp,
                     withdrawnInitiatorFees,
                     finalRate
                 );
@@ -547,7 +559,7 @@ contract Setup is AccessControl {
                     gameId,
                     true,
                     finalPrice,
-                    endTime,
+                    priceTimestamp,
                     withdrawnInitiatorFees,
                     finalRate
                 );
@@ -559,7 +571,7 @@ contract Setup is AccessControl {
         //rewrites endTime
         games[gameId].packedData =
             (games[gameId].packedData & ~(uint256(0xFFFFFFFF) << 192)) |
-            (uint256(endTime) << 192);
+            (uint256(priceTimestamp) << 192);
         //rewrites status
         packedData2 =
             (packedData2 & ~(uint256(0xFF) << 72)) |
@@ -589,13 +601,6 @@ contract Setup is AccessControl {
                     if (
                         withdrawStatus[gameIds[i]][msg.sender] == UserStatus.SL
                     ) {
-                        require(
-                            ITreasury(treasury).lockedRakeback(
-                                gameIds[i],
-                                msg.sender
-                            ) != 0,
-                            "You lost"
-                        );
                         ITreasury(treasury).withdrawRakebackSetup(
                             gameIds[i],
                             msg.sender
@@ -620,13 +625,6 @@ contract Setup is AccessControl {
                     if (
                         withdrawStatus[gameIds[i]][msg.sender] == UserStatus.TP
                     ) {
-                        require(
-                            ITreasury(treasury).lockedRakeback(
-                                gameIds[i],
-                                msg.sender
-                            ) != 0,
-                            "You lost"
-                        );
                         ITreasury(treasury).withdrawRakebackSetup(
                             gameIds[i],
                             msg.sender
@@ -653,13 +651,6 @@ contract Setup is AccessControl {
                     if (
                         withdrawStatus[gameIds[i]][msg.sender] == UserStatus.TP
                     ) {
-                        require(
-                            ITreasury(treasury).lockedRakeback(
-                                gameIds[i],
-                                msg.sender
-                            ) != 0,
-                            "You lost"
-                        );
                         ITreasury(treasury).withdrawRakebackSetup(
                             gameIds[i],
                             msg.sender
@@ -683,13 +674,6 @@ contract Setup is AccessControl {
                     if (
                         withdrawStatus[gameIds[i]][msg.sender] == UserStatus.SL
                     ) {
-                        require(
-                            ITreasury(treasury).lockedRakeback(
-                                gameIds[i],
-                                msg.sender
-                            ) != 0,
-                            "You lost"
-                        );
                         ITreasury(treasury).withdrawRakebackSetup(
                             gameIds[i],
                             msg.sender

@@ -417,7 +417,9 @@ contract OneVsOneExactPrice is AccessControl {
         require(
             game.gameStatus == Status.Created ||
                 (
-                    block.timestamp > game.endTime
+                    (game.gameStatus == Status.Created ||
+                        game.gameStatus == Status.Started) &&
+                        block.timestamp > game.endTime
                         ? block.timestamp - game.endTime >= 3 days
                         : false
                 ),

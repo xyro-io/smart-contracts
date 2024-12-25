@@ -313,6 +313,7 @@ contract Bullseye is AccessControl {
                     topIndexes[i] = j;
                     topPlayers[i] = currentGuessData.player;
                     topRakeback[i] = currentGuessData.rakeback;
+                    topTimestamps[i] = currentGuessData.timestamp;
                     break;
                 }
             }

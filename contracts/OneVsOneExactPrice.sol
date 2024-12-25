@@ -106,7 +106,13 @@ contract OneVsOneExactPrice is AccessControl {
             "Max game duration must be lower"
         );
         bytes32 gameId = keccak256(
-            abi.encodePacked(endTime, block.timestamp, msg.sender, opponent)
+            abi.encodePacked(
+                endTime,
+                block.timestamp,
+                msg.sender,
+                opponent,
+                address(this)
+            )
         );
         ITreasury(treasury).setGameToken(gameId, token);
         ITreasury(treasury).depositAndLock(

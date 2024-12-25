@@ -139,7 +139,8 @@ contract Setup is AccessControl {
                 endTime,
                 takeProfitPrice,
                 stopLossPrice,
-                msg.sender
+                msg.sender,
+                address(this)
             )
         );
         require(games[gameId].packedData == 0, "Game exists");

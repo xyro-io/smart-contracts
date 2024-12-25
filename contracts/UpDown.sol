@@ -74,7 +74,12 @@ contract UpDown is AccessControl {
         require(packedData == 0, "Finish previous game first");
         require(endTime > stopPredictAt, "Ending time must be higher");
         require(
-            endTime - stopPredictAt >= timeGap,
+            IDataStreamsVerifier(ITreasury(treasury).upkeep()).assetId(
+                feedNumber
+            ) != bytes32(0),
+            "Wrong feed number"
+        );
+         require(endTime - stopPredictAt >= timeGap,
             "Timeframe gap must be higher"
         );
         packedData = (block.timestamp |

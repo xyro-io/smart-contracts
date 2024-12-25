@@ -134,6 +134,7 @@ contract Setup is AccessControl {
                 msg.sender
             )
         );
+        require(games[gameId].packedData == 0, "Game exists");
         ITreasury(treasury).setGameToken(gameId, token);
         (int192 startingPrice, uint32 startTime) = IDataStreamsVerifier(
             ITreasury(treasury).upkeep()

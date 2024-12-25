@@ -36,6 +36,8 @@ const disabledGame = "Game is disabled";
 const requireSufficentDepositAmount = "Insufficent deposit amount";
 const requireApprovedToken = "Unapproved token";
 const requireWrongusdtAmount = "Wrong deposit amount";
+const requireLowerFee = "Fee exceeds the cap";
+
 const Status = {
   Created: 0,
   Cancelled: 1,
@@ -479,7 +481,9 @@ describe("Setup Game", () => {
       );
       receipt = await tx.wait();
       currentGameId = receipt?.logs[0]?.args[0][0];
-      await expect(Game.connect(bob).play(true, 0, currentGameId)).to.be.revertedWith(requireWrongusdtAmount);
+      await expect(
+        Game.connect(bob).play(true, 0, currentGameId)
+      ).to.be.revertedWith(requireWrongusdtAmount);
     });
 
     it("should play and rewrite totalDepositsTP", async function () {
@@ -2214,6 +2218,10 @@ describe("Setup Game", () => {
   });
 
   describe("Other", async function () {
+    it("should fail - change fee to 31%", async function () {
+      await expect(Game.setFee(3100)).to.be.revertedWith(requireLowerFee);
+    });
+
     it("should change treasury", async function () {
       let temporaryTreasury = await upgrades.deployProxy(
         await ethers.getContractFactory("Treasury"),

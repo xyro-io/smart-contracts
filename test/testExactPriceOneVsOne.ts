@@ -34,6 +34,7 @@ const requireUniqueOpponent = "Wrong opponent";
 const requireCreationEnabled = "Game is disabled";
 const requireApprovedFeedNumber = "Wrong feed number";
 const requireApprovedToken = "Unapproved token";
+const requireLowerFee = "Fee exceeds the cap";
 const Status = {
   Default: 0,
   Created: 1,
@@ -553,11 +554,13 @@ describe("OneVsOne", () => {
         initiatorPrice,
         usdtAmount,
         await USDT.getAddress()
-      );      
+      );
       receipt = await tx.wait();
       currentGameId = receipt!.logs[1]!.args[0];
       await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
-      await expect(Game.connect(alice).acceptGame(currentGameId, opponentPrice + BigInt(1))).to.be.revertedWith(requireWrongStatus);
+      await expect(
+        Game.connect(alice).acceptGame(currentGameId, opponentPrice + BigInt(1))
+      ).to.be.revertedWith(requireWrongStatus);
       await time.increase(fortyFiveMinutes);
       await Game.finalizeGame(
         currentGameId,
@@ -1352,7 +1355,8 @@ describe("OneVsOne", () => {
       const tx = await Game.createGameWithPermit(
         feedNumber,
         opponent.address,
-        (await time.latest()) + fortyFiveMinutes,        initiatorPrice,
+        (await time.latest()) + fortyFiveMinutes,
+        initiatorPrice,
         usdtAmount,
         await USDT.getAddress(),
         {
@@ -1532,5 +1536,9 @@ describe("OneVsOne", () => {
     expect(await Game.isActive()).to.be.equal(false);
     await Game.toggleActive();
     expect(await Game.isActive()).to.be.equal(true);
+  });
+
+  it("should fail - change fee to 31%", async function () {
+    await expect(Game.setFee(3100)).to.be.revertedWith(requireLowerFee);
   });
 });

@@ -465,6 +465,7 @@ contract UpDown is AccessControl {
      * @param newFee new fee in bp
      */
     function setFee(uint256 newFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newFee <= 3000, "Fee exceeds the cap");
         fee = newFee;
         emit NewFee(newFee);
     }

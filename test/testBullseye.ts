@@ -29,6 +29,7 @@ const requireValidChainlinkReport = "Old chainlink report";
 const requireSufficentDepositAmount = "Insufficent deposit amount";
 const requireApprovedToken = "Unapproved token";
 const maxPlayersReached = "Max player amount reached";
+const requireLowerFee = "Fee exceeds the cap";
 
 describe("Bullseye", () => {
   let owner: HardhatEthersSigner;
@@ -1256,18 +1257,19 @@ describe("Bullseye", () => {
 
     it("should fail - max amount of players reached", async function () {
       const signers = await ethers.getSigners();
-      for (let i = 0; i < 100; i++) {  
-          await USDT.mint(signers[i].address, parse18("10000000"));
-          await USDT.connect(signers[i]).approve(
-            await Treasury.getAddress(),
-            ethers.MaxUint256
-          );
-          await Game.connect(signers[i]).play(guessMaxPrice + BigInt(i));
-        }
-    
-    await expect(Game.connect(signers[100]).play(guessBobPrice)).to.be.revertedWith(maxPlayersReached);
-  });
-  
+      for (let i = 0; i < 100; i++) {
+        await USDT.mint(signers[i].address, parse18("10000000"));
+        await USDT.connect(signers[i]).approve(
+          await Treasury.getAddress(),
+          ethers.MaxUint256
+        );
+        await Game.connect(signers[i]).play(guessMaxPrice + BigInt(i));
+      }
+
+      await expect(
+        Game.connect(signers[100]).play(guessBobPrice)
+      ).to.be.revertedWith(maxPlayersReached);
+    });
   });
 
   describe("Games with XyroToken", async function () {
@@ -1460,6 +1462,10 @@ describe("Bullseye", () => {
 
   it("should return player amount", async function () {
     expect(await Game.getTotalPlayers()).to.be.equal(0);
+  });
+
+  it("should fail - change fee to 31%", async function () {
+    await expect(Game.setFee(3100)).to.be.revertedWith(requireLowerFee);
   });
 
   describe("Events", async function () {

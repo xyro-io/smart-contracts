@@ -250,6 +250,7 @@ contract OneVsOneExactPrice is AccessControl {
             permitData.r,
             permitData.s
         );
+        require(games[gameId].packedData == 0, "Game exists");
         uint256 packedData = uint(uint160(opponent));
         uint256 packedData2 = uint(uint160(msg.sender));
         packedData |= uint256(endTime) << 160;

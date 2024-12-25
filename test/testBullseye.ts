@@ -29,6 +29,7 @@ const requireValidChainlinkReport = "Old chainlink report";
 const requireSufficentDepositAmount = "Insufficent deposit amount";
 const requireApprovedToken = "Unapproved token";
 const maxPlayersReached = "Max player amount reached";
+const requireLowerFee = "Fee exceeds the cap";
 const requireAboveMinDepositAmount = "Wrong min deposit amount";
 const requireApprovedFeedNumber = "Wrong feed number";
 
@@ -1503,6 +1504,10 @@ describe("Bullseye", () => {
 
   it("should return player amount", async function () {
     expect(await Game.getTotalPlayers()).to.be.equal(0);
+  });
+
+  it("should fail - change fee to 31%", async function () {
+    await expect(Game.setFee(3100)).to.be.revertedWith(requireLowerFee);
   });
 
   describe("Events", async function () {

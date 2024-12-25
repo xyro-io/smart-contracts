@@ -36,6 +36,7 @@ const disabledGame = "Game is disabled";
 const requireSufficentDepositAmount = "Insufficent deposit amount";
 const requireApprovedToken = "Unapproved token";
 const requireWrongusdtAmount = "Wrong deposit amount";
+const requireLowerFee = "Fee exceeds the cap";
 const requireApprovedFeedNumber = "Wrong feed number";
 const oldChainlinkReport = "Old chainlink report";
 
@@ -2309,6 +2310,10 @@ describe("Setup Game", () => {
   });
 
   describe("Other", async function () {
+    it("should fail - change fee to 31%", async function () {
+      await expect(Game.setFee(3100)).to.be.revertedWith(requireLowerFee);
+    });
+
     it("should change treasury", async function () {
       let temporaryTreasury = await upgrades.deployProxy(
         await ethers.getContractFactory("Treasury"),

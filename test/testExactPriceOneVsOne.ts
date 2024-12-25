@@ -34,6 +34,7 @@ const requireUniqueOpponent = "Wrong opponent";
 const requireCreationEnabled = "Game is disabled";
 const requireApprovedFeedNumber = "Wrong feed number";
 const requireApprovedToken = "Unapproved token";
+const requireLowerFee = "Fee exceeds the cap";
 const Status = {
   Default: 0,
   Created: 1,
@@ -1565,5 +1566,9 @@ describe("OneVsOne", () => {
     expect(await Game.isActive()).to.be.equal(false);
     await Game.toggleActive();
     expect(await Game.isActive()).to.be.equal(true);
+  });
+
+  it("should fail - change fee to 31%", async function () {
+    await expect(Game.setFee(3100)).to.be.revertedWith(requireLowerFee);
   });
 });

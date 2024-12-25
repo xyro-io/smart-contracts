@@ -33,6 +33,7 @@ const requireSufficentDepositAmount = "Insufficent deposit amount";
 const requireHigherDepositAmount = "Wrong deposit amount";
 const requireApprovedToken = "Unapproved token";
 const maxPlayersReached = "Max player amount reached";
+const requireLowerFee = "Fee exceeds the cap";
 const requireAboveMinDepositAmount = "Wrong min deposit amount";
 const requireApprovedFeedNumber = "Wrong feed number";
 const requireHigherGap = "Timeframe gap must be higher";
@@ -1461,5 +1462,9 @@ describe("UpDown", () => {
     const result = await Game.getTotalPlayers();
     expect(result[0]).to.be.equal(0);
     expect(result[1]).to.be.equal(0);
+  });
+
+  it("should fail - change fee to 31%", async function () {
+    await expect(Game.setFee(3100)).to.be.revertedWith(requireLowerFee);
   });
 });

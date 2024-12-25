@@ -34,6 +34,7 @@ contract UpDown is AccessControl {
         uint8 feedNumber;
     }
 
+    uint256 constant timeGap = 30 seconds;
     uint256 packedData;
     bytes32 public constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
     address[] public UpPlayers;
@@ -72,6 +73,10 @@ contract UpDown is AccessControl {
     ) public onlyRole(GAME_MASTER_ROLE) {
         require(packedData == 0, "Finish previous game first");
         require(endTime > stopPredictAt, "Ending time must be higher");
+        require(
+            endTime - stopPredictAt >= timeGap,
+            "Timeframe gap must be higher"
+        );
         packedData = (block.timestamp |
             (uint256(stopPredictAt) << 32) |
             (uint256(endTime) << 64) |

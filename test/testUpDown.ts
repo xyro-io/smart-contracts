@@ -33,6 +33,7 @@ const requireSufficentDepositAmount = "Insufficent deposit amount";
 const requireHigherDepositAmount = "Wrong deposit amount";
 const requireApprovedToken = "Unapproved token";
 const maxPlayersReached = "Max player amount reached";
+const requireHigherGap = "Timeframe gap must be higher";
 const requireStartingPriceNotSet = "Starting price already set";
 
 describe("UpDown", () => {
@@ -132,6 +133,20 @@ describe("UpDown", () => {
           feedNumber
         )
       ).to.be.revertedWith(requireFinishedGame);
+    });
+
+    it("should fail - incorrect timeframe gap", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = endTime - 10;
+      await expect(
+        Game.startGame(
+          endTime,
+          stopPredictAt,
+          usdtAmount,
+          await USDT.getAddress(),
+          feedNumber
+        )
+      ).to.be.revertedWith(requireHigherGap);
     });
   });
 

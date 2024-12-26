@@ -18,6 +18,8 @@ contract Bullseye is AccessControl {
         [5000, 3500, 1500],
         [7500, 1500, 1000]
     ];
+    event NewBullseyeRates(uint256[3] rate, uint256 playersCount, bool isExact);
+    event NewMaxPlayers(uint256 newMax);
     event NewTreasury(address newTreasury);
     event NewFee(uint256 newFee);
     event NewExactRange(uint256 newExactRange);
@@ -421,6 +423,7 @@ contract Bullseye is AccessControl {
      */
     function setMaxPlayers(uint256 newMax) public onlyRole(DEFAULT_ADMIN_ROLE) {
         maxPlayers = newMax;
+        emit NewMaxPlayers(newMax);
     }
 
     /**
@@ -474,6 +477,7 @@ contract Bullseye is AccessControl {
         bool isExact
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         rates[getRateIndex(playersCount, isExact)] = rate;
+        emit NewBullseyeRates(rate, playersCount, isExact);
     }
 }
 

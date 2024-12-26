@@ -6,6 +6,7 @@ import {ITreasury} from "./interfaces/ITreasury.sol";
 import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 
 contract UpDown is AccessControl {
+    event NewMaxPlayersAmount(uint256 newMax);
     event NewFee(uint256 newFee);
     event NewTreasury(address newTreasury);
     event UpDownCreated(
@@ -446,6 +447,7 @@ contract UpDown is AccessControl {
      */
     function setMaxPlayers(uint256 newMax) public onlyRole(DEFAULT_ADMIN_ROLE) {
         maxPlayers = newMax;
+        emit NewMaxPlayersAmount(newMax);
     }
 
     /**

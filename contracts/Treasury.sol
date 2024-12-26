@@ -11,6 +11,9 @@ interface IERC20Mint {
 }
 
 contract Treasury is Initializable, AccessControlUpgradeable {
+    event MinDepositAmountChanged(uint256 newMinAmount, address token);
+    event GameTokenSet(bytes32 gameId, address token);
+    event SetTokenStatus(address token, bool status);
     event FeeCollected(uint256 feeEarned, uint256 totalFees, address token);
     event Distributed(address to, uint256 amount, address token);
     event Refunded(address to, uint256 amount, address token);
@@ -70,6 +73,7 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(token != address(0), "Zero address");
         approvedTokens[token] = status;
+        emit SetTokenStatus(token, status);
     }
 
     /**
@@ -83,6 +87,7 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     ) public onlyRole(DISTRIBUTOR_ROLE) {
         require(approvedTokens[token], "Unapproved token");
         gameToken[gameId] = token;
+        emit GameTokenSet(gameId, token);
     }
 
     /**
@@ -596,5 +601,6 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(approvedTokens[token], "Unapproved token");
         minDepositAmount[token] = newMinAmount;
+        emit MinDepositAmountChanged(newMinAmount, token);
     }
 }

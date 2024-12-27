@@ -459,7 +459,9 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     ) external onlyRole(DISTRIBUTOR_ROLE) returns (uint256 withdrawnFees) {
         address token = gameToken[gameId];
         withdrawnFees =
-            ((wonTeamDeposits + lostTeamDeposits) * initiatorFee) /
+            (wonTeamDeposits * initiatorFee) /
+            FEE_DENOMINATOR +
+            (lostTeamDeposits * initiatorFee) /
             FEE_DENOMINATOR;
         deposits[token][initiator] += withdrawnFees;
         emit Distributed(initiator, withdrawnFees, token);

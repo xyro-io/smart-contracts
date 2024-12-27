@@ -608,8 +608,6 @@ contract Setup is AccessControl {
                             msg.sender
                         );
                     } else {
-                        withdrawStatus[gameIds[i]][msg.sender] = UserStatus
-                            .Claimed;
                         ITreasury(treasury).universalDistribute(
                             msg.sender,
                             depositAmounts[gameIds[i]][msg.sender] -
@@ -632,8 +630,6 @@ contract Setup is AccessControl {
                             msg.sender
                         );
                     } else {
-                        withdrawStatus[gameIds[i]][msg.sender] = UserStatus
-                            .Claimed;
                         ITreasury(treasury).universalDistribute(
                             msg.sender,
                             depositAmounts[gameIds[i]][msg.sender] -
@@ -658,8 +654,6 @@ contract Setup is AccessControl {
                             msg.sender
                         );
                     } else {
-                        withdrawStatus[gameIds[i]][msg.sender] = UserStatus
-                            .Claimed;
                         ITreasury(treasury).universalDistribute(
                             msg.sender,
                             depositAmounts[gameIds[i]][msg.sender] -
@@ -681,8 +675,6 @@ contract Setup is AccessControl {
                             msg.sender
                         );
                     } else {
-                        withdrawStatus[gameIds[i]][msg.sender] = UserStatus
-                            .Claimed;
                         ITreasury(treasury).universalDistribute(
                             msg.sender,
                             depositAmounts[gameIds[i]][msg.sender] -
@@ -694,6 +686,7 @@ contract Setup is AccessControl {
                     }
                 }
             }
+            withdrawStatus[gameIds[i]][msg.sender] = UserStatus.Claimed;
             emit SetupRetrieved(
                 gameIds[i],
                 msg.sender,

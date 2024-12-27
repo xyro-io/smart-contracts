@@ -34,6 +34,7 @@ const requireUniqueOpponent = "Wrong opponent";
 const requireCreationEnabled = "Game is disabled";
 const requireApprovedFeedNumber = "Wrong feed number";
 const requireApprovedToken = "Unapproved token";
+const requireLowerFee = "Fee exceeds the cap";
 const Status = {
   Default: 0,
   Created: 1,
@@ -412,6 +413,36 @@ describe("OneVsOne", () => {
       expect((await Game.decodeData(currentGameId)).gameStatus).to.equal(
         Status.Cancelled
       );
+      await Treasury.connect(owner).withdraw(
+        await Treasury.deposits(await USDT.getAddress(), owner.address),
+        await USDT.getAddress()
+      );
+    });
+
+    it("should close after 3 days and refund to both players", async function () {
+      const fourDays = 345600;
+      const tx = await Game.createGame(
+        feedNumber,
+        opponent.address,
+        (await time.latest()) + fortyFiveMinutes,
+        initiatorPrice,
+        usdtAmount,
+        await USDT.getAddress()
+      );
+      receipt = await tx.wait();
+      currentGameId = receipt!.logs[1]!.args[0];
+      await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
+      await time.increase(fourDays);
+      await Game.closeGame(currentGameId);
+      expect((await Game.decodeData(currentGameId)).gameStatus).to.equal(
+        Status.Cancelled
+      );
+      expect(
+        await Treasury.deposits(await USDT.getAddress(), owner.address)
+      ).to.be.equal(usdtAmount);
+      expect(
+        await Treasury.deposits(await USDT.getAddress(), opponent.address)
+      ).to.be.equal(usdtAmount);
       await Treasury.connect(owner).withdraw(
         await Treasury.deposits(await USDT.getAddress(), owner.address),
         await USDT.getAddress()
@@ -1634,5 +1665,9 @@ describe("OneVsOne", () => {
     expect(await Game.isActive()).to.be.equal(false);
     await Game.toggleActive();
     expect(await Game.isActive()).to.be.equal(true);
+  });
+
+  it("should fail - change fee to 31%", async function () {
+    await expect(Game.setFee(3100)).to.be.revertedWith(requireLowerFee);
   });
 });

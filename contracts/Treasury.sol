@@ -35,6 +35,11 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     mapping(bytes32 => bool) public gameStatus;
     mapping(bytes32 => mapping(address => uint256)) public lockedRakeback;
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     /**
      * @param approvedToken stable token used in games
      * @param xyroTokenAddress XYRO token address
@@ -43,7 +48,9 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         address approvedToken,
         address xyroTokenAddress
     ) public initializer {
+        __AccessControl_init();
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        require(xyroTokenAddress != address(0), "Zero address");
         xyroToken = xyroTokenAddress;
         approvedTokens[approvedToken] = true;
         minDepositAmount[approvedToken] =
@@ -85,6 +92,7 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         bytes32 gameId,
         address token
     ) public onlyRole(DISTRIBUTOR_ROLE) {
+        require(token != address(0), "Zero address");
         require(approvedTokens[token], "Unapproved token");
         gameToken[gameId] = token;
         emit GameTokenSet(gameId, token);
@@ -298,6 +306,7 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         bool isRakeback
     ) public onlyRole(DISTRIBUTOR_ROLE) returns (uint256 rakeback) {
         address token = gameToken[gameId];
+        require(amount >= minDepositAmount[token], "Wrong deposit amount");
         require(approvedTokens[token], "Unapproved token");
         require(deposits[token][from] >= amount, "Insufficent deposit amount");
         if (isRakeback) {

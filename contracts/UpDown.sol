@@ -35,6 +35,7 @@ contract UpDown is AccessControl {
         uint8 feedNumber;
     }
 
+    uint256 constant timeGap = 30 seconds;
     uint256 packedData;
     bytes32 public constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
     address[] public UpPlayers;
@@ -73,6 +74,19 @@ contract UpDown is AccessControl {
     ) public onlyRole(GAME_MASTER_ROLE) {
         require(packedData == 0, "Finish previous game first");
         require(endTime > stopPredictAt, "Ending time must be higher");
+        require(
+            depositAmount >= ITreasury(treasury).minDepositAmount(token),
+            "Wrong min deposit amount"
+        );
+        require(
+            IDataStreamsVerifier(ITreasury(treasury).upkeep()).assetId(
+                feedNumber
+            ) != bytes32(0),
+            "Wrong feed number"
+        );
+        require(endTime - stopPredictAt >= timeGap,
+            "Timeframe gap must be higher"
+        );
         packedData = (block.timestamp |
             (uint256(stopPredictAt) << 32) |
             (uint256(endTime) << 64) |
@@ -237,6 +251,7 @@ contract UpDown is AccessControl {
         bytes memory unverifiedReport
     ) public onlyRole(GAME_MASTER_ROLE) {
         GameInfo memory game = decodeData();
+        require(startingPrice == 0, "Starting price already set");
         require(block.timestamp >= game.stopPredictAt, "Too early");
         require(
             UpPlayers.length != 0 || DownPlayers.length != 0,
@@ -246,7 +261,7 @@ contract UpDown is AccessControl {
         (int192 priceData, uint32 priceTimestamp) = IDataStreamsVerifier(upkeep)
             .verifyReportWithTimestamp(unverifiedReport, game.feedNumber);
         require(
-            block.timestamp - priceTimestamp <= 1 minutes,
+            priceTimestamp - game.stopPredictAt <= 1 minutes,
             "Old chainlink report"
         );
         startingPrice = uint192(priceData);
@@ -291,6 +306,8 @@ contract UpDown is AccessControl {
             packedData = 0;
             totalDepositsUp = 0;
             totalDepositsDown = 0;
+            totalRakebackUp = 0;
+            totalRakebackDown = 0;
             currentGameId = bytes32(0);
             return;
         }
@@ -363,7 +380,14 @@ contract UpDown is AccessControl {
             }
             delete DownPlayers;
             emit UpDownCancelled(currentGameId);
+            totalDepositsUp = 0;
+            totalDepositsDown = 0;
+            totalRakebackUp = 0;
+            totalRakebackDown = 0;
+            startingPrice = 0;
             packedData = 0;
+            totalRakebackUp = 0;
+            totalRakebackDown = 0;
             currentGameId = bytes32(0);
             return;
         }
@@ -467,6 +491,7 @@ contract UpDown is AccessControl {
      * @param newFee new fee in bp
      */
     function setFee(uint256 newFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newFee <= 3000, "Fee exceeds the cap");
         fee = newFee;
         emit NewFee(newFee);
     }

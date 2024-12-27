@@ -33,6 +33,11 @@ const requireSufficentDepositAmount = "Insufficent deposit amount";
 const requireHigherDepositAmount = "Wrong deposit amount";
 const requireApprovedToken = "Unapproved token";
 const maxPlayersReached = "Max player amount reached";
+const requireLowerFee = "Fee exceeds the cap";
+const requireAboveMinDepositAmount = "Wrong min deposit amount";
+const requireApprovedFeedNumber = "Wrong feed number";
+const requireHigherGap = "Timeframe gap must be higher";
+const requireStartingPriceNotSet = "Starting price already set";
 
 describe("UpDown", () => {
   let owner: HardhatEthersSigner;
@@ -68,7 +73,8 @@ describe("UpDown", () => {
       BigInt(100) * BigInt(Math.pow(10, Number(await XyroToken.decimals())));
     Treasury = await upgrades.deployProxy(
       await ethers.getContractFactory("Treasury"),
-      [await USDT.getAddress(), await XyroToken.getAddress()]
+      [await USDT.getAddress(), await XyroToken.getAddress()],
+      { unsafeAllow: ["constructor"] }
     );
     Game = await new UpDown__factory(owner).deploy();
     Upkeep = await new MockVerifier__factory(owner).deploy();
@@ -93,6 +99,19 @@ describe("UpDown", () => {
       await Treasury.DISTRIBUTOR_ROLE(),
       await Game.getAddress()
     );
+    //set mock feed ids
+    const feedIds = [
+      "0x00037da06d56d083fe599397a4769a042d63aa73dc4ef57709d31e9971a5b439",
+      "0x000359843a543ee2fe414dc14c7e7920ef10f4372990b79d6361cdc0dd1ba782",
+      "0x000387d7c042a9d5c97c15354b531bd01bf6d3a351e190f2394403cf2f79bde9",
+      "0x00036fe43f87884450b4c7e093cd5ed99cac6640d8c2000e6afc02c8838d0265",
+      "0x0003c915006ba88731510bb995c190e80b5c9cfe8cd8a19aaf00e0ed61d0b3bc",
+      "0x0003d64b0bdb0046a65e4ebb0a9866215044634524673c65bff4096a197fcff5",
+      "0x0003d338ea2ac3be9e026033b1aa601673c37bab5e13851c59966f9f820754d6",
+      "0x00032b6edb94b883e95693b8fdae3deeedab2c48dd699cafa43a8d134d344813",
+      "0x00035e3ddda6345c3c8ce45639d4449451f1d5828d7a70845e446f04905937cd",
+    ];
+    await Upkeep.setfeedNumberBatch(feedIds);
   });
 
   describe("Create game", () => {
@@ -110,6 +129,21 @@ describe("UpDown", () => {
       expect(game.endTime).to.be.equal(endTime);
       expect(game.stopPredictAt).to.be.equal(stopPredictAt);
       expect(game.feedNumber).to.equal(feedNumber);
+    });
+
+    it("should fail - wrong feedNumber startGame", async function () {
+      const wrongFeedNumber = 9;
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = (await time.latest()) + fifteenMinutes;
+      await expect(
+        Game.startGame(
+          endTime,
+          stopPredictAt,
+          usdtAmount,
+          await USDT.getAddress(),
+          wrongFeedNumber
+        )
+      ).to.be.revertedWith(requireApprovedFeedNumber);
     });
 
     it("should fail - start new game without finishing previous", async function () {
@@ -131,6 +165,33 @@ describe("UpDown", () => {
           feedNumber
         )
       ).to.be.revertedWith(requireFinishedGame);
+    });
+
+    it("should fail - wrong min deposit amount", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = (await time.latest()) + fifteenMinutes;
+      await expect(
+        Game.startGame(
+          (await time.latest()) + fortyFiveMinutes,
+          (await time.latest()) + fifteenMinutes,
+          0,
+          await USDT.getAddress(),
+          feedNumber
+        )
+      ).to.be.revertedWith(requireAboveMinDepositAmount);
+    });
+    it("should fail - incorrect timeframe gap", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = endTime - 10;
+      await expect(
+        Game.startGame(
+          endTime,
+          stopPredictAt,
+          usdtAmount,
+          await USDT.getAddress(),
+          feedNumber
+        )
+      ).to.be.revertedWith(requireHigherGap);
     });
   });
 
@@ -341,10 +402,65 @@ describe("UpDown", () => {
           abiEncodeInt192WithTimestamp(
             assetPrice.toString(),
             feedNumber,
-            (await time.latest()) - 660
+            (await time.latest()) + 61
           )
         )
       ).to.be.revertedWith(requireValidChainlinkReport);
+    });
+
+    it("should fail - early chainlink report", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = (await time.latest()) + fifteenMinutes;
+      await Game.startGame(
+        endTime,
+        stopPredictAt,
+        usdtAmount,
+        await USDT.getAddress(),
+        feedNumber
+      );
+      await Game.connect(alice).play(true, usdtAmount);
+      await Game.connect(opponent).play(false, usdtAmount);
+      await time.increase(fifteenMinutes);
+      await expect(
+        Game.setStartingPrice(
+          abiEncodeInt192WithTimestamp(
+            assetPrice.toString(),
+            feedNumber,
+            (await time.latest()) - 61
+          )
+        )
+      ).to.be.reverted;
+    });
+
+    it("should fail - starting price already set", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = (await time.latest()) + fifteenMinutes;
+      await Game.startGame(
+        endTime,
+        stopPredictAt,
+        usdtAmount,
+        await USDT.getAddress(),
+        feedNumber
+      );
+      await Game.connect(alice).play(true, usdtAmount);
+      await Game.connect(opponent).play(false, usdtAmount);
+      await time.increase(fifteenMinutes);
+      Game.setStartingPrice(
+        abiEncodeInt192WithTimestamp(
+          assetPrice.toString(),
+          feedNumber,
+          await time.latest()
+        )
+      );
+      await expect(
+        Game.setStartingPrice(
+          abiEncodeInt192WithTimestamp(
+            assetPrice.toString(),
+            feedNumber,
+            await time.latest()
+          )
+        )
+      ).to.be.revertedWith(requireStartingPriceNotSet);
     });
 
     it("should set starting price", async function () {
@@ -390,7 +506,9 @@ describe("UpDown", () => {
           await time.latest()
         )
       );
-      await expect(Game.connect(bob).play(true, usdtAmount)).to.be.revertedWith(requireOpenedGame);
+      await expect(Game.connect(bob).play(true, usdtAmount)).to.be.revertedWith(
+        requireOpenedGame
+      );
     });
 
     it("should fail - max amount of players reached", async function () {
@@ -405,7 +523,7 @@ describe("UpDown", () => {
       );
 
       const signers = await ethers.getSigners();
-      for (let i = 0; i < 100; i++) {  
+      for (let i = 0; i < 100; i++) {
         await USDT.mint(signers[i].address, parse18("10000000"));
         await USDT.connect(signers[i]).approve(
           await Treasury.getAddress(),
@@ -413,9 +531,10 @@ describe("UpDown", () => {
         );
         await Game.connect(signers[i]).play(true, usdtAmount);
       }
-      await expect(Game.connect(signers[100]).play(true, usdtAmount)).to.be.revertedWith(maxPlayersReached);
+      await expect(
+        Game.connect(signers[100]).play(true, usdtAmount)
+      ).to.be.revertedWith(maxPlayersReached);
     });
-
 
     it("should fail - too early", async function () {
       await Game.startGame(
@@ -693,7 +812,7 @@ describe("UpDown", () => {
         await USDT.getAddress(),
         alice.address
       );
-      expect(newOpponentDeposit).to.be.equal(newAliceDeposit * BigInt(4))
+      expect(newOpponentDeposit).to.be.equal(newAliceDeposit * BigInt(4));
       await Treasury.connect(alice).withdraw(
         await Treasury.deposits(await USDT.getAddress(), alice.address),
         await USDT.getAddress()
@@ -1343,5 +1462,9 @@ describe("UpDown", () => {
     const result = await Game.getTotalPlayers();
     expect(result[0]).to.be.equal(0);
     expect(result[1]).to.be.equal(0);
+  });
+
+  it("should fail - change fee to 31%", async function () {
+    await expect(Game.setFee(3100)).to.be.revertedWith(requireLowerFee);
   });
 });

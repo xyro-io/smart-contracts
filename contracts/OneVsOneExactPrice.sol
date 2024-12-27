@@ -109,7 +109,13 @@ contract OneVsOneExactPrice is AccessControl {
             "Max game duration must be lower"
         );
         bytes32 gameId = keccak256(
-            abi.encodePacked(endTime, block.timestamp, msg.sender, opponent)
+            abi.encodePacked(
+                endTime,
+                block.timestamp,
+                msg.sender,
+                opponent,
+                address(this)
+            )
         );
         ITreasury(treasury).setGameToken(gameId, token);
         ITreasury(treasury).depositAndLock(
@@ -253,6 +259,7 @@ contract OneVsOneExactPrice is AccessControl {
             permitData.r,
             permitData.s
         );
+        require(games[gameId].packedData == 0, "Game exists");
         uint256 packedData = uint(uint160(opponent));
         uint256 packedData2 = uint(uint160(msg.sender));
         packedData |= uint256(endTime) << 160;
@@ -420,12 +427,21 @@ contract OneVsOneExactPrice is AccessControl {
         require(
             game.gameStatus == Status.Created ||
                 (
-                    block.timestamp > game.endTime
+                    (game.gameStatus == Status.Created ||
+                        game.gameStatus == Status.Started) &&
+                        block.timestamp > game.endTime
                         ? block.timestamp - game.endTime >= 3 days
                         : false
                 ),
             "Wrong status!"
         );
+        if (game.gameStatus == Status.Started) {
+            ITreasury(treasury).refund(
+                games[gameId].depositAmount,
+                game.opponent,
+                gameId
+            );
+        }
         ITreasury(treasury).refund(
             games[gameId].depositAmount,
             game.initiator,
@@ -596,6 +612,7 @@ contract OneVsOneExactPrice is AccessControl {
      * @param newFee new fee in bp
      */
     function setFee(uint256 newFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newFee <= 3000, "Fee exceeds the cap");
         fee = newFee;
         emit NewFee(newFee);
     }

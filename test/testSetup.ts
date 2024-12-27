@@ -702,7 +702,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await time.increase(fortyFiveMinutes);
       await Game.closeGame(currentGameId);
       await expect(Game.closeGame(currentGameId)).to.be.revertedWith(
@@ -1120,7 +1123,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await Game.connect(bob).play(false, usdtAmount, currentGameId);
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
       await time.increase(fortyFiveMinutes);

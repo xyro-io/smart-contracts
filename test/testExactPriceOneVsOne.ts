@@ -430,7 +430,10 @@ describe("OneVsOne", () => {
         await USDT.getAddress()
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
       await time.increase(fourDays);
       await Game.closeGame(currentGameId);

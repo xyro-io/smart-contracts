@@ -72,7 +72,11 @@ contract UpDown is AccessControl {
         uint8 feedNumber
     ) public onlyRole(GAME_MASTER_ROLE) {
         require(packedData == 0, "Finish previous game first");
-        require(endTime > stopPredictAt, "Ending time must be higher");
+        require(stopPredictAt - block.timestamp >= timeGap, "Wrong stop time");
+        require(
+            endTime - stopPredictAt >= timeGap,
+            "Timeframe gap must be higher"
+        );
         require(
             depositAmount >= ITreasury(treasury).minDepositAmount(token),
             "Wrong min deposit amount"
@@ -82,9 +86,6 @@ contract UpDown is AccessControl {
                 feedNumber
             ) != bytes32(0),
             "Wrong feed number"
-        );
-        require(endTime - stopPredictAt >= timeGap,
-            "Timeframe gap must be higher"
         );
         packedData = (block.timestamp |
             (uint256(stopPredictAt) << 32) |

@@ -15,7 +15,15 @@ interface ITreasury {
 
     function lockedRakeback(
         bytes32 gameId,
-        address player
+        address player,
+        uint256 depositId
+    ) external returns (uint256);
+
+    function depositAndLock(
+        uint256 amount,
+        address from,
+        bytes32 gameId,
+        uint256 depositId
     ) external returns (uint256);
 
     function depositAndLock(
@@ -29,11 +37,29 @@ interface ITreasury {
         uint256 amount,
         address from,
         bytes32 gameId,
+        uint256 depositId,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external returns (uint256 rakeback);
+
+    function depositAndLockWithPermit(
+        uint256 amount,
+        address from,
+        bytes32 gameId,
         bool isRakeback,
         uint256 deadline,
         uint8 v,
         bytes32 r,
         bytes32 s
+    ) external returns (uint256 rakeback);
+
+    function lock(
+        uint256 amount,
+        address from,
+        uint256 depositId,
+        bytes32 gameId
     ) external returns (uint256 rakeback);
 
     function lock(
@@ -52,18 +78,33 @@ interface ITreasury {
         uint256 lostTeamRakeback,
         address to,
         bytes32 gameId,
-        uint256 initialRakeback
+        uint256 depositId
     ) external;
 
     function approvedTokens(address token) external returns (bool);
 
     function refund(uint256 amount, address to, bytes32 gameId) external;
 
+    function refund(
+        uint256 amount,
+        address to,
+        bytes32 gameId,
+        uint256 depositId
+    ) external;
+
     function refundWithFees(
         uint256 amount,
         address to,
         uint256 refundFee,
         bytes32 gameId
+    ) external;
+
+    function refundWithFees(
+        uint256 amount,
+        address to,
+        uint256 refundFee,
+        bytes32 gameId,
+        uint256 depositId
     ) external;
 
     function universalDistribute(

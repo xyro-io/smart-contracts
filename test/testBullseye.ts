@@ -209,7 +209,8 @@ describe("Bullseye", () => {
       expect(
         await Treasury.lockedRakeback(
           await Game.currentGameId(),
-          opponent.address
+          opponent.address,
+          0
         )
       ).to.be.equal(
         (usdtAmount *
@@ -408,7 +409,8 @@ describe("Bullseye", () => {
         (usdtAmount * (await Game.fee())) / BigInt(10000);
       const rakebackAlice = await Treasury.lockedRakeback(
         gameId,
-        alice.address
+        alice.address,
+        1
       );
       const wonAmountOpponent =
         usdtAmount * BigInt(2) - withdrawnFeesAlice - rakebackAlice;
@@ -456,7 +458,8 @@ describe("Bullseye", () => {
       );
       const rakebackOpponent = await Treasury.lockedRakeback(
         gameId,
-        opponent.address
+        opponent.address,
+        1
       );
       const withdrawnFeesOpponent =
         (usdtAmount * (await Game.fee())) / BigInt(10000);
@@ -563,12 +566,13 @@ describe("Bullseye", () => {
       );
       const rakebackOpponent = await Treasury.lockedRakeback(
         gameId,
-        opponent.address
+        opponent.address,
+        1
       );
       const withdrawnFeesOpponent =
         (usdtAmount * (await Game.fee())) / BigInt(10000);
 
-      const rakebackBob = await Treasury.lockedRakeback(gameId, bob.address);
+      const rakebackBob = await Treasury.lockedRakeback(gameId, bob.address, 0);
       const withdrawnFeesBob =
         (usdtAmount * (await Game.fee())) / BigInt(10000);
 
@@ -583,6 +587,70 @@ describe("Bullseye", () => {
           oldTreasuryFeeBalance
       ).to.be.equal(withdrawnFeesBob + withdrawnFeesOpponent);
       expect(newAliceDeposit - oldAliceDeposit).to.be.equal(wonAmountAlice);
+    });
+
+    it("should end bullseye game (exact, same players)", async function () {
+      await Game.connect(bob).play(guessBobPrice);
+      await Game.connect(bob).play(guessPriceOpponent);
+      //alice should win exact
+      await Game.connect(bob).play(guessPriceAlice);
+      let oldBob2Deposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        bob.address
+      );
+      await time.increase(fortyFiveMinutes);
+      const oldTreasuryFeeBalance = await Treasury.collectedFee(
+        await USDT.getAddress()
+      );
+      const gameId = await Game.currentGameId();
+      let tx = await Game.finalizeGame(
+        abiEncodeInt192WithTimestamp(
+          finalPriceExact.toString(),
+          feedNumber,
+          await time.latest()
+        )
+      );
+      let receipt = await tx.wait();
+      let finalizeEventLog = receipt?.logs[2]?.args;
+      expect(finalizeEventLog[0][0]).to.be.equal(bob.address);
+      expect(finalizeEventLog[0][1]).to.be.equal(bob.address);
+      expect(finalizeEventLog[0][2]).to.be.equal(bob.address);
+      expect(finalizeEventLog[1][0]).to.be.equal(2);
+      expect(finalizeEventLog[1][1]).to.be.equal(0);
+      expect(finalizeEventLog[1][2]).to.be.equal(1);
+      expect(finalizeEventLog[2]).to.be.equal(finalPriceExact);
+      expect(finalizeEventLog[3]).to.be.equal(true);
+      let newBob2Deposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        bob.address
+      );
+      const rakebackBob1 = await Treasury.lockedRakeback(
+        gameId,
+        bob.address,
+        1
+      );
+      const withdrawnFeesBob1 =
+        (usdtAmount * (await Game.fee())) / BigInt(10000);
+
+      const rakebackBob0 = await Treasury.lockedRakeback(
+        gameId,
+        bob.address,
+        0
+      );
+      const withdrawnFeesBob0 =
+        (usdtAmount * (await Game.fee())) / BigInt(10000);
+
+      let wonAmountBob2 =
+        usdtAmount * BigInt(3) -
+        withdrawnFeesBob0 -
+        withdrawnFeesBob1 -
+        rakebackBob1 -
+        rakebackBob0;
+      expect(
+        (await Treasury.collectedFee(await USDT.getAddress())) -
+          oldTreasuryFeeBalance
+      ).to.be.equal(withdrawnFeesBob0 + withdrawnFeesBob1);
+      expect(newBob2Deposit - oldBob2Deposit).to.be.equal(wonAmountBob2);
     });
 
     it("should end bullseye game (3 players, same guesses)", async function () {
@@ -626,14 +694,16 @@ describe("Bullseye", () => {
 
       const rakebackOpponent = await Treasury.lockedRakeback(
         gameId,
-        opponent.address
+        opponent.address,
+        1
       );
       const withdrawnFeesPerLostPlayer =
         (usdtAmount * (await Game.fee())) / BigInt(10000);
 
       const rakebackAlice = await Treasury.lockedRakeback(
         gameId,
-        alice.address
+        alice.address,
+        2
       );
       let wonAmountBob =
         usdtAmount * BigInt(3) -
@@ -688,7 +758,8 @@ describe("Bullseye", () => {
       const totalRakeback = await Game.totalRakeback();
       const opponentRakeback = await Treasury.lockedRakeback(
         gameId,
-        opponent.address
+        opponent.address,
+        0
       );
       const totalWithdrawnFees =
         ((usdtAmount * (await Game.fee())) / BigInt(10000)) * BigInt(4);
@@ -779,11 +850,13 @@ describe("Bullseye", () => {
       const totalRakeback = await Game.totalRakeback();
       const aliceRakeback = await Treasury.lockedRakeback(
         gameId,
-        alice.address
+        alice.address,
+        5
       );
       const ownerRakeback = await Treasury.lockedRakeback(
         gameId,
-        owner.address
+        owner.address,
+        2
       );
       let tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
@@ -887,10 +960,11 @@ describe("Bullseye", () => {
       );
       const gameId = await Game.currentGameId();
       const totalRakeback = await Game.totalRakeback();
-      const bobRakeback = await Treasury.lockedRakeback(gameId, bob.address);
+      const bobRakeback = await Treasury.lockedRakeback(gameId, bob.address, 0);
       const ownerRakeback = await Treasury.lockedRakeback(
         gameId,
-        owner.address
+        owner.address,
+        2
       );
       let tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
@@ -993,10 +1067,11 @@ describe("Bullseye", () => {
       );
       const gameId = await Game.currentGameId();
       const totalRakeback = await Game.totalRakeback();
-      const bobRakeback = await Treasury.lockedRakeback(gameId, bob.address);
+      const bobRakeback = await Treasury.lockedRakeback(gameId, bob.address, 0);
       const ownerRakeback = await Treasury.lockedRakeback(
         gameId,
-        owner.address
+        owner.address,
+        2
       );
       let tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
@@ -1095,14 +1170,16 @@ describe("Bullseye", () => {
       );
       const gameId = await Game.currentGameId();
       const totalRakeback = await Game.totalRakeback();
-      const bobRakeback = await Treasury.lockedRakeback(gameId, bob.address);
+      const bobRakeback = await Treasury.lockedRakeback(gameId, bob.address, 0);
       const opponentRakeback = await Treasury.lockedRakeback(
         gameId,
-        opponent.address
+        opponent.address,
+        1
       );
       const ownerRakeback = await Treasury.lockedRakeback(
         gameId,
-        owner.address
+        owner.address,
+        2
       );
       let tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
@@ -1220,14 +1297,16 @@ describe("Bullseye", () => {
       );
       const gameId = await Game.currentGameId();
       const totalRakeback = await Game.totalRakeback();
-      const bobRakeback = await Treasury.lockedRakeback(gameId, bob.address);
+      const bobRakeback = await Treasury.lockedRakeback(gameId, bob.address, 0);
       const aliceRakeback = await Treasury.lockedRakeback(
         gameId,
-        alice.address
+        alice.address,
+        5
       );
       const ownerRakeback = await Treasury.lockedRakeback(
         gameId,
-        owner.address
+        owner.address,
+        2
       );
       let tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
@@ -1416,10 +1495,11 @@ describe("Bullseye", () => {
       expect(finalizeEventLog[1][2]).to.be.equal(1);
       expect(finalizeEventLog[2]).to.be.equal(finalPriceExact);
       expect(finalizeEventLog[3]).to.be.equal(true);
-      const rakebackBob = await Treasury.lockedRakeback(gameId, bob.address);
+      const rakebackBob = await Treasury.lockedRakeback(gameId, bob.address, 0);
       const rakebackOpponent = await Treasury.lockedRakeback(
         gameId,
-        opponent.address
+        opponent.address,
+        1
       );
       const withdrawnFeesPerLostPlayer =
         (xyroAmount * (await Game.fee())) / BigInt(10000);

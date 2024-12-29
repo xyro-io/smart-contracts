@@ -224,7 +224,11 @@ describe("UpDown", () => {
       );
 
       expect(
-        await Treasury.lockedRakeback(await Game.currentGameId(), bob.address)
+        await Treasury.lockedRakeback(
+          await Game.currentGameId(),
+          bob.address,
+          0
+        )
       ).to.be.equal((usdtAmount * BigInt(3)) / BigInt(100));
 
       expect(await Game.totalDepositsUp()).to.be.equal(usdtAmount);
@@ -267,7 +271,8 @@ describe("UpDown", () => {
       expect(
         await Treasury.lockedRakeback(
           await Game.currentGameId(),
-          opponent.address
+          opponent.address,
+          0
         )
       ).to.be.equal((usdtAmount * BigInt(3)) / BigInt(100));
 
@@ -304,7 +309,11 @@ describe("UpDown", () => {
       );
 
       expect(
-        await Treasury.lockedRakeback(await Game.currentGameId(), alice.address)
+        await Treasury.lockedRakeback(
+          await Game.currentGameId(),
+          alice.address,
+          0
+        )
       ).to.be.equal((usdtAmount * BigInt(3)) / BigInt(100));
 
       expect(await Game.totalDepositsUp()).to.be.equal(usdtAmount);
@@ -595,25 +604,35 @@ describe("UpDown", () => {
       await Game.connect(opponent).play(false, usdtAmount);
 
       expect(
-        await Treasury.lockedRakeback(await Game.currentGameId(), alice.address)
+        await Treasury.lockedRakeback(
+          await Game.currentGameId(),
+          alice.address,
+          0
+        )
       ).to.be.equal((usdtAmount * BigInt(3)) / BigInt(100));
 
       expect(
         await Treasury.lockedRakeback(
           await Game.currentGameId(),
-          opponent.address
+          opponent.address,
+          0
         )
       ).to.be.equal((usdtAmount * BigInt(3)) / BigInt(100));
 
       await Game.closeGame();
       expect(
-        await Treasury.lockedRakeback(await Game.currentGameId(), alice.address)
+        await Treasury.lockedRakeback(
+          await Game.currentGameId(),
+          alice.address,
+          0
+        )
       ).to.be.equal(0);
 
       expect(
         await Treasury.lockedRakeback(
           await Game.currentGameId(),
-          opponent.address
+          opponent.address,
+          0
         )
       ).to.be.equal(0);
       await Treasury.connect(opponent).withdraw(
@@ -1168,24 +1187,24 @@ describe("UpDown", () => {
       const gameId = await Game.currentGameId();
       //1%
       await Game.connect(bob).play(true, usdtAmount);
-      expect(await Treasury.lockedRakeback(gameId, bob.address)).to.be.equal(
+      expect(await Treasury.lockedRakeback(gameId, bob.address, 0)).to.be.equal(
         usdtAmount / BigInt(100)
       );
       //3%
       await Game.connect(alice).play(true, usdtAmount);
-      expect(await Treasury.lockedRakeback(gameId, alice.address)).to.be.equal(
-        (usdtAmount / BigInt(100)) * BigInt(3)
-      );
+      expect(
+        await Treasury.lockedRakeback(gameId, alice.address, 0)
+      ).to.be.equal((usdtAmount / BigInt(100)) * BigInt(3));
       //0%
       await Game.connect(opponent).play(false, usdtAmount);
       expect(
-        await Treasury.lockedRakeback(gameId, opponent.address)
+        await Treasury.lockedRakeback(gameId, opponent.address, 0)
       ).to.be.equal(0);
       //10%
       await Game.play(true, usdtAmount);
-      expect(await Treasury.lockedRakeback(gameId, owner.address)).to.be.equal(
-        (usdtAmount / BigInt(100)) * BigInt(10)
-      );
+      expect(
+        await Treasury.lockedRakeback(gameId, owner.address, 0)
+      ).to.be.equal((usdtAmount / BigInt(100)) * BigInt(10));
     });
 
     it("should end updown game (up wins)", async function () {
@@ -1267,7 +1286,11 @@ describe("UpDown", () => {
       await Game.connect(bob).playWithDeposit(true, usdtAmount);
 
       expect(
-        await Treasury.lockedRakeback(await Game.currentGameId(), bob.address)
+        await Treasury.lockedRakeback(
+          await Game.currentGameId(),
+          bob.address,
+          0
+        )
       ).to.be.equal(0);
 
       expect(await Game.totalRakebackUp()).to.be.equal(0);
@@ -1290,7 +1313,8 @@ describe("UpDown", () => {
       expect(
         await Treasury.lockedRakeback(
           await Game.currentGameId(),
-          opponent.address
+          opponent.address,
+          0
         )
       ).to.be.equal(0);
       expect(await Game.totalDepositsDown()).to.be.equal(usdtAmount);
@@ -1336,11 +1360,16 @@ describe("UpDown", () => {
       expect(
         await Treasury.lockedRakeback(
           await Game.currentGameId(),
-          opponent.address
+          opponent.address,
+          0
         )
       ).to.be.equal(0);
       expect(
-        await Treasury.lockedRakeback(await Game.currentGameId(), alice.address)
+        await Treasury.lockedRakeback(
+          await Game.currentGameId(),
+          alice.address,
+          0
+        )
       ).to.be.equal(0);
 
       let fee = (usdtAmount * (await Game.fee())) / DENOMENATOR;

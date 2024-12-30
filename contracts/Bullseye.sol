@@ -481,11 +481,11 @@ contract Bullseye is AccessControl {
         bool isExact
     ) public pure returns (uint256 index) {
         if (playersCount <= 5) {
-            index = isExact ? 1 : 0;
+            index = 0;
         } else if (playersCount <= 10) {
-            index = isExact ? 3 : 2;
+            index = isExact ? 2 : 1;
         } else {
-            index = isExact ? 5 : 4;
+            index = isExact ? 4 : 3;
         }
     }
 

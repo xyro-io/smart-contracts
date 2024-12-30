@@ -146,7 +146,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       let game = await Game.decodeData(currentGameId);
       let data = await Game.games(currentGameId);
       expect(game.isLong).to.be.equal(isLong);
@@ -178,7 +181,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       let game = await Game.decodeData(currentGameId);
       let data = await Game.games(currentGameId);
       expect(game.isLong).to.be.equal(isLong);
@@ -380,7 +386,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       const oldUserBalance = await USDT.balanceOf(bob.address);
       const oldTreasuryBalance = await USDT.balanceOf(
         await Treasury.getAddress()
@@ -415,7 +424,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       const oldUserBalance = await USDT.balanceOf(alice.address);
       const oldTreasuryBalance = await USDT.balanceOf(
         await Treasury.getAddress()
@@ -449,7 +461,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       const oldUserBalance = await USDT.balanceOf(harry.address);
       const oldTreasuryBalance = await USDT.balanceOf(
         await Treasury.getAddress()
@@ -491,7 +506,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await expect(
         Game.playWithDeposit(true, usdtAmount, currentGameId)
       ).to.be.revertedWith(requireSufficentDepositAmount);
@@ -515,7 +533,11 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
+
       await expect(
         Game.connect(bob).play(true, 0, currentGameId)
       ).to.be.revertedWith(requireWrongusdtAmount);
@@ -539,7 +561,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       const oldUserBalance = await USDT.balanceOf(owner.address);
       const oldTreasuryBalance = await USDT.balanceOf(
         await Treasury.getAddress()
@@ -574,7 +599,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await Game.connect(alice).play(false, usdtAmount, currentGameId);
       await expect(
         Game.connect(alice).play(true, usdtAmount, currentGameId)
@@ -596,7 +624,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await time.increase(fortyFiveMinutes);
       await Game.closeGame(currentGameId);
       await expect(
@@ -620,7 +651,10 @@ describe("Setup Game", () => {
       );
       receipt = await tx.wait();
       await time.increase(fortyFiveMinutes);
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await expect(
         Game.connect(alice).play(false, usdtAmount, currentGameId)
       ).to.be.revertedWith(gameClosed);
@@ -643,7 +677,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await time.increase(fortyFiveMinutes);
       await Game.closeGame(currentGameId);
       let game = await Game.decodeData(currentGameId);
@@ -665,7 +702,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await time.increase(fortyFiveMinutes);
       await Game.closeGame(currentGameId);
       await expect(Game.closeGame(currentGameId)).to.be.revertedWith(
@@ -693,7 +733,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
 
       await Game.play(true, usdtAmount, currentGameId);
       await Game.connect(bob).play(true, usdtAmount, currentGameId);
@@ -754,7 +797,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await Game.play(false, usdtAmount, currentGameId);
       await Game.connect(bob).play(false, usdtAmount, currentGameId);
 
@@ -837,7 +883,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await Game.connect(bob).play(false, usdtAmount, currentGameId);
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
       await time.increase(fortyFiveMinutes);
@@ -943,7 +992,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await Game.connect(bob).play(false, usdtAmount, currentGameId);
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
       await time.increase(fortyFiveMinutes);
@@ -1033,7 +1085,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await Game.connect(bob).play(false, usdtAmount, currentGameId);
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
       await time.increase(fortyFiveMinutes);
@@ -1068,7 +1123,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await Game.connect(bob).play(false, usdtAmount, currentGameId);
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
       await time.increase(fortyFiveMinutes);
@@ -1117,7 +1175,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await Game.connect(bob).play(false, usdtAmount, currentGameId);
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
       await time.increase(fortyFiveMinutes);
@@ -1222,7 +1283,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await Game.connect(bob).play(false, usdtAmount, currentGameId);
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
       await time.increase(fortyFiveMinutes);
@@ -1319,7 +1383,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await Game.connect(bob).play(false, usdtAmount, currentGameId);
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
       await time.increase(fortyFiveMinutes);
@@ -1401,7 +1468,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await Game.connect(bob).play(false, usdtAmount, currentGameId);
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
       await time.increase(fortyFiveMinutes);
@@ -1433,7 +1503,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await time.increase(fortyFiveMinutes);
       await Game.closeGame(currentGameId);
       await expect(
@@ -1466,7 +1539,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await Game.connect(bob).play(false, usdtAmount, currentGameId);
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
       await time.increase(fortyFiveMinutes);
@@ -1500,7 +1576,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await Game.connect(alice).play(false, usdtAmount, currentGameId);
       await Game.connect(owner).play(false, usdtAmount, currentGameId);
       await Game.finalizeGame(
@@ -1542,7 +1621,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
       await Game.connect(owner).play(true, usdtAmount, currentGameId);
       await Game.finalizeGame(
@@ -1585,7 +1667,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await Game.connect(bob).play(false, usdtAmount, currentGameId);
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
       await time.increase(fortyFiveMinutes);
@@ -1651,7 +1736,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       let game = await Game.decodeData(currentGameId);
       let data = await Game.games(currentGameId);
       expect(game.isLong).to.be.equal(isLong);
@@ -1684,7 +1772,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       let game = await Game.decodeData(currentGameId);
       let data = await Game.games(currentGameId);
       expect(game.isLong).to.be.equal(isLong);
@@ -1717,7 +1808,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       const oldUserBalance = await XyroToken.balanceOf(bob.address);
       const oldTreasuryBalance = await XyroToken.balanceOf(
         await Treasury.getAddress()
@@ -1752,7 +1846,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       const oldUserBalance = await XyroToken.balanceOf(alice.address);
       const oldTreasuryBalance = await XyroToken.balanceOf(
         await Treasury.getAddress()
@@ -1787,7 +1884,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await time.increase(fortyFiveMinutes);
       await Game.closeGame(currentGameId);
       let game = await Game.decodeData(currentGameId);
@@ -1828,7 +1928,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await Game.connect(bob).play(false, xyroAmount, currentGameId);
       await Game.connect(alice).play(true, xyroAmount, currentGameId);
       await time.increase(fortyFiveMinutes);
@@ -1928,7 +2031,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       //1%
       await Game.connect(bob).play(true, usdtAmount, currentGameId);
       expect(
@@ -1988,7 +2094,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await Game.connect(bob).play(false, usdtAmount, currentGameId);
       await Game.connect(owner).play(false, usdtAmount, currentGameId);
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
@@ -2102,7 +2211,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await Game.connect(bob).play(false, usdtAmount, currentGameId);
 
       expect(
@@ -2131,7 +2243,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
       expect(
         await Treasury.lockedRakeback(currentGameId, alice.address)
@@ -2174,7 +2289,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       await Game.connect(bob).play(false, usdtAmount, currentGameId);
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
       await time.increase(fortyFiveMinutes);
@@ -2267,7 +2385,10 @@ describe("Setup Game", () => {
         )
       );
       receipt = await tx.wait();
-      currentGameId = receipt?.logs[0]?.args[0][0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "SetupCreated"
+      );
+      currentGameId = events[0]!.args[0][0];
       const deadline = (await time.latest()) + fortyFiveMinutes;
       let ownerPermit = await getPermitSignature(
         owner,

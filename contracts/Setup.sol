@@ -6,6 +6,8 @@ import {ITreasury} from "./interfaces/ITreasury.sol";
 import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 
 contract Setup is AccessControl {
+    event SetupToggle(bool isActive);
+    event NewGameDuration(uint256 newMaxDuration, uint256 newMinDuration);
     event NewFee(uint256 newFee);
     event NewInitiatorFee(uint256 newFee);
     event NewTreasury(address newTreasury);
@@ -733,6 +735,7 @@ contract Setup is AccessControl {
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         minDuration = newMinDuration;
         maxDuration = newMaxDuration;
+        emit NewGameDuration(newMaxDuration, newMinDuration);
     }
 
     /**
@@ -773,5 +776,6 @@ contract Setup is AccessControl {
      */
     function toggleActive() public onlyRole(DEFAULT_ADMIN_ROLE) {
         isActive = !isActive;
+        emit SetupToggle(isActive);
     }
 }

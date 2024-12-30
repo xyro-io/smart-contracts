@@ -8,7 +8,7 @@ import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 contract Bullseye is AccessControl {
     bytes32 public constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
     uint256 constant DENOMINATOR = 10000;
-    uint256 public exactRange = 50000;
+    uint256 public exactRange = 5 * 1e18;
     uint256 public fee = 1000;
     uint256 public maxPlayers = 100;
     uint256[3][5] public rates = [

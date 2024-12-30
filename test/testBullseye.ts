@@ -422,6 +422,24 @@ describe("Bullseye", () => {
       );
     });
 
+    it("should check exact range - 5$", async function () {
+      await Game.connect(opponent).play(parse18("63507"));
+      await Game.connect(alice).play(parse18("63505"));
+      await time.increase(fortyFiveMinutes);
+      let tx = await Game.finalizeGame(
+        abiEncodeInt192WithTimestamp(
+          finalPriceCloser.toString(),
+          feedNumber,
+          await time.latest()
+        )
+      );
+      let receipt = await tx.wait();
+      const events = receipt?.logs.filter(
+        (event: any) => event.fragment?.name === "BullseyeFinalized"
+      );
+      expect(events![0].args![3]).to.be.equal(true);
+    });
+
     it("should finish game with 2 players (exact price, first player wins)", async function () {
       let oldAliceBalance = await Treasury.deposits(
         await USDT.getAddress(),

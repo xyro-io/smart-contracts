@@ -91,7 +91,7 @@ contract Bullseye is AccessControl {
         address token
     ) public onlyRole(GAME_MASTER_ROLE) {
         require(packedData == 0, "Finish previous game first");
-        require(endTime - block.timestamp > timeGap, "Wrong ending time");
+        require(stopPredictAt - block.timestamp >= timeGap, "Wrong stop time");
         require(
             endTime - stopPredictAt >= timeGap,
             "Timeframe gap must be higher"

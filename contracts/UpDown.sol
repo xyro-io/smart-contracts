@@ -84,7 +84,8 @@ contract UpDown is AccessControl {
             ) != bytes32(0),
             "Wrong feed number"
         );
-        require(endTime - stopPredictAt >= timeGap,
+        require(
+            endTime - stopPredictAt >= timeGap,
             "Timeframe gap must be higher"
         );
         packedData = (block.timestamp |
@@ -308,6 +309,7 @@ contract UpDown is AccessControl {
             totalDepositsDown = 0;
             totalRakebackUp = 0;
             totalRakebackDown = 0;
+            startingPrice = 0;
             currentGameId = bytes32(0);
             return;
         }

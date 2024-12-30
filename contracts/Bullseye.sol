@@ -65,7 +65,7 @@ contract Bullseye is AccessControl {
 
     GuessStruct[] public playerGuessData;
     uint256 packedData;
-
+    uint256 constant timeGap = 30 seconds;
     uint256 public depositAmount;
     uint256 public totalRakeback;
     bytes32 public currentGameId;
@@ -91,7 +91,11 @@ contract Bullseye is AccessControl {
         address token
     ) public onlyRole(GAME_MASTER_ROLE) {
         require(packedData == 0, "Finish previous game first");
-        require(endTime > block.timestamp, "Wrong ending time");
+        require(endTime - block.timestamp > timeGap, "Wrong ending time");
+        require(
+            endTime - stopPredictAt >= timeGap,
+            "Timeframe gap must be higher"
+        );
         require(
             newDepositAmount >= ITreasury(treasury).minDepositAmount(token),
             "Wrong min deposit amount"

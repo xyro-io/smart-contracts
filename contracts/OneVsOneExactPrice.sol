@@ -6,6 +6,9 @@ import {ITreasury} from "./interfaces/ITreasury.sol";
 import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 
 contract OneVsOneExactPrice is AccessControl {
+    event OneVsOneToggle(bool isActive);
+    event NewRefundFee(uint256 newRefundFee);
+    event NewGameDuration(uint256 newMaxDuration, uint256 newMinDuration);
     event NewFee(uint256 newFee);
     event NewTreasury(address newTreasury);
     event ExactPriceCreated(
@@ -589,6 +592,7 @@ contract OneVsOneExactPrice is AccessControl {
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         minDuration = newMinDuration;
         maxDuration = newMaxDuration;
+        emit NewGameDuration(newMaxDuration, newMinDuration);
     }
 
     /**
@@ -621,6 +625,7 @@ contract OneVsOneExactPrice is AccessControl {
         uint256 newRefundFee
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         refundFee = newRefundFee;
+        emit NewRefundFee(newRefundFee);
     }
 
     /**
@@ -628,5 +633,6 @@ contract OneVsOneExactPrice is AccessControl {
      */
     function toggleActive() public onlyRole(DEFAULT_ADMIN_ROLE) {
         isActive = !isActive;
+        emit OneVsOneToggle(isActive);
     }
 }

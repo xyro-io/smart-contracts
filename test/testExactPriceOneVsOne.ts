@@ -135,7 +135,10 @@ describe("OneVsOne", () => {
         await USDT.getAddress()
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       let game = await Game.decodeData(currentGameId);
       const sentUserAmount =
         oldUserBalance - (await USDT.balanceOf(owner.address));
@@ -275,7 +278,10 @@ describe("OneVsOne", () => {
         await USDT.getAddress()
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       const oldUserBalance = await USDT.balanceOf(opponent.address);
       await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
       const sentUserAmount =
@@ -298,7 +304,10 @@ describe("OneVsOne", () => {
       );
 
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
       expect((await Game.decodeData(currentGameId)).gameStatus).to.equal(
         Status.Started
@@ -315,7 +324,10 @@ describe("OneVsOne", () => {
         await USDT.getAddress()
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       await Game.closeGame(currentGameId);
       await expect(
         Game.connect(opponent).acceptGame(currentGameId, opponentPrice)
@@ -333,7 +345,10 @@ describe("OneVsOne", () => {
       );
       await time.increase(fortyFiveMinutes / 3);
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       await expect(
         Game.connect(opponent).acceptGame(currentGameId, opponentPrice)
       ).to.be.revertedWith(requireGameClosed);
@@ -349,7 +364,10 @@ describe("OneVsOne", () => {
         await USDT.getAddress()
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       await expect(
         Game.connect(opponent).acceptGame(currentGameId, initiatorPrice)
       ).to.be.revertedWith(requireSameAssetPrice);
@@ -365,7 +383,10 @@ describe("OneVsOne", () => {
         await USDT.getAddress()
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       await expect(
         Game.connect(alice).acceptGame(currentGameId, opponentPrice)
       ).to.be.revertedWith(requireOnlyCertainAccount);
@@ -384,7 +405,10 @@ describe("OneVsOne", () => {
       );
       await time.increase(fortyFiveMinutes / 3);
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       await Game.closeGame(currentGameId);
       expect((await Game.decodeData(currentGameId)).gameStatus).to.equal(
         Status.Cancelled
@@ -406,7 +430,10 @@ describe("OneVsOne", () => {
         await USDT.getAddress()
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
       await time.increase(fourDays);
       await Game.closeGame(currentGameId);
@@ -436,7 +463,10 @@ describe("OneVsOne", () => {
         await USDT.getAddress()
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
       await time.increase(threeDaysUnix + fortyFiveMinutes);
       await Game.closeGame(currentGameId);
@@ -464,7 +494,10 @@ describe("OneVsOne", () => {
         await USDT.getAddress()
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
       await time.increase(twoDaysUnix + fortyFiveMinutes);
       await expect(Game.closeGame(currentGameId)).to.be.revertedWith(
@@ -483,7 +516,10 @@ describe("OneVsOne", () => {
       );
       await time.increase(monthUnix);
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       await expect(Game.liquidateGame(currentGameId)).to.emit(
         Treasury,
         "FeeCollected"
@@ -510,7 +546,10 @@ describe("OneVsOne", () => {
         await USDT.getAddress()
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       let game = await Game.decodeData(currentGameId);
       expect(game.gameStatus).to.be.equal(Status.Created);
       await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
@@ -531,7 +570,10 @@ describe("OneVsOne", () => {
         await USDT.getAddress()
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       await expect(
         Game.connect(alice).closeGame(currentGameId)
       ).to.be.revertedWith(requireWrongSender);
@@ -549,7 +591,10 @@ describe("OneVsOne", () => {
         await USDT.getAddress()
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
       let oldBalance = await USDT.balanceOf(opponent.address);
       await time.increase(fortyFiveMinutes);
@@ -586,7 +631,10 @@ describe("OneVsOne", () => {
         await USDT.getAddress()
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
       await expect(
         Game.connect(alice).acceptGame(currentGameId, opponentPrice + BigInt(1))
@@ -614,7 +662,10 @@ describe("OneVsOne", () => {
         await USDT.getAddress()
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
 
       let gameData = await Game.decodeData(currentGameId);
       expect(gameData.feedNumber).to.be.equal(feedNumber);
@@ -706,7 +757,10 @@ describe("OneVsOne", () => {
         await USDT.getAddress()
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[0]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
 
       let gameData = await Game.decodeData(currentGameId);
       expect(gameData.feedNumber).to.be.equal(feedNumber);
@@ -801,7 +855,10 @@ describe("OneVsOne", () => {
         await USDT.getAddress()
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
       let oldBalance = await USDT.balanceOf(owner.address);
       await time.increase(fortyFiveMinutes);
@@ -836,7 +893,10 @@ describe("OneVsOne", () => {
         await USDT.getAddress()
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       let oldBalance = await USDT.balanceOf(opponent.address);
       await Game.connect(opponent).acceptGame(
         currentGameId,
@@ -871,7 +931,10 @@ describe("OneVsOne", () => {
         await USDT.getAddress()
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       await expect(
         Game.finalizeGame(
           currentGameId,
@@ -894,7 +957,10 @@ describe("OneVsOne", () => {
         await USDT.getAddress()
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
       await expect(
         Game.finalizeGame(
@@ -918,7 +984,10 @@ describe("OneVsOne", () => {
         await USDT.getAddress()
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
       await time.increase(fortyFiveMinutes + 60);
       await expect(
@@ -965,7 +1034,10 @@ describe("OneVsOne", () => {
         await XyroToken.getAddress()
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       let game = await Game.decodeData(currentGameId);
       const sentUserAmount =
         oldUserBalance - (await XyroToken.balanceOf(owner.address));
@@ -996,7 +1068,10 @@ describe("OneVsOne", () => {
         await XyroToken.getAddress()
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       const oldUserBalance = await XyroToken.balanceOf(opponent.address);
       await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
       const sentUserAmount =
@@ -1020,7 +1095,10 @@ describe("OneVsOne", () => {
       );
       await time.increase(fortyFiveMinutes / 3);
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       await Game.closeGame(currentGameId);
       expect((await Game.decodeData(currentGameId)).gameStatus).to.equal(
         Status.Cancelled
@@ -1042,7 +1120,10 @@ describe("OneVsOne", () => {
         await XyroToken.getAddress()
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       await Game.connect(opponent).acceptGame(currentGameId, opponentPrice);
       let oldBalance = await XyroToken.balanceOf(opponent.address);
       await time.increase(fortyFiveMinutes);
@@ -1096,7 +1177,10 @@ describe("OneVsOne", () => {
         }
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[2]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
 
       let gameData = await Game.decodeData(currentGameId);
       expect(gameData.feedNumber).to.be.equal(feedNumber);
@@ -1208,7 +1292,10 @@ describe("OneVsOne", () => {
         }
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[2]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       const game = await Game.decodeData(currentGameId);
       expect(
         (await USDT.balanceOf(await Treasury.getAddress())) - oldTreasuryBalance
@@ -1397,7 +1484,10 @@ describe("OneVsOne", () => {
         }
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[2]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       await Game.connect(opponent).acceptGameWithPermit(
         currentGameId,
         opponentPrice,
@@ -1428,7 +1518,10 @@ describe("OneVsOne", () => {
         await USDT.getAddress()
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       await Game.closeGame(currentGameId);
       const deadline = (await time.latest()) + fortyFiveMinutes;
       let opponentPermit = await getPermitSignature(
@@ -1463,7 +1556,10 @@ describe("OneVsOne", () => {
       );
       await time.increase(fortyFiveMinutes / 3);
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       const deadline = (await time.latest()) + fortyFiveMinutes;
       let opponentPermit = await getPermitSignature(
         opponent,
@@ -1496,7 +1592,10 @@ describe("OneVsOne", () => {
         await USDT.getAddress()
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       const deadline = (await time.latest()) + fortyFiveMinutes;
       let opponentPermit = await getPermitSignature(
         opponent,
@@ -1529,7 +1628,10 @@ describe("OneVsOne", () => {
         await USDT.getAddress()
       );
       receipt = await tx.wait();
-      currentGameId = receipt!.logs[1]!.args[0];
+      const events = receipt.logs.filter(
+        (event: any) => event.fragment?.name === "ExactPriceCreated"
+      );
+      currentGameId = events[0]!.args[0];
       const deadline = (await time.latest()) + fortyFiveMinutes;
       let alicePermit = await getPermitSignature(
         alice,

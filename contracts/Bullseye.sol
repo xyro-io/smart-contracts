@@ -144,7 +144,7 @@ contract Bullseye is AccessControl {
             depositAmount,
             msg.sender,
             currentGameId,
-            true
+            playerGuessData.length
         );
         playerGuessData.push(
             GuessStruct({
@@ -182,8 +182,8 @@ contract Bullseye is AccessControl {
         uint256 rakeback = ITreasury(treasury).lock(
             depositAmount,
             msg.sender,
-            currentGameId,
-            true
+            playerGuessData.length,
+            currentGameId
         );
         playerGuessData.push(
             GuessStruct({
@@ -226,7 +226,7 @@ contract Bullseye is AccessControl {
                 depositAmount,
                 msg.sender,
                 currentGameId,
-                true,
+                playerGuessData.length,
                 permitData.deadline,
                 permitData.v,
                 permitData.r,
@@ -364,7 +364,8 @@ contract Bullseye is AccessControl {
             if (currentRates[i] != 0) {
                 winnersRakeback += ITreasury(treasury).lockedRakeback(
                     currentGameId,
-                    topPlayers[i]
+                    topPlayers[i],
+                    topIndexes[i]
                 );
             }
         }
@@ -408,7 +409,8 @@ contract Bullseye is AccessControl {
             ITreasury(treasury).refund(
                 deposit,
                 currentGuessData.player,
-                currentGameId
+                currentGameId,
+                i
             );
         }
         emit BullseyeCancelled(currentGameId);

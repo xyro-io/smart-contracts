@@ -928,7 +928,8 @@ describe("Setup Game", () => {
       expect(game.initiator).to.be.equal(owner.address);
       const bobRakeback = await Treasury.lockedRakeback(
         currentGameId,
-        bob.address
+        bob.address,
+        0
       );
       await Game.connect(alice).retrieveRewards([currentGameId]);
       //get rakeback for bob
@@ -1037,7 +1038,8 @@ describe("Setup Game", () => {
       expect(game.initiator).to.be.equal(owner.address);
       const aliceRakeback = await Treasury.lockedRakeback(
         currentGameId,
-        alice.address
+        alice.address,
+        0
       );
       await expect(
         Game.connect(alice).retrieveRewards([currentGameId])
@@ -1220,7 +1222,8 @@ describe("Setup Game", () => {
       expect(game.initiator).to.be.equal(owner.address);
       const aliceRakeback = await Treasury.lockedRakeback(
         currentGameId,
-        alice.address
+        alice.address,
+        0
       );
       await expect(
         Game.connect(alice).retrieveRewards([currentGameId])
@@ -1329,7 +1332,8 @@ describe("Setup Game", () => {
       await Game.connect(alice).retrieveRewards([currentGameId]);
       const bobRakeback = await Treasury.lockedRakeback(
         currentGameId,
-        bob.address
+        bob.address,
+        0
       );
       await expect(
         Game.connect(bob).retrieveRewards([currentGameId])
@@ -1416,7 +1420,8 @@ describe("Setup Game", () => {
       await Game.connect(alice).retrieveRewards([currentGameId]);
       const bobRakeback = await Treasury.lockedRakeback(
         currentGameId,
-        bob.address
+        bob.address,
+        0
       );
       await expect(
         Game.connect(bob).retrieveRewards([currentGameId])
@@ -1973,7 +1978,8 @@ describe("Setup Game", () => {
       expect(game.initiator).to.be.equal(owner.address);
       const bobRakeback = await Treasury.lockedRakeback(
         currentGameId,
-        bob.address
+        bob.address,
+        0
       );
       await Game.connect(alice).retrieveRewards([currentGameId]);
       await expect(
@@ -2039,22 +2045,22 @@ describe("Setup Game", () => {
       //1%
       await Game.connect(bob).play(true, usdtAmount, currentGameId);
       expect(
-        await Treasury.lockedRakeback(currentGameId, bob.address)
+        await Treasury.lockedRakeback(currentGameId, bob.address, 0)
       ).to.be.equal(usdtAmount / BigInt(100));
       //3%
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
       expect(
-        await Treasury.lockedRakeback(currentGameId, alice.address)
+        await Treasury.lockedRakeback(currentGameId, alice.address, 0)
       ).to.be.equal((usdtAmount / BigInt(100)) * BigInt(3));
       //0%
       await Game.connect(harry).play(false, usdtAmount, currentGameId);
       expect(
-        await Treasury.lockedRakeback(currentGameId, harry.address)
+        await Treasury.lockedRakeback(currentGameId, harry.address, 0)
       ).to.be.equal(0);
       //10%
       await Game.play(true, usdtAmount, currentGameId);
       expect(
-        await Treasury.lockedRakeback(currentGameId, owner.address)
+        await Treasury.lockedRakeback(currentGameId, owner.address, 0)
       ).to.be.equal((usdtAmount / BigInt(100)) * BigInt(10));
     });
 
@@ -2141,7 +2147,8 @@ describe("Setup Game", () => {
       expect(game.initiator).to.be.equal(owner.address);
       const bobRakeback = await Treasury.lockedRakeback(
         currentGameId,
-        bob.address
+        bob.address,
+        0
       );
       await Game.connect(alice).retrieveRewards([currentGameId]);
       await Game.connect(harry).retrieveRewards([currentGameId]);
@@ -2219,7 +2226,7 @@ describe("Setup Game", () => {
       await Game.connect(bob).play(false, usdtAmount, currentGameId);
 
       expect(
-        await Treasury.lockedRakeback(currentGameId, bob.address)
+        await Treasury.lockedRakeback(currentGameId, bob.address, 0)
       ).to.be.equal(0);
 
       let data = await Game.games(currentGameId);
@@ -2250,7 +2257,7 @@ describe("Setup Game", () => {
       currentGameId = events[0]!.args[0][0];
       await Game.connect(alice).play(true, usdtAmount, currentGameId);
       expect(
-        await Treasury.lockedRakeback(currentGameId, alice.address)
+        await Treasury.lockedRakeback(currentGameId, alice.address, 0)
       ).to.be.equal(0);
 
       let data = await Game.games(currentGameId);
@@ -2334,7 +2341,8 @@ describe("Setup Game", () => {
       expect(game.initiator).to.be.equal(owner.address);
       const bobRakeback = await Treasury.lockedRakeback(
         currentGameId,
-        bob.address
+        bob.address,
+        0
       );
       await Game.connect(alice).retrieveRewards([currentGameId]);
       //get rakeback for bob

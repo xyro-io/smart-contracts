@@ -104,12 +104,9 @@ describe("Treasury", () => {
       await USDT.getAddress()
     );
     expect(await Treasury.locked(mockGameId)).to.be.equal(0);
-    await Treasury.connect(mockContract).depositAndLock(
-      depositAmount,
-      alice.address,
-      mockGameId,
-      false
-    );
+    await Treasury.connect(mockContract)[
+      "depositAndLock(uint256,address,bytes32,bool)"
+    ](depositAmount, alice.address, mockGameId, false);
     expect(await Treasury.locked(mockGameId)).to.be.equal(depositAmount);
   });
 
@@ -153,7 +150,9 @@ describe("Treasury", () => {
       BigInt(depositAmount),
       BigInt(deadline)
     );
-    await Treasury.connect(mockContract).depositAndLockWithPermit(
+    await Treasury.connect(mockContract)[
+      "depositAndLockWithPermit(uint256,address,bytes32,bool,uint256,uint8,bytes32,bytes32)"
+    ](
       depositAmount,
       alice.address,
       mockGameId,
@@ -194,7 +193,7 @@ describe("Treasury", () => {
       depositAmount,
       await USDT.getAddress()
     );
-    await Treasury.connect(mockContract).lock(
+    await Treasury.connect(mockContract)["lock(uint256,address,bytes32,bool)"](
       depositAmount,
       alice.address,
       mockGameId,
@@ -212,7 +211,7 @@ describe("Treasury", () => {
       await USDT.getAddress()
     );
     await expect(
-      Treasury.connect(mockContract).lock(
+      Treasury.connect(mockContract)["lock(uint256,address,bytes32,bool)"](
         depositAmount,
         alice.address,
         mockGameId,
@@ -229,18 +228,15 @@ describe("Treasury", () => {
       await USDT.getAddress()
     );
 
-    await Treasury.connect(mockContract).depositAndLock(
-      depositAmount,
-      alice.address,
-      mockGameId,
-      false
-    );
+    await Treasury.connect(mockContract)[
+      "depositAndLock(uint256,address,bytes32,bool)"
+    ](depositAmount, alice.address, mockGameId, false);
 
     const oldDepositBalance = await Treasury.deposits(
       await USDT.getAddress(),
       alice.address
     );
-    await Treasury.connect(mockContract).refund(
+    await Treasury.connect(mockContract)["refund(uint256,address,bytes32)"](
       depositAmount,
       alice.address,
       mockGameId
@@ -261,12 +257,9 @@ describe("Treasury", () => {
     );
     const oldFeeBalance = await Treasury.collectedFee(await USDT.getAddress());
     const gameFee = 1000; //10%
-    await Treasury.connect(mockContract).depositAndLock(
-      depositAmount,
-      alice.address,
-      mockGameId,
-      false
-    );
+    await Treasury.connect(mockContract)[
+      "depositAndLock(uint256,address,bytes32,bool)"
+    ](depositAmount, alice.address, mockGameId, false);
     await Treasury.connect(mockContract).withdrawGameFee(
       depositAmount,
       gameFee,
@@ -287,23 +280,19 @@ describe("Treasury", () => {
       await USDT.getAddress(),
       alice.address
     );
-    await Treasury.connect(mockContract).depositAndLock(
-      depositAmount,
-      owner.address,
-      mockGameId,
-      false
-    );
+    await Treasury.connect(mockContract)[
+      "depositAndLock(uint256,address,bytes32,bool)"
+    ](depositAmount, owner.address, mockGameId, false);
 
-    await Treasury.connect(mockContract).depositAndLock(
-      depositAmount,
-      alice.address,
-      mockGameId,
-      false
-    );
+    await Treasury.connect(mockContract)[
+      "depositAndLock(uint256,address,bytes32,bool)"
+    ](depositAmount, alice.address, mockGameId, false);
 
     const rate = 10000;
 
-    await Treasury.connect(mockContract).universalDistribute(
+    await Treasury.connect(mockContract)[
+      "universalDistribute(address,uint256,bytes32,uint256)"
+    ](
       alice.address,
       depositAmount, //won amount
       mockGameId,
@@ -344,34 +333,39 @@ describe("Treasury", () => {
       await XyroToken.mint(owner.address, parse18("1250000"));
       //mock game
       const mockGameId =
-        "0x0000000000000000000000000000000000000000000000000000000000000005";
+        "0x0000000000000000000000000000000000000000000000000000000000000012";
       await Treasury.connect(mockContract).setGameToken(
         mockGameId,
         await USDT.getAddress()
       );
 
       const mockDepositAmount = 100000000;
-      await Treasury.connect(mockContract).depositAndLock(
-        mockDepositAmount,
-        owner.address,
-        mockGameId,
-        true
-      );
+      await Treasury.connect(mockContract)[
+        "depositAndLock(uint256,address,bytes32,uint256)"
+      ](mockDepositAmount, owner.address, mockGameId, 0);
+      await Treasury.connect(mockContract)[
+        "depositAndLock(uint256,address,bytes32,uint256)"
+      ](mockDepositAmount, owner.address, mockGameId, 1);
       expect(
-        await Treasury.lockedRakeback(mockGameId, owner.address)
+        await Treasury.lockedRakeback(mockGameId, owner.address, 0)
+      ).to.be.equal(mockDepositAmount * 0.1);
+      expect(
+        await Treasury.lockedRakeback(mockGameId, owner.address, 1)
       ).to.be.equal(mockDepositAmount * 0.1);
       const mockRate = BigInt(1000000);
-      const initialRakeback = BigInt(5000000);
       await Treasury.connect(mockContract).distributeBullseye(
         mockRate,
         BigInt(0),
         owner.address,
         mockGameId,
-        initialRakeback
+        0
       );
       expect(
-        await Treasury.lockedRakeback(mockGameId, owner.address)
-      ).to.be.equal(mockDepositAmount * 0.05);
+        await Treasury.lockedRakeback(mockGameId, owner.address, 0)
+      ).to.be.equal(0);
+      expect(
+        await Treasury.lockedRakeback(mockGameId, owner.address, 1)
+      ).to.be.equal(mockDepositAmount * 0.1);
     });
     it("Should distribute with rakeback", async function () {
       await XyroToken.grantMintAndBurnRoles(owner.address);
@@ -385,24 +379,18 @@ describe("Treasury", () => {
       );
 
       const mockDepositAmount = 100000000;
-      await Treasury.connect(mockContract).depositAndLock(
-        mockDepositAmount * 2,
-        owner.address,
-        mockGameId,
-        true
-      );
+      await Treasury.connect(mockContract)[
+        "depositAndLock(uint256,address,bytes32,bool)"
+      ](mockDepositAmount * 2, owner.address, mockGameId, true);
       expect(
-        await Treasury.lockedRakeback(mockGameId, owner.address)
+        await Treasury.lockedRakeback(mockGameId, owner.address, 0)
       ).to.be.equal(mockDepositAmount * 2 * 0.1);
       const mockRate = BigInt(1000000);
-      await Treasury.connect(mockContract).universalDistribute(
-        owner.address,
-        mockDepositAmount,
-        mockGameId,
-        mockRate
-      );
+      await Treasury.connect(mockContract)[
+        "universalDistribute(address,uint256,bytes32,uint256)"
+      ](owner.address, mockDepositAmount, mockGameId, mockRate);
       expect(
-        await Treasury.lockedRakeback(mockGameId, owner.address)
+        await Treasury.lockedRakeback(mockGameId, owner.address, 0)
       ).to.be.equal(0);
     });
     it("Should deposit and lock with rakeback", async function () {
@@ -415,15 +403,12 @@ describe("Treasury", () => {
         await USDT.getAddress()
       );
       expect(await Treasury.locked(mockGameId)).to.be.equal(0);
-      await Treasury.connect(mockContract).depositAndLock(
-        depositAmount,
-        alice.address,
-        mockGameId,
-        true
-      );
+      await Treasury.connect(mockContract)[
+        "depositAndLock(uint256,address,bytes32,bool)"
+      ](depositAmount, alice.address, mockGameId, true);
       const rakeback = BigInt(depositAmount * 0.1);
       expect(
-        await Treasury.lockedRakeback(mockGameId, alice.address)
+        await Treasury.lockedRakeback(mockGameId, alice.address, 0)
       ).to.be.equal(rakeback);
 
       expect(await Treasury.locked(mockGameId)).to.be.equal(depositAmount);
@@ -447,7 +432,9 @@ describe("Treasury", () => {
         BigInt(depositAmount),
         BigInt(deadline)
       );
-      await Treasury.connect(mockContract).depositAndLockWithPermit(
+      await Treasury.connect(mockContract)[
+        "depositAndLockWithPermit(uint256,address,bytes32,bool,uint256,uint8,bytes32,bytes32)"
+      ](
         depositAmount,
         alice.address,
         mockGameId,
@@ -459,7 +446,7 @@ describe("Treasury", () => {
       );
       const rakeback = BigInt(depositAmount * 0.1);
       expect(
-        await Treasury.lockedRakeback(mockGameId, alice.address)
+        await Treasury.lockedRakeback(mockGameId, alice.address, 0)
       ).to.be.equal(rakeback);
       expect(await Treasury.locked(mockGameId)).to.be.equal(depositAmount);
     });
@@ -474,17 +461,14 @@ describe("Treasury", () => {
         await USDT.getAddress()
       );
       expect(await Treasury.locked(mockGameId)).to.be.equal(0);
-      await Treasury.connect(mockContract).depositAndLock(
-        depositAmount,
-        alice.address,
-        mockGameId,
-        true
-      );
+      await Treasury.connect(mockContract)[
+        "depositAndLock(uint256,address,bytes32,bool)"
+      ](depositAmount, alice.address, mockGameId, true);
       const oldDepositBalance = await Treasury.deposits(
         await USDT.getAddress(),
         alice.address
       );
-      await Treasury.connect(mockContract).refund(
+      await Treasury.connect(mockContract)["refund(uint256,address,bytes32)"](
         depositAmount,
         alice.address,
         mockGameId
@@ -495,7 +479,7 @@ describe("Treasury", () => {
       );
       expect(newDepositBalance - oldDepositBalance).to.be.equal(depositAmount);
       expect(
-        await Treasury.lockedRakeback(mockGameId, alice.address)
+        await Treasury.lockedRakeback(mockGameId, alice.address, 0)
       ).to.be.equal(0);
     });
 
@@ -509,12 +493,9 @@ describe("Treasury", () => {
         await USDT.getAddress()
       );
       expect(await Treasury.locked(mockGameId)).to.be.equal(0);
-      await Treasury.connect(mockContract).depositAndLock(
-        depositAmount,
-        alice.address,
-        mockGameId,
-        true
-      );
+      await Treasury.connect(mockContract)[
+        "depositAndLock(uint256,address,bytes32,bool)"
+      ](depositAmount, alice.address, mockGameId, true);
       const oldDepositBalance = await Treasury.deposits(
         await USDT.getAddress(),
         alice.address
@@ -535,7 +516,7 @@ describe("Treasury", () => {
       );
       expect(await Treasury.locked(mockGameId)).to.be.equal(0);
       expect(
-        await Treasury.lockedRakeback(mockGameId, alice.address)
+        await Treasury.lockedRakeback(mockGameId, alice.address, 0)
       ).to.be.equal(0);
     });
 
@@ -549,12 +530,9 @@ describe("Treasury", () => {
         await USDT.getAddress()
       );
       expect(await Treasury.locked(mockGameId)).to.be.equal(0);
-      await Treasury.connect(mockContract).depositAndLock(
-        depositAmount * 3,
-        alice.address,
-        mockGameId,
-        true
-      );
+      await Treasury.connect(mockContract)[
+        "depositAndLock(uint256,address,bytes32,bool)"
+      ](depositAmount * 3, alice.address, mockGameId, true);
       const oldDepositBalance = await Treasury.deposits(
         await USDT.getAddress(),
         alice.address
@@ -575,7 +553,7 @@ describe("Treasury", () => {
       );
       expect(await Treasury.locked(mockGameId)).to.be.equal(depositAmount * 2);
       expect(
-        await Treasury.lockedRakeback(mockGameId, alice.address)
+        await Treasury.lockedRakeback(mockGameId, alice.address, 0)
       ).to.be.equal(0);
     });
   });
@@ -617,7 +595,7 @@ describe("Treasury", () => {
       await USDT.getAddress()
     );
     await expect(
-      Treasury.connect(mockContract).refund(
+      Treasury.connect(mockContract)["refund(uint256,address,bytes32)"](
         ethers.MaxUint256,
         alice.address,
         mockGameId
@@ -643,12 +621,9 @@ describe("Treasury", () => {
       await USDT.getAddress()
     );
     await expect(
-      Treasury.connect(mockContract).refundWithFees(
-        ethers.MaxUint256,
-        owner.address,
-        100,
-        mockGameId
-      )
+      Treasury.connect(mockContract)[
+        "refundWithFees(uint256,address,uint256,bytes32)"
+      ](ethers.MaxUint256, owner.address, 100, mockGameId)
     ).to.be.revertedWith(wrongAmount);
   });
 

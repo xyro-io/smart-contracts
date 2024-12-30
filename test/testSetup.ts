@@ -23,6 +23,7 @@ const parse18 = ethers.parseEther;
 const fortyFiveMinutes = 2700;
 const fifteenMinutes = 900;
 const monthUnix = 2629743;
+const alreadyClaimed = "Already claimed";
 const highGameDuration = "Max game duration must be lower";
 const lowGameDuration = "Min game duration must be higher";
 const wrongPrice = "Wrong tp or sl price";
@@ -1691,7 +1692,7 @@ describe("Setup Game", () => {
       ).to.be.emit(Treasury, "UsedRakeback");
       await expect(
         Game.connect(bob).retrieveRewards([currentGameId])
-      ).to.revertedWith(noRakeback);
+      ).to.revertedWith(alreadyClaimed);
     });
   });
 

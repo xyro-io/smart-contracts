@@ -59,7 +59,6 @@ contract Bullseye is AccessControl {
         uint256 assetPrice;
         uint256 timestamp;
         uint256 rakeback;
-        // uint256 id;
     }
 
     GuessStruct[] public playerGuessData;

@@ -17,7 +17,12 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     event FeeCollected(uint256 feeEarned, uint256 totalFees, address token);
     event Distributed(address to, uint256 amount, address token);
     event Refunded(address to, uint256 amount, address token);
-    event UsedRakeback(bytes32 gameId, uint256 totalRakeback, address token);
+    event UsedRakeback(
+        bytes32 gameId,
+        uint256 totalRakeback,
+        address token,
+        uint256 depositId
+    );
     event UpkeepChanged(address newUpkeep);
     mapping(address => bool) public approvedTokens;
     address public xyroToken;
@@ -704,6 +709,7 @@ contract Treasury is Initializable, AccessControlUpgradeable {
     /**
      * Changes game status wich allows players to withdraw rakeback
      * @param gameIds array of game ids with earned rakeback
+     * @param depositIds array of game deposit indexes
      */
     function withdrawRakeback(
         bytes32[] calldata gameIds,
@@ -721,7 +727,8 @@ contract Treasury is Initializable, AccessControlUpgradeable {
             emit UsedRakeback(
                 gameIds[i],
                 lockedRakeback[gameIds[i]][msg.sender][depositIds[i]],
-                token
+                token,
+                depositIds[i]
             );
             lockedRakeback[gameIds[i]][msg.sender][depositIds[i]] = 0;
         }
@@ -746,7 +753,8 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         emit UsedRakeback(
             gameId,
             lockedRakeback[gameId][target][0],
-            gameToken[gameId]
+            gameToken[gameId],
+            0
         );
         lockedRakeback[gameId][target][0] = 0;
     }

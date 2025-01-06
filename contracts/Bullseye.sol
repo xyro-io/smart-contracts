@@ -378,7 +378,7 @@ contract Bullseye is AccessControl {
                         totalRakeback - winnersRakeback,
                         topPlayers[i],
                         currentGameId,
-                        topRakeback[i]
+                        topIndexes[i]
                     );
                 }
             }

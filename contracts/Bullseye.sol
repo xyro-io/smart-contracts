@@ -221,17 +221,17 @@ contract Bullseye is AccessControl {
             game.stopPredictAt >= block.timestamp,
             "Game is closed for new players"
         );
-        uint256 rakeback = totalRakeback += ITreasury(treasury)
-            .depositAndLockWithPermit(
-                depositAmount,
-                msg.sender,
-                currentGameId,
-                playerGuessData.length,
-                permitData.deadline,
-                permitData.v,
-                permitData.r,
-                permitData.s
-            );
+        uint256 rakeback = ITreasury(treasury).depositAndLockWithPermit(
+            depositAmount,
+            msg.sender,
+            currentGameId,
+            playerGuessData.length,
+            permitData.deadline,
+            permitData.v,
+            permitData.r,
+            permitData.s
+        );
+
         playerGuessData.push(
             GuessStruct({
                 player: msg.sender,

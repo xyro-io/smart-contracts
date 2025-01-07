@@ -760,6 +760,7 @@ contract Setup is AccessControl {
     function setInitiatorFee(
         uint256 newFee
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newFee <= 3000, "Fee exceeds the cap");
         initiatorFee = newFee;
         emit NewInitiatorFee(newFee);
     }

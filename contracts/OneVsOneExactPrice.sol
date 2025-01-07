@@ -636,6 +636,7 @@ contract OneVsOneExactPrice is AccessControl {
     function setRefundFee(
         uint256 newRefundFee
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newRefundFee <= 3000, "Fee exceeds the cap");
         refundFee = newRefundFee;
         emit NewRefundFee(newRefundFee);
     }

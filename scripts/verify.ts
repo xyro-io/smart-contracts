@@ -135,10 +135,7 @@ async function verifyFrontHelper() {
     try {
       await hre.run("verify:verify", {
         address: targetAddress,
-        constructorArguments: [
-          contracts.USDC.address,
-          contracts.Treasury.address,
-        ],
+        constructorArguments: [],
       });
       contracts.FrontHelper.url = getVerifiedUrl(targetAddress);
     } catch (e) {
@@ -218,20 +215,55 @@ async function verifyBank() {
   }
 }
 
+async function verifyTokenOwner(token: string, owner: string) {
+  try {
+    await hre.run("verify:verify", {
+      address: owner,
+      constructorArguments: [token],
+    });
+    console.log(getVerifiedUrl(owner));
+  } catch (e) {
+    if (isAlreadyVerified(e, owner)) console.log(getVerifiedUrl(owner));
+  }
+}
+
+async function verifyTimeLock() {
+  if (contracts.TimeLock.address !== undefined) {
+    let targetAddress = contracts.TimeLock.address;
+    try {
+      await hre.run("verify:verify", {
+        address: targetAddress,
+        constructorArguments: [
+          100,
+          ["0x59D74185D879b63e8543073fFA73cD5a12Fc4104"],
+          ["0x59D74185D879b63e8543073fFA73cD5a12Fc4104"],
+          "0x59D74185D879b63e8543073fFA73cD5a12Fc4104",
+        ],
+        contract: "contracts/TimeLock.sol:TimeLock",
+      });
+      contracts.TimeLock.url = getVerifiedUrl(targetAddress);
+    } catch (e) {
+      if (isAlreadyVerified(e, targetAddress))
+        contracts.TimeLock.url = getVerifiedUrl(targetAddress);
+    }
+  }
+}
+
 async function verify() {
+  await verifyTimeLock();
   await verifyXyroToken();
   // await verifyMockUSDC();
-  await verifyTreasury();
-  await verifyOneVsOneExactPrice();
-  await verifyBullseye();
-  await verifyUpDown();
+  // await verifyTreasury();
+  // await verifyOneVsOneExactPrice();
+  // await verifyBullseye();
+  // await verifyUpDown();
   // await verifyFrontHelper();
   // await verifyMockUpkeep();
-  await verifySetup();
-  await verifyBank();
+  // await verifySetup();
+  // await verifyBank();
   const mainnetVerifierAdr = "0x478Aa2aC9F6D65F84e09D9185d126c3a17c2a93C";
   const testnetVerifierAdr = "0x2ff010DEbC1297f19579B4246cad07bd24F2488A";
-  await verifyVerifier(testnetVerifierAdr);
+  // await verifyVerifier(testnetVerifierAdr);
   const json = JSON.stringify(contracts);
   fs.writeFileSync("./contracts.json", json);
 }

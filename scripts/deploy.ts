@@ -55,10 +55,7 @@ async function deployFrontHelper() {
     contracts.FrontHelper?.address == undefined ||
     contracts.FrontHelper?.address == ""
   ) {
-    FrontHelper = await wrapFnc(
-      [contracts.USDC.address, contracts.Treasury.address],
-      factory
-    );
+    FrontHelper = await wrapFnc([], factory);
     contracts.FrontHelper = { address: "", url: "" };
     contracts.FrontHelper.address = FrontHelper.target;
     console.log("FrontHelper deployed");
@@ -68,12 +65,12 @@ async function deployFrontHelper() {
 }
 
 async function deployXyroToken() {
-  factory = await ethers.getContractFactory("XyroToken");
+  factory = await ethers.getContractFactory("XyroTokenERC677");
   if (
     contracts.XyroToken?.address == undefined ||
     contracts.XyroToken?.address == ""
   ) {
-    XyroToken = await wrapFnc([parse18((1e8).toString())], factory);
+    XyroToken = await wrapFnc([0], factory);
     contracts.XyroToken = { address: "", url: "" };
     contracts.XyroToken.address = XyroToken.target;
     console.log("XyroToken deployed");
@@ -89,9 +86,13 @@ async function deployTreasury() {
     contracts.Treasury?.address == ""
   ) {
     const factory = await ethers.getContractFactory("Treasury");
-    Treasury = await upgrades.deployProxy(factory, [contracts.USDC.address], {
-      initializer: "initialize",
-    });
+    Treasury = await upgrades.deployProxy(
+      factory,
+      [contracts.USDC.address, contracts.XyroToken.address],
+      {
+        initializer: "initialize",
+      }
+    );
     await Treasury.waitForDeployment();
     contracts.Treasury = { address: "", url: "" };
     contracts.Treasury.address = await Treasury.getAddress();
@@ -203,7 +204,7 @@ async function deployTimeLock(deployer: HardhatEthersSigner) {
     contracts.TimeLock?.address == undefined ||
     contracts.TimeLock?.address == ""
   ) {
-    TimeLock = await wrapFnc([1, [], [], deployer], factory);
+    TimeLock = await wrapFnc([100, [deployer], [deployer], deployer], factory);
     contracts.TimeLock = { address: "", url: "" };
     contracts.TimeLock.address = TimeLock.target;
     console.log("TimeLock deployed");
@@ -294,27 +295,34 @@ async function deployBank() {
   }
 }
 
+async function deployTokenOwner() {
+  factory = await ethers.getContractFactory("TokenOwner");
+  let TokenOwner = await wrapFnc([""], factory);
+  console.log(`Token owner deployed ${TokenOwner.target}`);
+}
+
 async function main() {
   [deployer] = await ethers.getSigners();
   console.log("Deployer = ", deployer.address);
   try {
+    await deployTokenOwner();
     // await deployGovernanceToken();
     // await deployTimeLock(deployer);
     // await deployDAO();
-    await deployUSDC();
+    // await deployUSDC();
     // await deployXyroToken();
-    await deployTreasury();
+    // await deployTreasury();
     // await deployStaking();
-    await deployOneVsOneExactPrice();
-    await deploySetup();
-    await deployBullseye();
+    // await deployOneVsOneExactPrice();
+    // await deploySetup();
+    // await deployBullseye();
     // await deployMockVerifier();
     // await deployFrontHelper();
-    await deployUpDown();
-    await deployBank();
+    // await deployUpDown();
+    // await deployBank();
     const mainnetVerifierAdr = "0x478Aa2aC9F6D65F84e09D9185d126c3a17c2a93C";
     const testnetVerifierAdr = "0x2ff010DEbC1297f19579B4246cad07bd24F2488A";
-    await deployVerifier(testnetVerifierAdr);
+    // await deployVerifier(testnetVerifierAdr);
   } catch (e) {
     const json = JSON.stringify(contracts);
     fs.writeFileSync("./contracts.json", json);

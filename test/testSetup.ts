@@ -953,10 +953,12 @@ describe("Setup Game", () => {
       );
       expect(finalTreasuryBalance).to.be.above(oldTreasuryBalance);
       expect(finalOwnerBalance).to.be.above(oldOwnerBalance);
-      const wonAmountAlice = calculateWonAmount(
-        usdtAmount - (usdtAmount * (await Game.initiatorFee())) / BigInt(10000),
-        finalRate
-      );
+      const wonAmountAlice =
+        calculateWonAmount(
+          usdtAmount -
+            (usdtAmount * (await Game.initiatorFee())) / BigInt(10000),
+          finalRate
+        ) - BigInt(1);
       expect(finalAliceBalance - oldAliceBalance).to.be.equal(wonAmountAlice);
       expect(finalBobBalance - oldBobBalance).to.be.equal(bobRakeback);
     });
@@ -1063,10 +1065,12 @@ describe("Setup Game", () => {
       expect(finalTreasuryBalance).to.be.above(oldTreasuryBalance);
       expect(finalOwnerBalance).to.be.above(oldOwnerBalance);
       expect(finalAliceBalance - oldAliceBalance).to.be.equal(aliceRakeback);
-      const wonAmountBob = calculateWonAmount(
-        usdtAmount - (usdtAmount * (await Game.initiatorFee())) / BigInt(10000),
-        finalRate
-      );
+      const wonAmountBob =
+        calculateWonAmount(
+          usdtAmount -
+            (usdtAmount * (await Game.initiatorFee())) / BigInt(10000),
+          finalRate
+        ) - BigInt(1);
       expect(finalBobBalance - oldBobBalance).to.be.equal(wonAmountBob);
     });
 
@@ -1247,10 +1251,12 @@ describe("Setup Game", () => {
       expect(finalTreasuryBalance).to.be.above(oldTreasuryBalance);
       expect(finalOwnerBalance).to.be.above(oldOwnerBalance);
       expect(finalAliceBalance - oldAliceBalance).to.be.equal(aliceRakeback);
-      const wonAmountBob = calculateWonAmount(
-        usdtAmount - (usdtAmount * (await Game.initiatorFee())) / BigInt(10000),
-        finalRate
-      );
+      const wonAmountBob =
+        calculateWonAmount(
+          usdtAmount -
+            (usdtAmount * (await Game.initiatorFee())) / BigInt(10000),
+          finalRate
+        ) - BigInt(1);
       expect(finalBobBalance - oldBobBalance).to.be.equal(wonAmountBob);
     });
 
@@ -1355,10 +1361,12 @@ describe("Setup Game", () => {
       );
       expect(finalTreasuryBalance).to.be.above(oldTreasuryBalance);
       expect(finalOwnerBalance).to.be.above(oldOwnerBalance);
-      const wonAmountAlice = calculateWonAmount(
-        usdtAmount - (usdtAmount * (await Game.initiatorFee())) / BigInt(10000),
-        finalRate
-      );
+      const wonAmountAlice =
+        calculateWonAmount(
+          usdtAmount -
+            (usdtAmount * (await Game.initiatorFee())) / BigInt(10000),
+          finalRate
+        ) - BigInt(1);
       expect(finalAliceBalance - oldAliceBalance).to.be.equal(wonAmountAlice);
       expect(finalBobBalance - oldBobBalance).to.be.equal(bobRakeback);
     });
@@ -2002,10 +2010,12 @@ describe("Setup Game", () => {
       );
       expect(finalTreasuryBalance).to.be.above(oldTreasuryBalance);
       expect(finalOwnerBalance).to.be.above(oldOwnerBalance);
-      const wonAmountAlice = calculateWonAmount(
-        xyroAmount - (xyroAmount * (await Game.initiatorFee())) / BigInt(10000),
-        finalRate
-      );
+      const wonAmountAlice =
+        calculateWonAmount(
+          xyroAmount -
+            (xyroAmount * (await Game.initiatorFee())) / BigInt(10000),
+          finalRate
+        ) - BigInt(2);
       expect(finalAliceBalance - oldAliceBalance).to.be.equal(wonAmountAlice);
       expect(finalBobBalance - oldBobBalance).to.be.equal(bobRakeback);
     });
@@ -2183,10 +2193,12 @@ describe("Setup Game", () => {
       );
       expect(finalTreasuryBalance).to.be.above(oldTreasuryBalance);
       expect(finalOwnerBalance).to.be.above(oldOwnerBalance);
-      const wonAmount = calculateWonAmount(
-        usdtAmount - (usdtAmount * (await Game.initiatorFee())) / BigInt(10000),
-        finalRate
-      );
+      const wonAmount =
+        calculateWonAmount(
+          usdtAmount -
+            (usdtAmount * (await Game.initiatorFee())) / BigInt(10000),
+          finalRate
+        ) - BigInt(1);
       expect(finalAliceBalance - oldAliceBalance).to.be.equal(wonAmount);
       expect(finalHarryBalance - oldHarryBalance).to.be.equal(wonAmount);
       expect(finalBobBalance - oldBobBalance).to.be.equal(bobRakeback);
@@ -2366,10 +2378,12 @@ describe("Setup Game", () => {
       );
       expect(finalTreasuryBalance).to.be.above(oldTreasuryBalance);
       expect(finalOwnerBalance).to.be.above(oldOwnerBalance);
-      const wonAmountAlice = calculateWonAmount(
-        usdtAmount - (usdtAmount * (await Game.initiatorFee())) / BigInt(10000),
-        finalRate
-      );
+      const wonAmountAlice =
+        calculateWonAmount(
+          usdtAmount -
+            (usdtAmount * (await Game.initiatorFee())) / BigInt(10000),
+          finalRate
+        ) - BigInt(1);
       expect(finalAliceBalance - oldAliceBalance).to.be.equal(wonAmountAlice);
       expect(finalBobBalance - oldBobBalance).to.be.equal(bobRakeback);
     });

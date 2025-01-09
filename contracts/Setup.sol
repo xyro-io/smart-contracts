@@ -614,7 +614,9 @@ contract Setup is AccessControl {
                             msg.sender,
                             depositAmounts[gameIds[i]][msg.sender] -
                                 ((depositAmounts[gameIds[i]][msg.sender] *
-                                    initiatorFee) / FEE_DENOMINATOR),
+                                    initiatorFee) /
+                                    FEE_DENOMINATOR +
+                                    1),
                             gameIds[i],
                             games[gameIds[i]].finalRate
                         );
@@ -636,7 +638,9 @@ contract Setup is AccessControl {
                             msg.sender,
                             depositAmounts[gameIds[i]][msg.sender] -
                                 ((depositAmounts[gameIds[i]][msg.sender] *
-                                    initiatorFee) / FEE_DENOMINATOR),
+                                    initiatorFee) /
+                                    FEE_DENOMINATOR +
+                                    1),
                             gameIds[i],
                             games[gameIds[i]].finalRate
                         );
@@ -660,7 +664,9 @@ contract Setup is AccessControl {
                             msg.sender,
                             depositAmounts[gameIds[i]][msg.sender] -
                                 ((depositAmounts[gameIds[i]][msg.sender] *
-                                    initiatorFee) / FEE_DENOMINATOR),
+                                    initiatorFee) /
+                                    FEE_DENOMINATOR +
+                                    1),
                             gameIds[i],
                             games[gameIds[i]].finalRate
                         );
@@ -681,7 +687,9 @@ contract Setup is AccessControl {
                             msg.sender,
                             depositAmounts[gameIds[i]][msg.sender] -
                                 ((depositAmounts[gameIds[i]][msg.sender] *
-                                    initiatorFee) / FEE_DENOMINATOR),
+                                    initiatorFee) /
+                                    FEE_DENOMINATOR +
+                                    1),
                             gameIds[i],
                             games[gameIds[i]].finalRate
                         );

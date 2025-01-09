@@ -546,6 +546,9 @@ contract Treasury is Initializable, AccessControlUpgradeable {
         uint256 wonAmount = initialDeposit +
             (initialDeposit * rate) /
             RATE_PRECISION_AMPLIFIER;
+        if (locked[gameId] < wonAmount) {
+            wonAmount = locked[gameId];
+        }
         deposits[token][to] += wonAmount;
         locked[gameId] -= wonAmount;
         emit Distributed(to, wonAmount, token);

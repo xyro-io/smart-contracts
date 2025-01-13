@@ -98,7 +98,12 @@ describe("RevenueBank", () => {
     const mockGameId =
       "0x0000000000000000000000000000000000000000000000000000000000000001";
     await Treasury.setGameToken(mockGameId, await USDT.getAddress());
-    await Treasury.depositAndLock(1000000000, owner.address, mockGameId, false);
+    await Treasury["depositAndLock(uint256,address,bytes32,bool)"](
+      1000000000,
+      owner.address,
+      mockGameId,
+      false
+    );
     await Treasury.withdrawGameFee(1000000000, 9000, mockGameId);
     await Bank.connect(owner).collectFees(900000000, await USDT.getAddress());
     await Bank.connect(alice).verifyTransfer(message, signature);
@@ -116,7 +121,12 @@ describe("RevenueBank", () => {
       "0x0000000000000000000000000000000000000000000000000000000000000002";
     await Treasury.setGameToken(mockGameId, await USDT.getAddress());
     await USDT.approve(await Treasury.getAddress(), ethers.MaxUint256);
-    await Treasury.depositAndLock(1000000000, owner.address, mockGameId, false);
+    await Treasury["depositAndLock(uint256,address,bytes32,bool)"](
+      1000000000,
+      owner.address,
+      mockGameId,
+      false
+    );
     await Treasury.withdrawGameFee(1000000000, 9000, mockGameId);
 
     expect(await Treasury.collectedFee(await USDT.getAddress())).to.be.equal(

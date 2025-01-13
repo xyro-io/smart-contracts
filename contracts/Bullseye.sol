@@ -8,7 +8,7 @@ import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 contract Bullseye is AccessControl {
     bytes32 public constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
     uint256 constant DENOMINATOR = 10000;
-    uint256 public exactRange = 50000;
+    uint256 public exactRange = 5 * 1e18;
     uint256 public fee = 1000;
     uint256 public maxPlayers = 100;
     uint256[3][5] public rates = [
@@ -18,6 +18,8 @@ contract Bullseye is AccessControl {
         [5000, 3500, 1500],
         [7500, 1500, 1000]
     ];
+    event NewBullseyeRates(uint256[3] rate, uint256 playersCount, bool isExact);
+    event NewMaxPlayers(uint256 newMax);
     event NewTreasury(address newTreasury);
     event NewFee(uint256 newFee);
     event NewExactRange(uint256 newExactRange);
@@ -63,7 +65,7 @@ contract Bullseye is AccessControl {
 
     GuessStruct[] public playerGuessData;
     uint256 packedData;
-
+    uint256 constant timeGap = 30 seconds;
     uint256 public depositAmount;
     uint256 public totalRakeback;
     bytes32 public currentGameId;
@@ -89,7 +91,21 @@ contract Bullseye is AccessControl {
         address token
     ) public onlyRole(GAME_MASTER_ROLE) {
         require(packedData == 0, "Finish previous game first");
-        require(endTime > block.timestamp, "Wrong ending time");
+        require(stopPredictAt - block.timestamp >= timeGap, "Wrong stop time");
+        require(
+            endTime - stopPredictAt >= timeGap,
+            "Timeframe gap must be higher"
+        );
+        require(
+            newDepositAmount >= ITreasury(treasury).minDepositAmount(token),
+            "Wrong min deposit amount"
+        );
+        require(
+            IDataStreamsVerifier(ITreasury(treasury).upkeep()).assetId(
+                feedNumber
+            ) != bytes32(0),
+            "Wrong feed number"
+        );
         packedData = (block.timestamp |
             (uint256(stopPredictAt) << 32) |
             (uint256(endTime) << 64) |
@@ -128,7 +144,7 @@ contract Bullseye is AccessControl {
             depositAmount,
             msg.sender,
             currentGameId,
-            true
+            playerGuessData.length
         );
         playerGuessData.push(
             GuessStruct({
@@ -166,8 +182,8 @@ contract Bullseye is AccessControl {
         uint256 rakeback = ITreasury(treasury).lock(
             depositAmount,
             msg.sender,
-            currentGameId,
-            true
+            playerGuessData.length,
+            currentGameId
         );
         playerGuessData.push(
             GuessStruct({
@@ -205,17 +221,17 @@ contract Bullseye is AccessControl {
             game.stopPredictAt >= block.timestamp,
             "Game is closed for new players"
         );
-        uint256 rakeback = totalRakeback += ITreasury(treasury)
-            .depositAndLockWithPermit(
-                depositAmount,
-                msg.sender,
-                currentGameId,
-                true,
-                permitData.deadline,
-                permitData.v,
-                permitData.r,
-                permitData.s
-            );
+        uint256 rakeback = ITreasury(treasury).depositAndLockWithPermit(
+            depositAmount,
+            msg.sender,
+            currentGameId,
+            playerGuessData.length,
+            permitData.deadline,
+            permitData.v,
+            permitData.r,
+            permitData.s
+        );
+
         playerGuessData.push(
             GuessStruct({
                 player: msg.sender,
@@ -313,6 +329,7 @@ contract Bullseye is AccessControl {
                     topIndexes[i] = j;
                     topPlayers[i] = currentGuessData.player;
                     topRakeback[i] = currentGuessData.rakeback;
+                    topTimestamps[i] = currentGuessData.timestamp;
                     break;
                 }
             }
@@ -347,7 +364,8 @@ contract Bullseye is AccessControl {
             if (currentRates[i] != 0) {
                 winnersRakeback += ITreasury(treasury).lockedRakeback(
                     currentGameId,
-                    topPlayers[i]
+                    topPlayers[i],
+                    topIndexes[i]
                 );
             }
         }
@@ -360,7 +378,7 @@ contract Bullseye is AccessControl {
                         totalRakeback - winnersRakeback,
                         topPlayers[i],
                         currentGameId,
-                        topRakeback[i]
+                        topIndexes[i]
                     );
                 }
             }
@@ -391,7 +409,8 @@ contract Bullseye is AccessControl {
             ITreasury(treasury).refund(
                 deposit,
                 currentGuessData.player,
-                currentGameId
+                currentGameId,
+                i
             );
         }
         emit BullseyeCancelled(currentGameId);
@@ -421,6 +440,7 @@ contract Bullseye is AccessControl {
      */
     function setMaxPlayers(uint256 newMax) public onlyRole(DEFAULT_ADMIN_ROLE) {
         maxPlayers = newMax;
+        emit NewMaxPlayers(newMax);
     }
 
     /**
@@ -451,6 +471,7 @@ contract Bullseye is AccessControl {
      * @param newFee new fee in bp
      */
     function setFee(uint256 newFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newFee <= 3000, "Fee exceeds the cap");
         fee = newFee;
         emit NewFee(newFee);
     }
@@ -460,11 +481,11 @@ contract Bullseye is AccessControl {
         bool isExact
     ) public pure returns (uint256 index) {
         if (playersCount <= 5) {
-            index = isExact ? 1 : 0;
+            index = 0;
         } else if (playersCount <= 10) {
-            index = isExact ? 3 : 2;
+            index = isExact ? 2 : 1;
         } else {
-            index = isExact ? 5 : 4;
+            index = isExact ? 4 : 3;
         }
     }
 
@@ -474,6 +495,7 @@ contract Bullseye is AccessControl {
         bool isExact
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         rates[getRateIndex(playersCount, isExact)] = rate;
+        emit NewBullseyeRates(rate, playersCount, isExact);
     }
 }
 

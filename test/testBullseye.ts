@@ -29,6 +29,9 @@ const requireValidChainlinkReport = "Old chainlink report";
 const requireSufficentDepositAmount = "Insufficent deposit amount";
 const requireApprovedToken = "Unapproved token";
 const maxPlayersReached = "Max player amount reached";
+const requireLowerFee = "Fee exceeds the cap";
+const requireAboveMinDepositAmount = "Wrong min deposit amount";
+const requireApprovedFeedNumber = "Wrong feed number";
 
 describe("Bullseye", () => {
   let owner: HardhatEthersSigner;
@@ -99,6 +102,19 @@ describe("Bullseye", () => {
       Treasury.getAddress(),
       ethers.MaxUint256
     );
+    //set mock feed ids
+    const feedIds = [
+      "0x00037da06d56d083fe599397a4769a042d63aa73dc4ef57709d31e9971a5b439",
+      "0x000359843a543ee2fe414dc14c7e7920ef10f4372990b79d6361cdc0dd1ba782",
+      "0x000387d7c042a9d5c97c15354b531bd01bf6d3a351e190f2394403cf2f79bde9",
+      "0x00036fe43f87884450b4c7e093cd5ed99cac6640d8c2000e6afc02c8838d0265",
+      "0x0003c915006ba88731510bb995c190e80b5c9cfe8cd8a19aaf00e0ed61d0b3bc",
+      "0x0003d64b0bdb0046a65e4ebb0a9866215044634524673c65bff4096a197fcff5",
+      "0x0003d338ea2ac3be9e026033b1aa601673c37bab5e13851c59966f9f820754d6",
+      "0x00032b6edb94b883e95693b8fdae3deeedab2c48dd699cafa43a8d134d344813",
+      "0x00035e3ddda6345c3c8ce45639d4449451f1d5828d7a70845e446f04905937cd",
+    ];
+    await Upkeep.setfeedNumberBatch(feedIds);
   });
 
   describe("Create game", async function () {
@@ -117,6 +133,21 @@ describe("Bullseye", () => {
       expect(game.stopPredictAt).to.be.equal(stopPredictAt);
       expect(await Game.depositAmount()).to.equal(usdtAmount);
       await Game.closeGame();
+    });
+
+    it("should fail - wrong feedNumber startGame", async function () {
+      const wrongFeedNumber = 9;
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = (await time.latest()) + fifteenMinutes;
+      await expect(
+        Game.startGame(
+          endTime,
+          stopPredictAt,
+          usdtAmount,
+          wrongFeedNumber,
+          await USDT.getAddress()
+        )
+      ).to.be.revertedWith(requireApprovedFeedNumber);
     });
 
     it("should fail - start new game without finishing previous", async function () {
@@ -138,6 +169,18 @@ describe("Bullseye", () => {
         )
       ).to.be.revertedWith(requireFinishedGame);
       await Game.closeGame();
+    });
+
+    it("should fail - wrong min deposit amount", async function () {
+      await expect(
+        Game.startGame(
+          (await time.latest()) + fortyFiveMinutes,
+          (await time.latest()) + fifteenMinutes,
+          1,
+          feedNumber,
+          await USDT.getAddress()
+        )
+      ).to.be.revertedWith(requireAboveMinDepositAmount);
     });
   });
 
@@ -166,7 +209,8 @@ describe("Bullseye", () => {
       expect(
         await Treasury.lockedRakeback(
           await Game.currentGameId(),
-          opponent.address
+          opponent.address,
+          0
         )
       ).to.be.equal(
         (usdtAmount *
@@ -365,7 +409,8 @@ describe("Bullseye", () => {
         (usdtAmount * (await Game.fee())) / BigInt(10000);
       const rakebackAlice = await Treasury.lockedRakeback(
         gameId,
-        alice.address
+        alice.address,
+        1
       );
       const wonAmountOpponent =
         usdtAmount * BigInt(2) - withdrawnFeesAlice - rakebackAlice;
@@ -377,6 +422,24 @@ describe("Bullseye", () => {
       expect(newOpponentBalance - oldOpponentBalance).to.be.equal(
         wonAmountOpponent
       );
+    });
+
+    it("should check exact range - 5$", async function () {
+      await Game.connect(opponent).play(parse18("63507"));
+      await Game.connect(alice).play(parse18("63505"));
+      await time.increase(fortyFiveMinutes);
+      let tx = await Game.finalizeGame(
+        abiEncodeInt192WithTimestamp(
+          finalPriceCloser.toString(),
+          feedNumber,
+          await time.latest()
+        )
+      );
+      let receipt = await tx.wait();
+      const events = receipt?.logs.filter(
+        (event: any) => event.fragment?.name === "BullseyeFinalized"
+      );
+      expect(events![0].args![3]).to.be.equal(true);
     });
 
     it("should finish game with 2 players (exact price, first player wins)", async function () {
@@ -413,7 +476,8 @@ describe("Bullseye", () => {
       );
       const rakebackOpponent = await Treasury.lockedRakeback(
         gameId,
-        opponent.address
+        opponent.address,
+        1
       );
       const withdrawnFeesOpponent =
         (usdtAmount * (await Game.fee())) / BigInt(10000);
@@ -520,12 +584,13 @@ describe("Bullseye", () => {
       );
       const rakebackOpponent = await Treasury.lockedRakeback(
         gameId,
-        opponent.address
+        opponent.address,
+        1
       );
       const withdrawnFeesOpponent =
         (usdtAmount * (await Game.fee())) / BigInt(10000);
 
-      const rakebackBob = await Treasury.lockedRakeback(gameId, bob.address);
+      const rakebackBob = await Treasury.lockedRakeback(gameId, bob.address, 0);
       const withdrawnFeesBob =
         (usdtAmount * (await Game.fee())) / BigInt(10000);
 
@@ -540,6 +605,70 @@ describe("Bullseye", () => {
           oldTreasuryFeeBalance
       ).to.be.equal(withdrawnFeesBob + withdrawnFeesOpponent);
       expect(newAliceDeposit - oldAliceDeposit).to.be.equal(wonAmountAlice);
+    });
+
+    it("should end bullseye game (exact, same players)", async function () {
+      await Game.connect(bob).play(guessBobPrice);
+      await Game.connect(bob).play(guessPriceOpponent);
+      //alice should win exact
+      await Game.connect(bob).play(guessPriceAlice);
+      let oldBob2Deposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        bob.address
+      );
+      await time.increase(fortyFiveMinutes);
+      const oldTreasuryFeeBalance = await Treasury.collectedFee(
+        await USDT.getAddress()
+      );
+      const gameId = await Game.currentGameId();
+      let tx = await Game.finalizeGame(
+        abiEncodeInt192WithTimestamp(
+          finalPriceExact.toString(),
+          feedNumber,
+          await time.latest()
+        )
+      );
+      let receipt = await tx.wait();
+      let finalizeEventLog = receipt?.logs[2]?.args;
+      expect(finalizeEventLog[0][0]).to.be.equal(bob.address);
+      expect(finalizeEventLog[0][1]).to.be.equal(bob.address);
+      expect(finalizeEventLog[0][2]).to.be.equal(bob.address);
+      expect(finalizeEventLog[1][0]).to.be.equal(2);
+      expect(finalizeEventLog[1][1]).to.be.equal(0);
+      expect(finalizeEventLog[1][2]).to.be.equal(1);
+      expect(finalizeEventLog[2]).to.be.equal(finalPriceExact);
+      expect(finalizeEventLog[3]).to.be.equal(true);
+      let newBob2Deposit = await Treasury.deposits(
+        await USDT.getAddress(),
+        bob.address
+      );
+      const rakebackBob1 = await Treasury.lockedRakeback(
+        gameId,
+        bob.address,
+        1
+      );
+      const withdrawnFeesBob1 =
+        (usdtAmount * (await Game.fee())) / BigInt(10000);
+
+      const rakebackBob0 = await Treasury.lockedRakeback(
+        gameId,
+        bob.address,
+        0
+      );
+      const withdrawnFeesBob0 =
+        (usdtAmount * (await Game.fee())) / BigInt(10000);
+
+      let wonAmountBob2 =
+        usdtAmount * BigInt(3) -
+        withdrawnFeesBob0 -
+        withdrawnFeesBob1 -
+        rakebackBob1 -
+        rakebackBob0;
+      expect(
+        (await Treasury.collectedFee(await USDT.getAddress())) -
+          oldTreasuryFeeBalance
+      ).to.be.equal(withdrawnFeesBob0 + withdrawnFeesBob1);
+      expect(newBob2Deposit - oldBob2Deposit).to.be.equal(wonAmountBob2);
     });
 
     it("should end bullseye game (3 players, same guesses)", async function () {
@@ -583,14 +712,16 @@ describe("Bullseye", () => {
 
       const rakebackOpponent = await Treasury.lockedRakeback(
         gameId,
-        opponent.address
+        opponent.address,
+        1
       );
       const withdrawnFeesPerLostPlayer =
         (usdtAmount * (await Game.fee())) / BigInt(10000);
 
       const rakebackAlice = await Treasury.lockedRakeback(
         gameId,
-        alice.address
+        alice.address,
+        2
       );
       let wonAmountBob =
         usdtAmount * BigInt(3) -
@@ -645,7 +776,8 @@ describe("Bullseye", () => {
       const totalRakeback = await Game.totalRakeback();
       const opponentRakeback = await Treasury.lockedRakeback(
         gameId,
-        opponent.address
+        opponent.address,
+        0
       );
       const totalWithdrawnFees =
         ((usdtAmount * (await Game.fee())) / BigInt(10000)) * BigInt(4);
@@ -736,11 +868,13 @@ describe("Bullseye", () => {
       const totalRakeback = await Game.totalRakeback();
       const aliceRakeback = await Treasury.lockedRakeback(
         gameId,
-        alice.address
+        alice.address,
+        5
       );
       const ownerRakeback = await Treasury.lockedRakeback(
         gameId,
-        owner.address
+        owner.address,
+        2
       );
       let tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
@@ -844,10 +978,11 @@ describe("Bullseye", () => {
       );
       const gameId = await Game.currentGameId();
       const totalRakeback = await Game.totalRakeback();
-      const bobRakeback = await Treasury.lockedRakeback(gameId, bob.address);
+      const bobRakeback = await Treasury.lockedRakeback(gameId, bob.address, 0);
       const ownerRakeback = await Treasury.lockedRakeback(
         gameId,
-        owner.address
+        owner.address,
+        2
       );
       let tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
@@ -950,10 +1085,11 @@ describe("Bullseye", () => {
       );
       const gameId = await Game.currentGameId();
       const totalRakeback = await Game.totalRakeback();
-      const bobRakeback = await Treasury.lockedRakeback(gameId, bob.address);
+      const bobRakeback = await Treasury.lockedRakeback(gameId, bob.address, 0);
       const ownerRakeback = await Treasury.lockedRakeback(
         gameId,
-        owner.address
+        owner.address,
+        2
       );
       let tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
@@ -1052,14 +1188,16 @@ describe("Bullseye", () => {
       );
       const gameId = await Game.currentGameId();
       const totalRakeback = await Game.totalRakeback();
-      const bobRakeback = await Treasury.lockedRakeback(gameId, bob.address);
+      const bobRakeback = await Treasury.lockedRakeback(gameId, bob.address, 0);
       const opponentRakeback = await Treasury.lockedRakeback(
         gameId,
-        opponent.address
+        opponent.address,
+        1
       );
       const ownerRakeback = await Treasury.lockedRakeback(
         gameId,
-        owner.address
+        owner.address,
+        2
       );
       let tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
@@ -1177,14 +1315,16 @@ describe("Bullseye", () => {
       );
       const gameId = await Game.currentGameId();
       const totalRakeback = await Game.totalRakeback();
-      const bobRakeback = await Treasury.lockedRakeback(gameId, bob.address);
+      const bobRakeback = await Treasury.lockedRakeback(gameId, bob.address, 0);
       const aliceRakeback = await Treasury.lockedRakeback(
         gameId,
-        alice.address
+        alice.address,
+        5
       );
       const ownerRakeback = await Treasury.lockedRakeback(
         gameId,
-        owner.address
+        owner.address,
+        2
       );
       let tx = await Game.finalizeGame(
         abiEncodeInt192WithTimestamp(
@@ -1256,18 +1396,19 @@ describe("Bullseye", () => {
 
     it("should fail - max amount of players reached", async function () {
       const signers = await ethers.getSigners();
-      for (let i = 0; i < 100; i++) {  
-          await USDT.mint(signers[i].address, parse18("10000000"));
-          await USDT.connect(signers[i]).approve(
-            await Treasury.getAddress(),
-            ethers.MaxUint256
-          );
-          await Game.connect(signers[i]).play(guessMaxPrice + BigInt(i));
-        }
-    
-    await expect(Game.connect(signers[100]).play(guessBobPrice)).to.be.revertedWith(maxPlayersReached);
-  });
-  
+      for (let i = 0; i < 100; i++) {
+        await USDT.mint(signers[i].address, parse18("10000000"));
+        await USDT.connect(signers[i]).approve(
+          await Treasury.getAddress(),
+          ethers.MaxUint256
+        );
+        await Game.connect(signers[i]).play(guessMaxPrice + BigInt(i));
+      }
+
+      await expect(
+        Game.connect(signers[100]).play(guessBobPrice)
+      ).to.be.revertedWith(maxPlayersReached);
+    });
   });
 
   describe("Games with XyroToken", async function () {
@@ -1372,10 +1513,11 @@ describe("Bullseye", () => {
       expect(finalizeEventLog[1][2]).to.be.equal(1);
       expect(finalizeEventLog[2]).to.be.equal(finalPriceExact);
       expect(finalizeEventLog[3]).to.be.equal(true);
-      const rakebackBob = await Treasury.lockedRakeback(gameId, bob.address);
+      const rakebackBob = await Treasury.lockedRakeback(gameId, bob.address, 0);
       const rakebackOpponent = await Treasury.lockedRakeback(
         gameId,
-        opponent.address
+        opponent.address,
+        1
       );
       const withdrawnFeesPerLostPlayer =
         (xyroAmount * (await Game.fee())) / BigInt(10000);
@@ -1460,6 +1602,10 @@ describe("Bullseye", () => {
 
   it("should return player amount", async function () {
     expect(await Game.getTotalPlayers()).to.be.equal(0);
+  });
+
+  it("should fail - change fee to 31%", async function () {
+    await expect(Game.setFee(3100)).to.be.revertedWith(requireLowerFee);
   });
 
   describe("Events", async function () {

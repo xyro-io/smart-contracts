@@ -6,6 +6,9 @@ import {ITreasury} from "./interfaces/ITreasury.sol";
 import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 
 contract OneVsOneExactPrice is AccessControl {
+    event OneVsOneToggle(bool isActive);
+    event NewRefundFee(uint256 newRefundFee);
+    event NewGameDuration(uint256 newMaxDuration, uint256 newMinDuration);
     event NewFee(uint256 newFee);
     event NewTreasury(address newTreasury);
     event ExactPriceCreated(
@@ -106,7 +109,13 @@ contract OneVsOneExactPrice is AccessControl {
             "Max game duration must be lower"
         );
         bytes32 gameId = keccak256(
-            abi.encodePacked(endTime, block.timestamp, msg.sender, opponent)
+            abi.encodePacked(
+                endTime,
+                block.timestamp,
+                msg.sender,
+                opponent,
+                address(this)
+            )
         );
         ITreasury(treasury).setGameToken(gameId, token);
         ITreasury(treasury).depositAndLock(
@@ -173,7 +182,13 @@ contract OneVsOneExactPrice is AccessControl {
             "Max game duration must be lower"
         );
         bytes32 gameId = keccak256(
-            abi.encodePacked(endTime, block.timestamp, msg.sender, opponent)
+            abi.encodePacked(
+                endTime,
+                block.timestamp,
+                msg.sender,
+                opponent,
+                address(this)
+            )
         );
         ITreasury(treasury).setGameToken(gameId, token);
         ITreasury(treasury).lock(depositAmount, msg.sender, gameId, false);
@@ -237,7 +252,13 @@ contract OneVsOneExactPrice is AccessControl {
         );
 
         bytes32 gameId = keccak256(
-            abi.encodePacked(endTime, block.timestamp, msg.sender, opponent)
+            abi.encodePacked(
+                endTime,
+                block.timestamp,
+                msg.sender,
+                opponent,
+                address(this)
+            )
         );
         ITreasury(treasury).setGameToken(gameId, token);
         ITreasury(treasury).depositAndLockWithPermit(
@@ -250,6 +271,7 @@ contract OneVsOneExactPrice is AccessControl {
             permitData.r,
             permitData.s
         );
+        require(games[gameId].packedData == 0, "Game exists");
         uint256 packedData = uint(uint160(opponent));
         uint256 packedData2 = uint(uint160(msg.sender));
         packedData |= uint256(endTime) << 160;
@@ -417,12 +439,21 @@ contract OneVsOneExactPrice is AccessControl {
         require(
             game.gameStatus == Status.Created ||
                 (
-                    block.timestamp > game.endTime
+                    (game.gameStatus == Status.Created ||
+                        game.gameStatus == Status.Started) &&
+                        block.timestamp > game.endTime
                         ? block.timestamp - game.endTime >= 3 days
                         : false
                 ),
             "Wrong status!"
         );
+        if (game.gameStatus == Status.Started) {
+            ITreasury(treasury).refund(
+                games[gameId].depositAmount,
+                game.opponent,
+                gameId
+            );
+        }
         ITreasury(treasury).refund(
             games[gameId].depositAmount,
             game.initiator,
@@ -573,6 +604,7 @@ contract OneVsOneExactPrice is AccessControl {
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         minDuration = newMinDuration;
         maxDuration = newMaxDuration;
+        emit NewGameDuration(newMaxDuration, newMinDuration);
     }
 
     /**
@@ -592,6 +624,7 @@ contract OneVsOneExactPrice is AccessControl {
      * @param newFee new fee in bp
      */
     function setFee(uint256 newFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newFee <= 3000, "Fee exceeds the cap");
         fee = newFee;
         emit NewFee(newFee);
     }
@@ -603,7 +636,9 @@ contract OneVsOneExactPrice is AccessControl {
     function setRefundFee(
         uint256 newRefundFee
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newRefundFee <= 3000, "Fee exceeds the cap");
         refundFee = newRefundFee;
+        emit NewRefundFee(newRefundFee);
     }
 
     /**
@@ -611,5 +646,6 @@ contract OneVsOneExactPrice is AccessControl {
      */
     function toggleActive() public onlyRole(DEFAULT_ADMIN_ROLE) {
         isActive = !isActive;
+        emit OneVsOneToggle(isActive);
     }
 }

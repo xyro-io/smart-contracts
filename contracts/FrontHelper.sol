@@ -7,6 +7,8 @@ interface ITreasury {
         address token,
         address target
     ) external view returns (uint256);
+
+    function xyroToken() external view returns (address);
 }
 
 interface IOldTreasury {
@@ -32,6 +34,7 @@ contract FrontHelper {
         uint256 deposited;
         uint256 allowance;
         uint256 etherBalance;
+        uint256 xyroBalance;
     }
 
     address public owner;
@@ -93,7 +96,10 @@ contract FrontHelper {
                 depositedOld: IOldTreasury(oldTreasury).deposits(targets[i]),
                 deposited: ITreasury(treasury).deposits(token, targets[i]),
                 allowance: IERC20(token).allowance(targets[i], treasury),
-                etherBalance: targets[i].balance
+                etherBalance: targets[i].balance,
+                xyroBalance: IERC20(ITreasury(treasury).xyroToken()).balanceOf(
+                    targets[i]
+                )
             });
         }
         return data;
@@ -111,7 +117,10 @@ contract FrontHelper {
             depositedOld: IOldTreasury(oldTreasury).deposits(target),
             deposited: ITreasury(treasury).deposits(token, target),
             allowance: IERC20(token).allowance(target, treasury),
-            etherBalance: target.balance
+            etherBalance: target.balance,
+            xyroBalance: IERC20(ITreasury(treasury).xyroToken()).balanceOf(
+                target
+            )
         });
         return data;
     }

@@ -35,6 +35,8 @@ contract FrontHelper {
         uint256 allowance;
         uint256 etherBalance;
         uint256 xyroBalance;
+        uint256 xyroAllowance;
+        uint256 xyroDeposited;
     }
 
     address public owner;
@@ -99,6 +101,12 @@ contract FrontHelper {
                 etherBalance: targets[i].balance,
                 xyroBalance: IERC20(ITreasury(treasury).xyroToken()).balanceOf(
                     targets[i]
+                ),
+                xyroAllowance: IERC20(ITreasury(treasury).xyroToken())
+                    .allowance(targets[i], treasury),
+                xyroDeposited: ITreasury(treasury).deposits(
+                    ITreasury(treasury).xyroToken(),
+                    targets[i]
                 )
             });
         }
@@ -119,6 +127,14 @@ contract FrontHelper {
             allowance: IERC20(token).allowance(target, treasury),
             etherBalance: target.balance,
             xyroBalance: IERC20(ITreasury(treasury).xyroToken()).balanceOf(
+                target
+            ),
+            xyroAllowance: IERC20(ITreasury(treasury).xyroToken()).allowance(
+                target,
+                treasury
+            ),
+            xyroDeposited: ITreasury(treasury).deposits(
+                ITreasury(treasury).xyroToken(),
                 target
             )
         });

@@ -114,6 +114,14 @@ interface ITreasury {
         uint256 rate
     ) external;
 
+    function universalDistribute(
+        address to,
+        uint256 initialDeposit,
+        bytes32 gameId,
+        uint256 depositId,
+        uint256 rate
+    ) external;
+
     function withdrawGameFee(
         uint256 lostTeamDeposits,
         uint256 gameFee,

@@ -82,6 +82,13 @@ task("startUpDown", "Starts updown game").setAction(async (taskArgs: any) => {
   );
 });
 
+task("transferOwnership", "Setup bet").setAction(async (taskArgs: any) => {
+  const TokenOwner = await ethers.getContractAt("TokenOwner", "");
+  const Token = await ethers.getContractAt("XyroTokenERC677", "");
+  await Token.transferOwnership(await TokenOwner.getAddress());
+  await TokenOwner.acceptOwnership();
+});
+
 task("betUpDown", "UpDown bet")
   .addParam("address", "Who is betting")
   .setAction(async (taskArgs: any) => {

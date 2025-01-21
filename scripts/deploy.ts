@@ -21,11 +21,13 @@ let contracts: {
   Staking,
   OneVsOne,
   Bullseye,
+  BullseyeFee75,
   GovernanceToken,
   TimeLock,
   MockVerifier,
   DAO,
   UpDown,
+  UpDownFee15,
   RealUpkeep,
   FrontHelper,
   RevenueBank,
@@ -153,6 +155,21 @@ async function deployBullseye() {
   }
 }
 
+async function deployBullseyeFee75() {
+  factory = await ethers.getContractFactory("Bullseye");
+  if (
+    contracts.BullseyeFee75?.address == undefined ||
+    contracts.BullseyeFee75?.address == ""
+  ) {
+    BullseyeFee75 = await wrapFnc([], factory);
+    contracts.BullseyeFee75 = { address: "", url: "" };
+    contracts.BullseyeFee75.address = BullseyeFee75.target;
+    console.log("BullseyeFee75 deployed");
+  } else {
+    console.log("BullseyeFee75 already deployed skipping...");
+  }
+}
+
 async function deployOneVsOneExactPrice() {
   factory = await ethers.getContractFactory("OneVsOneExactPrice");
   if (
@@ -180,6 +197,20 @@ async function deployUpDown() {
     console.log("UpDown deployed");
   } else {
     console.log("UpDown already deployed skipping...");
+  }
+}
+async function deployUpDownFee15() {
+  factory = await ethers.getContractFactory("UpDown");
+  if (
+    contracts.UpDownFee15?.address == undefined ||
+    contracts.UpDownFee15?.address == ""
+  ) {
+    UpDownFee15 = await wrapFnc([], factory);
+    contracts.UpDownFee15 = { address: "", url: "" };
+    contracts.UpDownFee15.address = UpDownFee15.target;
+    console.log("UpDownFee15 deployed");
+  } else {
+    console.log("UpDownFee15 already deployed skipping...");
   }
 }
 
@@ -306,20 +337,22 @@ async function main() {
   console.log("Deployer = ", deployer.address);
   try {
     await deployTokenOwner();
-    // await deployGovernanceToken();
-    // await deployTimeLock(deployer);
-    // await deployDAO();
-    // await deployUSDC();
-    // await deployXyroToken();
-    // await deployTreasury();
-    // await deployStaking();
-    // await deployOneVsOneExactPrice();
-    // await deploySetup();
-    // await deployBullseye();
-    // await deployMockVerifier();
-    // await deployFrontHelper();
-    // await deployUpDown();
-    // await deployBank();
+    await deployGovernanceToken();
+    await deployTimeLock(deployer);
+    await deployDAO();
+    await deployUSDC();
+    await deployXyroToken();
+    await deployTreasury();
+    await deployStaking();
+    await deployOneVsOneExactPrice();
+    await deploySetup();
+    await deployBullseye();
+    await deployBullseyeFee75();
+    await deployMockVerifier();
+    await deployFrontHelper();
+    await deployUpDown();
+    await deployUpDownFee15();
+    await deployBank();
     const mainnetVerifierAdr = "0x478Aa2aC9F6D65F84e09D9185d126c3a17c2a93C";
     const testnetVerifierAdr = "0x2ff010DEbC1297f19579B4246cad07bd24F2488A";
     // await deployVerifier(testnetVerifierAdr);

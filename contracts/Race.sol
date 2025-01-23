@@ -143,6 +143,7 @@ contract Race is AccessControl {
      */
     function play(uint256 depositAmount, uint8 feedNumbers) public {
         require(depositAmount >= minDepositAmount, "Wrong deposit amount");
+        require(feedNumbers <= assetFeedNumber.length, "Wrong asset number");
         require(
             depositAmounts[feedNumbers][msg.sender] == 0,
             "Already participating"
@@ -189,6 +190,7 @@ contract Race is AccessControl {
      */
     function playWithDeposit(uint256 depositAmount, uint8 feedNumbers) public {
         require(depositAmount >= minDepositAmount, "Wrong deposit amount");
+        require(feedNumbers <= assetFeedNumber.length, "Wrong asset number");
         require(
             depositAmounts[feedNumbers][msg.sender] == 0,
             "Already participating"
@@ -239,11 +241,11 @@ contract Race is AccessControl {
         ITreasury.PermitData calldata permitData
     ) public {
         require(depositAmount >= minDepositAmount, "Wrong deposit amount");
+        require(feedNumbers <= assetFeedNumber.length, "Wrong asset number");
         require(
             depositAmounts[feedNumbers][msg.sender] == 0,
             "Already participating"
         );
-        //проверять ассет айди на валидный
         GameInfo memory game = decodeData();
         require(game.depositId + 1 <= maxPlayers, "Max player amount reached");
         require(
@@ -283,7 +285,7 @@ contract Race is AccessControl {
     }
 
     /**
-     * Sets starting price wich will be used to compare with final price
+     * Sets starting price wich will be used to compare with final prices
      * @param unverifiedReports an array of Chainlink DataStreams reports
      */
     function setStartingPrice(
@@ -324,7 +326,7 @@ contract Race is AccessControl {
     }
 
     /**
-     * Finalizes up/down game and distributes rewards to players
+     * Finalizes race game and distributes rewards to players
      * @param unverifiedReports Chainlink DataStreams report
      */
     function finalizeGame(
@@ -378,6 +380,7 @@ contract Race is AccessControl {
             } else if (finalPricesDiff[i] == topDiff) {
                 emit RaceDraw(currentGameId);
                 closeGame();
+                return;
             }
             finalPrices[i] = priceData;
         }
@@ -493,6 +496,11 @@ contract Race is AccessControl {
         emit NewMaxPlayersAmount(newMax);
     }
 
+    /**
+     * Changes asset gap
+     * @param newMinAssetAmount new minimal asset amount
+     * @param newMaxAssetAmount new maximum asset amount
+     */
     function setAssetAmount(
         uint256 newMinAssetAmount,
         uint256 newMaxAssetAmount

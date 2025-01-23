@@ -38,6 +38,11 @@ const finalPriceSecond = parse18("2875"); //15%
 const finalPriceThird = parse18("113050"); //19%
 const finalPriceFourth = parse18("200"); //60%
 
+const finalNegativeFirst = parse18("5"); //-50%
+const finalNegativeSecond = parse18("2250"); //-10%
+const finalNegativeThird = parse18("61750"); //-35%
+const finalNegativeFourth = parse18("108"); //-13,6%
+
 const finalPrices = [
   finalPriceFirst,
   finalPriceSecond,
@@ -65,7 +70,7 @@ const startingPriceNotSet = "Starting price not set";
 const gameNotStarted = "Game not started";
 const zeroAddress = "Zero address";
 
-describe("Meme coin racing", () => {
+describe("Race", () => {
   let owner: HardhatEthersSigner;
   let opponent: HardhatEthersSigner;
   let bob: HardhatEthersSigner;
@@ -415,14 +420,73 @@ describe("Meme coin racing", () => {
     it("Should fail - try to play when maximum players reached", async function () {
       await Game.setMaxPlayers(2);
       await Game.connect(alice).play(usdtAmount, 0);
-      await Game.connect(opponent).play(usdtAmount, 0);
+      await Game.connect(opponent).play(usdtAmount, 1);
+
+      await expect(Game.play(usdtAmount, 2)).to.be.revertedWith(
+        maxPlayersReached
+      );
+
+      await Treasury["deposit(uint256,address)"](
+        usdtAmount,
+        await USDT.getAddress()
+      );
+
+      await expect(Game.playWithDeposit(usdtAmount, 2)).to.be.revertedWith(
+        maxPlayersReached
+      );
+
+      const deadline = (await time.latest()) + fortyFiveMinutes;
+      let result = await getPermitSignature(
+        owner,
+        USDT,
+        await Treasury.getAddress(),
+        usdtAmount,
+        BigInt(deadline)
+      );
+      await expect(
+        Game.playWithPermit(usdtAmount, 2, {
+          deadline: deadline,
+          v: result.v,
+          r: result.r,
+          s: result.s,
+        })
+      ).to.be.revertedWith(maxPlayersReached);
     });
 
-    it("Should fail - try to play after enterance time", async function () {});
+    it("Should fail - try to play after enterance time", async function () {
+      await time.increase(fifteenMinutes);
+      await expect(Game.play(usdtAmount, 0)).to.be.revertedWith(gameClosed);
+
+      await Treasury["deposit(uint256,address)"](
+        usdtAmount,
+        await USDT.getAddress()
+      );
+
+      await expect(Game.playWithDeposit(usdtAmount, 0)).to.be.revertedWith(
+        gameClosed
+      );
+
+      const deadline = (await time.latest()) + fortyFiveMinutes;
+      let result = await getPermitSignature(
+        owner,
+        USDT,
+        await Treasury.getAddress(),
+        usdtAmount,
+        BigInt(deadline)
+      );
+      await expect(
+        Game.playWithPermit(usdtAmount, 0, {
+          deadline: deadline,
+          v: result.v,
+          r: result.r,
+          s: result.s,
+        })
+      ).to.be.revertedWith(gameClosed);
+    });
   });
 
   describe("Set starting price", async function () {
-    it("Should set starting price", async function () {
+    beforeEach(async () => {
       const endTime = (await time.latest()) + fortyFiveMinutes;
       const stopPredictAt = (await time.latest()) + fifteenMinutes;
       await Game.startGame(
@@ -432,16 +496,16 @@ describe("Meme coin racing", () => {
         await USDT.getAddress(),
         [0, 1, 2, 3]
       );
+    });
 
+    it("Should set starting price", async function () {
       await Game.play(usdtAmount, 0);
       await Game.connect(alice).play(usdtAmount, 1);
       await Game.connect(opponent).play(usdtAmount, 2);
       await Game.connect(bob).play(usdtAmount, 3);
 
       await time.increase(fifteenMinutes);
-      let reports: string[];
-
-      reports = [
+      let reports = [
         abiEncodeInt192WithTimestamp(
           startingPriceFirst.toString(),
           0,
@@ -473,6 +537,155 @@ describe("Meme coin racing", () => {
       expect(assetData3[2]).to.be.equal(startingPriceThird);
       const assetData4 = await Game.assetData(3);
       expect(assetData4[2]).to.be.equal(startingPriceFourth);
+    });
+
+    it("Should fail - set starting price twice", async function () {
+      await Game.play(usdtAmount, 0);
+      await Game.connect(alice).play(usdtAmount, 1);
+      await Game.connect(opponent).play(usdtAmount, 2);
+      await Game.connect(bob).play(usdtAmount, 3);
+
+      await time.increase(fifteenMinutes);
+      let reports = [
+        abiEncodeInt192WithTimestamp(
+          startingPriceFirst.toString(),
+          0,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          startingPriceSecond.toString(),
+          1,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          startingPriceThird.toString(),
+          2,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          startingPriceFourth.toString(),
+          3,
+          await time.latest()
+        ),
+      ];
+      await Game.setStartingPrice(reports);
+
+      await expect(Game.setStartingPrice(reports)).to.be.revertedWith(
+        startingPriceAlreadySet
+      );
+    });
+
+    it("Should fail - too ealry", async function () {
+      await Game.play(usdtAmount, 0);
+      await Game.connect(alice).play(usdtAmount, 1);
+      await Game.connect(opponent).play(usdtAmount, 2);
+      await Game.connect(bob).play(usdtAmount, 3);
+
+      let reports = [
+        abiEncodeInt192WithTimestamp(
+          startingPriceFirst.toString(),
+          0,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          startingPriceSecond.toString(),
+          1,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          startingPriceThird.toString(),
+          2,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          startingPriceFourth.toString(),
+          3,
+          await time.latest()
+        ),
+      ];
+
+      await expect(Game.setStartingPrice(reports)).to.be.revertedWith(tooEarly);
+    });
+
+    it("Should fail - not enough players", async function () {
+      await time.increase(fifteenMinutes);
+      let reports = [
+        abiEncodeInt192WithTimestamp(
+          startingPriceFirst.toString(),
+          0,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          startingPriceSecond.toString(),
+          1,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          startingPriceThird.toString(),
+          2,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          startingPriceFourth.toString(),
+          3,
+          await time.latest()
+        ),
+      ];
+
+      await expect(Game.setStartingPrice(reports)).to.be.revertedWith(
+        notEnoughPlayers
+      );
+    });
+
+    it("Should fail - wrong report length", async function () {
+      await Game.play(usdtAmount, 0);
+      await Game.connect(alice).play(usdtAmount, 1);
+      await time.increase(fifteenMinutes);
+      let reports = [
+        abiEncodeInt192WithTimestamp(
+          startingPriceFirst.toString(),
+          0,
+          await time.latest()
+        ),
+      ];
+
+      await expect(Game.setStartingPrice(reports)).to.be.revertedWith(
+        wrongReportLength
+      );
+    });
+
+    it("Should fail - old chainlink report", async function () {
+      await Game.play(usdtAmount, 0);
+      await Game.connect(alice).play(usdtAmount, 1);
+      await Game.connect(opponent).play(usdtAmount, 2);
+      await Game.connect(bob).play(usdtAmount, 3);
+      await time.increase(fifteenMinutes);
+      let reports = [
+        abiEncodeInt192WithTimestamp(
+          startingPriceFirst.toString(),
+          0,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          startingPriceSecond.toString(),
+          1,
+          (await time.latest()) + fifteenMinutes
+        ),
+        abiEncodeInt192WithTimestamp(
+          startingPriceThird.toString(),
+          2,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          startingPriceFourth.toString(),
+          3,
+          await time.latest()
+        ),
+      ];
+
+      await expect(Game.setStartingPrice(reports)).to.be.revertedWith(
+        oldChainlinkReport
+      );
     });
   });
 
@@ -567,6 +780,206 @@ describe("Meme coin racing", () => {
         lockedRakebackPerPerson * BigInt(3);
       expect(
         await Treasury.deposits(await USDT.getAddress(), owner.address)
+      ).to.be.equal(wonAmount + usdtAmount);
+    });
+
+    it("Should finalize game with only negative prices", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = (await time.latest()) + fifteenMinutes;
+      await Game.startGame(
+        endTime,
+        stopPredictAt,
+        usdtAmount,
+        await USDT.getAddress(),
+        [0, 1, 2, 3]
+      );
+
+      await Game.play(usdtAmount, 0);
+      await Game.connect(alice).play(usdtAmount, 1);
+      await Game.connect(opponent).play(usdtAmount, 2);
+      await Game.connect(bob).play(usdtAmount, 3);
+
+      await time.increase(fifteenMinutes);
+      const reports = [
+        abiEncodeInt192WithTimestamp(
+          startingPriceFirst.toString(),
+          0,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          startingPriceSecond.toString(),
+          1,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          startingPriceThird.toString(),
+          2,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          startingPriceFourth.toString(),
+          3,
+          await time.latest()
+        ),
+      ];
+      await Game.setStartingPrice(reports);
+
+      await time.increase(2 * fifteenMinutes);
+      const finalReports = [
+        abiEncodeInt192WithTimestamp(
+          finalNegativeFirst.toString(),
+          0,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          finalNegativeSecond.toString(),
+          1,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          finalNegativeThird.toString(),
+          2,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          finalNegativeFourth.toString(),
+          3,
+          await time.latest()
+        ),
+      ];
+      expect(
+        await Treasury.lockedRakeback(
+          await Game.currentGameId(),
+          opponent.address,
+          2
+        )
+      ).to.be.equal(
+        (usdtAmount *
+          calculateRakebackRate(await XyroToken.balanceOf(opponent.address))) /
+          BigInt(100)
+      );
+
+      const totalRakeback =
+        (await Treasury.lockedRakeback(
+          await Game.currentGameId(),
+          opponent.address,
+          2
+        )) *
+          BigInt(2) +
+        (await Treasury.lockedRakeback(
+          await Game.currentGameId(),
+          owner.address,
+          0
+        ));
+      await Game.finalizeGame(finalReports);
+      const wonAmount =
+        (usdtAmount *
+          BigInt(3) *
+          (BigInt(100) - (await Game.fee()) / BigInt(100))) /
+          BigInt(100) -
+        totalRakeback;
+      expect(
+        await Treasury.deposits(await USDT.getAddress(), alice.address)
+      ).to.be.equal(wonAmount + usdtAmount);
+    });
+
+    it("Should finalize game with mixed prices", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = (await time.latest()) + fifteenMinutes;
+      await Game.startGame(
+        endTime,
+        stopPredictAt,
+        usdtAmount,
+        await USDT.getAddress(),
+        [0, 1, 2, 3]
+      );
+
+      await Game.play(usdtAmount, 0);
+      await Game.connect(alice).play(usdtAmount, 1);
+      await Game.connect(opponent).play(usdtAmount, 2);
+      await Game.connect(bob).play(usdtAmount, 3);
+
+      await time.increase(fifteenMinutes);
+      const reports = [
+        abiEncodeInt192WithTimestamp(
+          startingPriceFirst.toString(),
+          0,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          startingPriceSecond.toString(),
+          1,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          startingPriceThird.toString(),
+          2,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          startingPriceFourth.toString(),
+          3,
+          await time.latest()
+        ),
+      ];
+      await Game.setStartingPrice(reports);
+
+      await time.increase(2 * fifteenMinutes);
+      const finalReports = [
+        abiEncodeInt192WithTimestamp(
+          finalNegativeFirst.toString(),
+          0,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          finalPriceSecond.toString(),
+          1,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          finalNegativeThird.toString(),
+          2,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          finalPriceFourth.toString(),
+          3,
+          await time.latest()
+        ),
+      ];
+      expect(
+        await Treasury.lockedRakeback(
+          await Game.currentGameId(),
+          opponent.address,
+          2
+        )
+      ).to.be.equal(
+        (usdtAmount *
+          calculateRakebackRate(await XyroToken.balanceOf(opponent.address))) /
+          BigInt(100)
+      );
+
+      const totalRakeback =
+        (await Treasury.lockedRakeback(
+          await Game.currentGameId(),
+          opponent.address,
+          2
+        )) *
+          BigInt(2) +
+        (await Treasury.lockedRakeback(
+          await Game.currentGameId(),
+          owner.address,
+          0
+        ));
+      await Game.finalizeGame(finalReports);
+      const wonAmount =
+        (usdtAmount *
+          BigInt(3) *
+          (BigInt(100) - (await Game.fee()) / BigInt(100))) /
+          BigInt(100) -
+        totalRakeback;
+      expect(
+        await Treasury.deposits(await USDT.getAddress(), bob.address)
       ).to.be.equal(wonAmount + usdtAmount);
     });
 
@@ -699,6 +1112,225 @@ describe("Meme coin racing", () => {
       expect(
         await Treasury.deposits(await USDT.getAddress(), owner.address)
       ).to.be.equal(wonAmount + usdtAmount);
+    });
+
+    it("Should finalize a game of 2 tokens", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = (await time.latest()) + fifteenMinutes;
+      await Game.startGame(
+        endTime,
+        stopPredictAt,
+        usdtAmount,
+        await USDT.getAddress(),
+        [0, 1]
+      );
+
+      await Game.play(usdtAmount, 0);
+      await Game.connect(alice).play(usdtAmount, 1);
+
+      await time.increase(fifteenMinutes);
+      const reports = [
+        abiEncodeInt192WithTimestamp(
+          startingPriceFirst.toString(),
+          0,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          startingPriceSecond.toString(),
+          1,
+          await time.latest()
+        ),
+      ];
+      await Game.setStartingPrice(reports);
+
+      await time.increase(2 * fifteenMinutes);
+      const finalReports = [
+        abiEncodeInt192WithTimestamp(
+          finalPriceFirst.toString(),
+          0,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          finalPriceSecond.toString(),
+          1,
+          await time.latest()
+        ),
+      ];
+      expect(
+        await Treasury.lockedRakeback(
+          await Game.currentGameId(),
+          alice.address,
+          1
+        )
+      ).to.be.equal(
+        (usdtAmount *
+          calculateRakebackRate(await XyroToken.balanceOf(opponent.address))) /
+          BigInt(100)
+      );
+
+      const lockedRakebackPerPerson = await Treasury.lockedRakeback(
+        await Game.currentGameId(),
+        alice.address,
+        1
+      );
+      await Game.finalizeGame(finalReports);
+      const wonAmount =
+        (usdtAmount * (BigInt(100) - (await Game.fee()) / BigInt(100))) /
+          BigInt(100) -
+        lockedRakebackPerPerson;
+      expect(
+        await Treasury.deposits(await USDT.getAddress(), owner.address)
+      ).to.be.equal(wonAmount + usdtAmount);
+    });
+
+    it("Should fail - finalize when game is closed", async function () {
+      await expect(Game.finalizeGame([])).to.be.revertedWith(startGameFirst);
+    });
+
+    it("Should fail - too early to finish", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = (await time.latest()) + fifteenMinutes;
+      await Game.startGame(
+        endTime,
+        stopPredictAt,
+        usdtAmount,
+        await USDT.getAddress(),
+        [0, 1]
+      );
+
+      await Game.play(usdtAmount, 0);
+      await Game.connect(alice).play(usdtAmount, 1);
+
+      await time.increase(fifteenMinutes);
+      const reports = [
+        abiEncodeInt192WithTimestamp(
+          startingPriceFirst.toString(),
+          0,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          startingPriceSecond.toString(),
+          1,
+          await time.latest()
+        ),
+      ];
+      await Game.setStartingPrice(reports);
+      await expect(Game.finalizeGame(reports)).to.be.revertedWith(
+        earlyToFinish
+      );
+    });
+
+    it("Should fail - starting price not set", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = (await time.latest()) + fifteenMinutes;
+      await Game.startGame(
+        endTime,
+        stopPredictAt,
+        usdtAmount,
+        await USDT.getAddress(),
+        [0, 1]
+      );
+
+      await Game.play(usdtAmount, 0);
+      await Game.connect(alice).play(usdtAmount, 1);
+
+      await time.increase(fortyFiveMinutes);
+      const reports = [
+        abiEncodeInt192WithTimestamp(
+          startingPriceFirst.toString(),
+          0,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          startingPriceSecond.toString(),
+          1,
+          await time.latest()
+        ),
+      ];
+      await expect(Game.finalizeGame(reports)).to.be.revertedWith(
+        startingPriceNotSet
+      );
+    });
+
+    it("Should refund if price diff was equal", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = (await time.latest()) + fifteenMinutes;
+      await Game.startGame(
+        endTime,
+        stopPredictAt,
+        usdtAmount,
+        await USDT.getAddress(),
+        [0, 1, 2, 3]
+      );
+
+      await Game.play(usdtAmount, 0);
+      await Game.connect(alice).play(usdtAmount, 1);
+      await Game.connect(opponent).play(usdtAmount, 2);
+      await Game.connect(bob).play(usdtAmount, 3);
+
+      await time.increase(fifteenMinutes);
+      const reports = [
+        abiEncodeInt192WithTimestamp(
+          startingPriceFirst.toString(),
+          0,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          startingPriceSecond.toString(),
+          1,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          startingPriceThird.toString(),
+          2,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          startingPriceFourth.toString(),
+          3,
+          await time.latest()
+        ),
+      ];
+      await Game.setStartingPrice(reports);
+
+      await time.increase(2 * fifteenMinutes + 10);
+      console.log(endTime, await time.latest());
+      const finalReports = [
+        abiEncodeInt192WithTimestamp(
+          finalPriceFirst.toString(),
+          0,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          parse18("7500").toString(),
+          1,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          finalPriceThird.toString(),
+          2,
+          await time.latest()
+        ),
+        abiEncodeInt192WithTimestamp(
+          finalPriceFourth.toString(),
+          3,
+          await time.latest()
+        ),
+      ];
+
+      await Game.finalizeGame(finalReports);
+      expect(
+        await Treasury.deposits(await USDT.getAddress(), owner.address)
+      ).to.be.equal(usdtAmount);
+      expect(
+        await Treasury.deposits(await USDT.getAddress(), bob.address)
+      ).to.be.equal(usdtAmount);
+      expect(
+        await Treasury.deposits(await USDT.getAddress(), alice.address)
+      ).to.be.equal(usdtAmount);
+      expect(
+        await Treasury.deposits(await USDT.getAddress(), opponent.address)
+      ).to.be.equal(usdtAmount);
     });
   });
 

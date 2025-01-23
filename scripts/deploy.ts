@@ -1,5 +1,5 @@
 import { wrapFnc } from "./helper";
-import { ethers } from "hardhat";
+import { ethers, upgrades } from "hardhat";
 import * as fs from "fs";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
@@ -21,11 +21,13 @@ let contracts: {
   Staking,
   OneVsOne,
   Bullseye,
+  BullseyeFee75,
   GovernanceToken,
   TimeLock,
   MockVerifier,
   DAO,
   UpDown,
+  UpDownFee15,
   RealUpkeep,
   FrontHelper,
   RevenueBank,
@@ -55,10 +57,7 @@ async function deployFrontHelper() {
     contracts.FrontHelper?.address == undefined ||
     contracts.FrontHelper?.address == ""
   ) {
-    FrontHelper = await wrapFnc(
-      [contracts.USDC.address, contracts.Treasury.address],
-      factory
-    );
+    FrontHelper = await wrapFnc([], factory);
     contracts.FrontHelper = { address: "", url: "" };
     contracts.FrontHelper.address = FrontHelper.target;
     console.log("FrontHelper deployed");
@@ -68,12 +67,12 @@ async function deployFrontHelper() {
 }
 
 async function deployXyroToken() {
-  factory = await ethers.getContractFactory("XyroToken");
+  factory = await ethers.getContractFactory("XyroTokenERC677");
   if (
     contracts.XyroToken?.address == undefined ||
     contracts.XyroToken?.address == ""
   ) {
-    XyroToken = await wrapFnc([parse18((1e8).toString())], factory);
+    XyroToken = await wrapFnc([0], factory);
     contracts.XyroToken = { address: "", url: "" };
     contracts.XyroToken.address = XyroToken.target;
     console.log("XyroToken deployed");
@@ -88,9 +87,17 @@ async function deployTreasury() {
     contracts.Treasury?.address == undefined ||
     contracts.Treasury?.address == ""
   ) {
-    Treasury = await wrapFnc([contracts.USDC.address], factory);
+    const factory = await ethers.getContractFactory("Treasury");
+    Treasury = await upgrades.deployProxy(
+      factory,
+      [contracts.USDC.address, contracts.XyroToken.address],
+      {
+        initializer: "initialize",
+      }
+    );
+    await Treasury.waitForDeployment();
     contracts.Treasury = { address: "", url: "" };
-    contracts.Treasury.address = Treasury.target;
+    contracts.Treasury.address = await Treasury.getAddress();
     console.log("Treasury deployed");
   } else {
     console.log("Treasury already deployed skipping...");
@@ -148,6 +155,21 @@ async function deployBullseye() {
   }
 }
 
+async function deployBullseyeFee75() {
+  factory = await ethers.getContractFactory("Bullseye");
+  if (
+    contracts.BullseyeFee75?.address == undefined ||
+    contracts.BullseyeFee75?.address == ""
+  ) {
+    BullseyeFee75 = await wrapFnc([], factory);
+    contracts.BullseyeFee75 = { address: "", url: "" };
+    contracts.BullseyeFee75.address = BullseyeFee75.target;
+    console.log("BullseyeFee75 deployed");
+  } else {
+    console.log("BullseyeFee75 already deployed skipping...");
+  }
+}
+
 async function deployOneVsOneExactPrice() {
   factory = await ethers.getContractFactory("OneVsOneExactPrice");
   if (
@@ -177,6 +199,20 @@ async function deployUpDown() {
     console.log("UpDown already deployed skipping...");
   }
 }
+async function deployUpDownFee15() {
+  factory = await ethers.getContractFactory("UpDown");
+  if (
+    contracts.UpDownFee15?.address == undefined ||
+    contracts.UpDownFee15?.address == ""
+  ) {
+    UpDownFee15 = await wrapFnc([], factory);
+    contracts.UpDownFee15 = { address: "", url: "" };
+    contracts.UpDownFee15.address = UpDownFee15.target;
+    console.log("UpDownFee15 deployed");
+  } else {
+    console.log("UpDownFee15 already deployed skipping...");
+  }
+}
 
 async function deployGovernanceToken() {
   factory = await ethers.getContractFactory("XyroGovernanceToken");
@@ -199,7 +235,7 @@ async function deployTimeLock(deployer: HardhatEthersSigner) {
     contracts.TimeLock?.address == undefined ||
     contracts.TimeLock?.address == ""
   ) {
-    TimeLock = await wrapFnc([1, [], [], deployer], factory);
+    TimeLock = await wrapFnc([100, [deployer], [deployer], deployer], factory);
     contracts.TimeLock = { address: "", url: "" };
     contracts.TimeLock.address = TimeLock.target;
     console.log("TimeLock deployed");
@@ -290,27 +326,36 @@ async function deployBank() {
   }
 }
 
+async function deployTokenOwner() {
+  factory = await ethers.getContractFactory("TokenOwner");
+  let TokenOwner = await wrapFnc([""], factory);
+  console.log(`Token owner deployed ${TokenOwner.target}`);
+}
+
 async function main() {
   [deployer] = await ethers.getSigners();
   console.log("Deployer = ", deployer.address);
   try {
-    // await deployGovernanceToken();
-    // await deployTimeLock(deployer);
-    // await deployDAO();
+    await deployTokenOwner();
+    await deployGovernanceToken();
+    await deployTimeLock(deployer);
+    await deployDAO();
     await deployUSDC();
-    // await deployXyroToken();
+    await deployXyroToken();
     await deployTreasury();
-    // await deployStaking();
+    await deployStaking();
     await deployOneVsOneExactPrice();
     await deploySetup();
     await deployBullseye();
-    // await deployMockVerifier();
-    // await deployFrontHelper();
+    await deployBullseyeFee75();
+    await deployMockVerifier();
+    await deployFrontHelper();
     await deployUpDown();
+    await deployUpDownFee15();
     await deployBank();
     const mainnetVerifierAdr = "0x478Aa2aC9F6D65F84e09D9185d126c3a17c2a93C";
     const testnetVerifierAdr = "0x2ff010DEbC1297f19579B4246cad07bd24F2488A";
-    await deployVerifier(testnetVerifierAdr);
+    // await deployVerifier(testnetVerifierAdr);
   } catch (e) {
     const json = JSON.stringify(contracts);
     fs.writeFileSync("./contracts.json", json);

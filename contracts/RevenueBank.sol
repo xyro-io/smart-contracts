@@ -13,7 +13,7 @@ interface IERC20Burn {
 }
 
 interface ITreasury {
-    function withdrawFees(address to, uint256 amount) external;
+    function withdrawFees(address to, uint256 amount, address token) external;
 }
 
 contract RevenueBank is AccessControl, EIP712, Nonces {
@@ -94,16 +94,15 @@ contract RevenueBank is AccessControl, EIP712, Nonces {
         SafeERC20.safeTransfer(IERC20(approvedToken), data.to, data.amount);
     }
 
-    function collectFees(uint256 amount) public onlyRole(ACCOUNTANT_ROLE) {
-        ITreasury(treasury).withdrawFees(address(this), amount);
+    function collectFees(
+        uint256 amount,
+        address token
+    ) public onlyRole(ACCOUNTANT_ROLE) {
+        ITreasury(treasury).withdrawFees(address(this), amount, token);
         uint256 amountForBuyback = (amount * buybackPart) / FEE_DENOMINATOR;
-        buybackBalance +=
-            amountForBuyback *
-            10 ** IERC20Burn(approvedToken).decimals();
+        buybackBalance += amountForBuyback;
         uint256 amountForRewards = (amount * rewardsPart) / FEE_DENOMINATOR;
-        rewardsBalance +=
-            amountForRewards *
-            10 ** IERC20Burn(approvedToken).decimals();
+        rewardsBalance += amountForRewards;
         collectedFees += amount - amountForRewards - amountForBuyback;
     }
 

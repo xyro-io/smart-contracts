@@ -5,7 +5,6 @@ import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { RevenueBank } from "../typechain-types/contracts/RevenueBank.sol/RevenueBank";
 import { RevenueBank__factory } from "../typechain-types/factories/contracts/RevenueBank.sol/RevenueBank__factory";
 import { Treasury } from "../typechain-types/contracts/Treasury.sol/Treasury";
-import { Treasury__factory } from "../typechain-types/factories/contracts/Treasury.sol/Treasury__factory";
 import { XyroToken } from "../typechain-types/contracts/XyroToken";
 import { XyroToken__factory } from "../typechain-types/factories/contracts/XyroToken__factory";
 import { MockToken } from "../typechain-types/contracts/mock/MockERC20.sol/MockToken";
@@ -30,8 +29,9 @@ describe("RevenueBank", () => {
     USDT = await new MockToken__factory(owner).deploy(
       parse18((1e13).toString())
     );
-    Treasury = await new Treasury__factory(owner).deploy(
-      await USDT.getAddress()
+    Treasury = await upgrades.deployProxy(
+      await ethers.getContractFactory("Treasury"),
+      [await USDT.getAddress(), await XyroToken.getAddress()]
     );
     await Treasury.grantRole(await Treasury.DISTRIBUTOR_ROLE(), owner.address);
     const bankAmount = parse18((1e7).toString());
@@ -48,6 +48,7 @@ describe("RevenueBank", () => {
     );
     await Bank.grantRole(await Bank.ACCOUNTANT_ROLE(), owner.address);
     await USDT.mint(await Treasury.getAddress(), parse18("100000"));
+    await USDT.approve(await Treasury.getAddress(), parse18("100000"));
     await XyroToken.approve(await Bank.getAddress(), ethers.MaxUint256);
     await XyroToken.transfer(await Bank.getAddress(), bankAmount);
 
@@ -93,8 +94,18 @@ describe("RevenueBank", () => {
     await expect(
       Bank.connect(alice).verifyTransfer(message, signature)
     ).to.be.revertedWith("Not enough rewards");
-    await Treasury.calculateUpDownRate(500, 500, 9000);
-    await Bank.connect(owner).collectFees(900);
+    //mocking fee withdrawal
+    const mockGameId =
+      "0x0000000000000000000000000000000000000000000000000000000000000001";
+    await Treasury.setGameToken(mockGameId, await USDT.getAddress());
+    await Treasury["depositAndLock(uint256,address,bytes32,bool)"](
+      1000000000,
+      owner.address,
+      mockGameId,
+      false
+    );
+    await Treasury.withdrawGameFee(1000000000, 9000, mockGameId);
+    await Bank.connect(owner).collectFees(900000000, await USDT.getAddress());
     await Bank.connect(alice).verifyTransfer(message, signature);
     const newAliceBalance = await USDT.balanceOf(alice.address);
     expect(newAliceBalance - oldAliceBalance).to.be.equal(message.amount);
@@ -104,20 +115,27 @@ describe("RevenueBank", () => {
   });
 
   it("should withdraw fees", async function () {
-    const oldOwnerBalance = await USDT.balanceOf(await Bank.getAddress());
-    console.log(await Bank.buybackBalance());
+    const oldOwnerBalance = await USDT.balanceOf(owner.address);
     //mock game to earn fees
-    await Treasury.calculateUpDownRate(500, 500, 9000);
-
-    expect(await Treasury.collectedFee()).to.be.equal(parse18("900"));
-    const amount = 300;
-    await Bank.connect(owner).collectFees(amount);
-    console.log(await Bank.buybackBalance());
-    expect(await Treasury.collectedFee()).to.be.equal(parse18("600"));
-    const newOwnerBalance = await USDT.balanceOf(await Bank.getAddress());
-    expect(newOwnerBalance - oldOwnerBalance).to.be.equal(
-      parse18(amount.toString())
+    const mockGameId =
+      "0x0000000000000000000000000000000000000000000000000000000000000002";
+    await Treasury.setGameToken(mockGameId, await USDT.getAddress());
+    await USDT.approve(await Treasury.getAddress(), ethers.MaxUint256);
+    await Treasury["depositAndLock(uint256,address,bytes32,bool)"](
+      1000000000,
+      owner.address,
+      mockGameId,
+      false
     );
+    await Treasury.withdrawGameFee(1000000000, 9000, mockGameId);
+
+    expect(await Treasury.collectedFee(await USDT.getAddress())).to.be.equal(
+      900000000
+    );
+    await Bank.connect(owner).collectFees(900000000, await USDT.getAddress());
+    const amount = 1000000000;
+    const newOwnerBalance = await USDT.balanceOf(owner.address);
+    expect(oldOwnerBalance - newOwnerBalance).to.be.equal(amount);
   });
 
   it("should change signer", async function () {

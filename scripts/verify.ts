@@ -71,7 +71,7 @@ async function verifyTreasury() {
     try {
       await hre.run("verify:verify", {
         address: targetAddress,
-        constructorArguments: [contracts.USDC.address],
+        constructorArguments: [],
       });
       contracts.Treasury.url = getVerifiedUrl(targetAddress);
     } catch (e) {
@@ -94,6 +94,48 @@ async function verifyBullseye() {
       if (isAlreadyVerified(e, targetAddress))
         contracts.Bullseye.url = getVerifiedUrl(targetAddress);
     }
+
+    // BullseyeFee75
+    targetAddress = contracts.BullseyeFee75.address;
+    try {
+      await hre.run("verify:verify", {
+        address: targetAddress,
+        constructorArguments: [],
+      });
+      contracts.BullseyeFee75.url = getVerifiedUrl(targetAddress);
+    } catch (e) {
+      if (isAlreadyVerified(e, targetAddress))
+        contracts.BullseyeFee75.url = getVerifiedUrl(targetAddress);
+    }
+  }
+}
+
+async function verifyUpDown() {
+  if (contracts.UpDown.address !== undefined) {
+    let targetAddress = contracts.UpDown.address;
+    try {
+      await hre.run("verify:verify", {
+        address: targetAddress,
+        constructorArguments: [],
+      });
+      contracts.UpDown.url = getVerifiedUrl(targetAddress);
+    } catch (e) {
+      if (isAlreadyVerified(e, targetAddress))
+        contracts.UpDown.url = getVerifiedUrl(targetAddress);
+    }
+
+    // UpDownFee15
+    targetAddress = contracts.UpDownFee15.address;
+    try {
+      await hre.run("verify:verify", {
+        address: targetAddress,
+        constructorArguments: [],
+      });
+      contracts.UpDownFee15.url = getVerifiedUrl(targetAddress);
+    } catch (e) {
+      if (isAlreadyVerified(e, targetAddress))
+        contracts.UpDownFee15.url = getVerifiedUrl(targetAddress);
+    }
   }
 }
 
@@ -113,41 +155,6 @@ async function verifyOneVsOneExactPrice() {
   }
 }
 
-async function verifyUpDown() {
-  if (contracts.UpDown.address !== undefined) {
-    let targetAddress = contracts.UpDown.address;
-    try {
-      await hre.run("verify:verify", {
-        address: targetAddress,
-        constructorArguments: [],
-      });
-      contracts.UpDown.url = getVerifiedUrl(targetAddress);
-    } catch (e) {
-      if (isAlreadyVerified(e, targetAddress))
-        contracts.UpDown.url = getVerifiedUrl(targetAddress);
-    }
-  }
-}
-
-async function verifyFrontHelper() {
-  if (contracts.FrontHelper.address !== undefined) {
-    let targetAddress = contracts.FrontHelper.address;
-    try {
-      await hre.run("verify:verify", {
-        address: targetAddress,
-        constructorArguments: [
-          contracts.USDC.address,
-          contracts.Treasury.address,
-        ],
-      });
-      contracts.FrontHelper.url = getVerifiedUrl(targetAddress);
-    } catch (e) {
-      if (isAlreadyVerified(e, targetAddress))
-        contracts.FrontHelper.url = getVerifiedUrl(targetAddress);
-    }
-  }
-}
-
 async function verifySetup() {
   if (contracts.Setup.address !== undefined) {
     let targetAddress = contracts.Setup.address;
@@ -160,6 +167,22 @@ async function verifySetup() {
     } catch (e) {
       if (isAlreadyVerified(e, targetAddress))
         contracts.Setup.url = getVerifiedUrl(targetAddress);
+    }
+  }
+}
+
+async function verifyFrontHelper() {
+  if (contracts.FrontHelper.address !== undefined) {
+    let targetAddress = contracts.FrontHelper.address;
+    try {
+      await hre.run("verify:verify", {
+        address: targetAddress,
+        constructorArguments: [],
+      });
+      contracts.FrontHelper.url = getVerifiedUrl(targetAddress);
+    } catch (e) {
+      if (isAlreadyVerified(e, targetAddress))
+        contracts.FrontHelper.url = getVerifiedUrl(targetAddress);
     }
   }
 }
@@ -218,20 +241,55 @@ async function verifyBank() {
   }
 }
 
+async function verifyTokenOwner(token: string, owner: string) {
+  try {
+    await hre.run("verify:verify", {
+      address: owner,
+      constructorArguments: [token],
+    });
+    console.log(getVerifiedUrl(owner));
+  } catch (e) {
+    if (isAlreadyVerified(e, owner)) console.log(getVerifiedUrl(owner));
+  }
+}
+
+async function verifyTimeLock() {
+  if (contracts.TimeLock.address !== undefined) {
+    let targetAddress = contracts.TimeLock.address;
+    try {
+      await hre.run("verify:verify", {
+        address: targetAddress,
+        constructorArguments: [
+          100,
+          ["0x59D74185D879b63e8543073fFA73cD5a12Fc4104"],
+          ["0x59D74185D879b63e8543073fFA73cD5a12Fc4104"],
+          "0x59D74185D879b63e8543073fFA73cD5a12Fc4104",
+        ],
+        contract: "contracts/TimeLock.sol:TimeLock",
+      });
+      contracts.TimeLock.url = getVerifiedUrl(targetAddress);
+    } catch (e) {
+      if (isAlreadyVerified(e, targetAddress))
+        contracts.TimeLock.url = getVerifiedUrl(targetAddress);
+    }
+  }
+}
+
 async function verify() {
+  await verifyTimeLock();
   await verifyXyroToken();
-  // await verifyMockUSDC();
+  await verifyMockUSDC();
   await verifyTreasury();
   await verifyOneVsOneExactPrice();
   await verifyBullseye();
   await verifyUpDown();
-  // await verifyFrontHelper();
-  // await verifyMockUpkeep();
+  await verifyFrontHelper();
+  await verifyMockUpkeep();
   await verifySetup();
   await verifyBank();
   const mainnetVerifierAdr = "0x478Aa2aC9F6D65F84e09D9185d126c3a17c2a93C";
   const testnetVerifierAdr = "0x2ff010DEbC1297f19579B4246cad07bd24F2488A";
-  await verifyVerifier(testnetVerifierAdr);
+  // await verifyVerifier(testnetVerifierAdr);
   const json = JSON.stringify(contracts);
   fs.writeFileSync("./contracts.json", json);
 }

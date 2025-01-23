@@ -6,6 +6,8 @@ import {ITreasury} from "./interfaces/ITreasury.sol";
 import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 
 contract Race is AccessControl {
+    event NewAssetCap(uint256 newMinAssetAmount, uint256 newMaxAssetAmount);
+    event NewMaxPlayersAmount(uint256 newMax);
     event NewFee(uint256 newFee);
     event NewTreasury(address newTreasury);
     event RaceCreated(
@@ -14,20 +16,32 @@ contract Race is AccessControl {
         uint32 endTime,
         uint8[] feedNumber,
         bytes32 gameId,
-        address token
-        // address[] assets
+        address token,
+        uint256 minDepositAmount
     );
     event RaceNewPlayer(
         address player,
         uint256 depositAmount,
         uint256 depositId,
         bytes32 gameId,
-        uint8 assetId,
-        uint256 rakeback
+        uint8 feedNumbers,
+        uint256 rakeback,
+        address gameToken
     );
-    event RaceStarted(int192[] startingPrices, bytes32 gameId);
-    event RaceFinalized(int192 finalPrice, bool isLong, bytes32 gameId);
+    event RaceStarted(
+        int192[] startingPrices,
+        uint32[] priceTimestamps,
+        bytes32 gameId
+    );
+    event RaceFinalized(
+        int192[] finalPrice,
+        int256[] priceDiffs,
+        uint32[] priceTimestamps,
+        uint256 wonFeedNumber,
+        bytes32 gameId
+    );
     event RaceCancelled(bytes32 gameId);
+    event RaceDraw(bytes32 gameId);
 
     struct GameInfo {
         uint256 startTime;
@@ -47,24 +61,23 @@ contract Race is AccessControl {
     uint256 packedData;
     bytes32 public constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
     uint256 constant timeGap = 30 seconds;
-    // mapping(address => mapping(address => uint256)) public depositAmounts;
-    // mapping(address => AssetData) public assetData;
     mapping(uint8 => mapping(address => uint256)) public depositAmounts;
     mapping(uint8 => AssetData) public assetData;
     bytes32 public currentGameId;
-    // address[] public currentAssets;
     uint8[] public assetFeedNumber;
     address public treasury;
     uint256 public minDepositAmount;
     uint256 public maxPlayers = 100;
     uint256 public fee = 1000;
+    uint256 public minAssetAmount = 2;
+    uint256 public maxAssetAmount = 5;
 
     constructor() {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
     /**
-     * Creates up/down game
+     * Creates race game
      * @param endTime when the game will end
      * @param stopPredictAt time when players can't enter the game
      * @param depositAmount amount to enter the game
@@ -76,9 +89,13 @@ contract Race is AccessControl {
         uint32 stopPredictAt,
         uint256 depositAmount,
         address token,
-        // address[] memory assets,
         uint8[] memory feedNumbers
     ) public onlyRole(GAME_MASTER_ROLE) {
+        require(
+            feedNumbers.length >= minAssetAmount &&
+                feedNumbers.length <= maxAssetAmount,
+            "Wrong asset length"
+        );
         require(packedData == 0, "Finish previous game first");
         require(stopPredictAt - block.timestamp >= timeGap, "Wrong stop time");
         require(
@@ -97,9 +114,14 @@ contract Race is AccessControl {
             (uint256(stopPredictAt) << 32) |
             (uint256(endTime) << 64));
         currentGameId = keccak256(
-            abi.encodePacked(endTime, block.timestamp, address(this))
+            abi.encodePacked(
+                endTime,
+                stopPredictAt,
+                depositAmount,
+                block.timestamp,
+                address(this)
+            )
         );
-        // currentAssets = assets;
         assetFeedNumber = feedNumbers;
         ITreasury(treasury).setGameToken(currentGameId, token);
         minDepositAmount = depositAmount;
@@ -109,20 +131,20 @@ contract Race is AccessControl {
             endTime,
             feedNumbers,
             currentGameId,
-            token
-            // assets
+            token,
+            depositAmount
         );
     }
 
     /**
      * Take a participation in coin race game and deposit funds
      * @param depositAmount amount to deposit
-     * @param assetId coind id of choise
+     * @param feedNumbers coind id of choise
      */
-    function play(uint256 depositAmount, uint8 assetId) public {
+    function play(uint256 depositAmount, uint8 feedNumbers) public {
         require(depositAmount >= minDepositAmount, "Wrong deposit amount");
         require(
-            depositAmounts[assetId][msg.sender] == 0,
+            depositAmounts[feedNumbers][msg.sender] == 0,
             "Already participating"
         );
         //проверять ассет айди на валидный
@@ -133,25 +155,26 @@ contract Race is AccessControl {
             "Game is closed for new players"
         );
 
-        depositAmounts[assetId][msg.sender] = depositAmount;
+        depositAmounts[feedNumbers][msg.sender] = depositAmount;
         uint256 rakeback = ITreasury(treasury).depositAndLock(
             depositAmount,
             msg.sender,
             currentGameId,
             game.depositId
         );
-        assetData[assetId].totalDeposits += depositAmount;
-        assetData[assetId].totalRakeback += rakeback;
-        assetData[assetId].players.push(msg.sender);
-        assetData[assetId].depositIds.push(game.depositId);
+        assetData[feedNumbers].totalDeposits += depositAmount;
+        assetData[feedNumbers].totalRakeback += rakeback;
+        assetData[feedNumbers].players.push(msg.sender);
+        assetData[feedNumbers].depositIds.push(game.depositId);
 
         emit RaceNewPlayer(
             msg.sender,
             depositAmount,
             game.depositId,
             currentGameId,
-            assetId,
-            rakeback
+            feedNumbers,
+            rakeback,
+            ITreasury(treasury).gameToken(currentGameId)
         );
 
         packedData =
@@ -162,12 +185,12 @@ contract Race is AccessControl {
     /**
      * Take a participation in coin race game and deposit funds
      * @param depositAmount amount to deposit
-     * @param assetId coind id of choise
+     * @param feedNumbers coind id of choise
      */
-    function playWithDeposit(uint256 depositAmount, uint8 assetId) public {
+    function playWithDeposit(uint256 depositAmount, uint8 feedNumbers) public {
         require(depositAmount >= minDepositAmount, "Wrong deposit amount");
         require(
-            depositAmounts[assetId][msg.sender] == 0,
+            depositAmounts[feedNumbers][msg.sender] == 0,
             "Already participating"
         );
         //проверять ассет айди на валидный
@@ -178,25 +201,26 @@ contract Race is AccessControl {
             "Game is closed for new players"
         );
 
-        depositAmounts[assetId][msg.sender] = depositAmount;
+        depositAmounts[feedNumbers][msg.sender] = depositAmount;
         uint256 rakeback = ITreasury(treasury).lock(
             depositAmount,
             msg.sender,
             game.depositId,
             currentGameId
         );
-        assetData[assetId].totalDeposits += depositAmount;
-        assetData[assetId].totalRakeback += rakeback;
-        assetData[assetId].players.push(msg.sender);
-        assetData[assetId].depositIds.push(game.depositId);
+        assetData[feedNumbers].totalDeposits += depositAmount;
+        assetData[feedNumbers].totalRakeback += rakeback;
+        assetData[feedNumbers].players.push(msg.sender);
+        assetData[feedNumbers].depositIds.push(game.depositId);
 
         emit RaceNewPlayer(
             msg.sender,
             depositAmount,
             game.depositId,
             currentGameId,
-            assetId,
-            rakeback
+            feedNumbers,
+            rakeback,
+            ITreasury(treasury).gameToken(currentGameId)
         );
 
         packedData =
@@ -207,16 +231,16 @@ contract Race is AccessControl {
     /**
      * Take a participation in coin race game and deposit funds
      * @param depositAmount amount to deposit
-     * @param assetId coind id of choise
+     * @param feedNumbers coind id of choise
      */
     function playWithPermit(
         uint256 depositAmount,
-        uint8 assetId,
+        uint8 feedNumbers,
         ITreasury.PermitData calldata permitData
     ) public {
         require(depositAmount >= minDepositAmount, "Wrong deposit amount");
         require(
-            depositAmounts[assetId][msg.sender] == 0,
+            depositAmounts[feedNumbers][msg.sender] == 0,
             "Already participating"
         );
         //проверять ассет айди на валидный
@@ -227,7 +251,7 @@ contract Race is AccessControl {
             "Game is closed for new players"
         );
 
-        depositAmounts[assetId][msg.sender] = depositAmount;
+        depositAmounts[feedNumbers][msg.sender] = depositAmount;
         uint256 rakeback = ITreasury(treasury).depositAndLockWithPermit(
             depositAmount,
             msg.sender,
@@ -238,18 +262,19 @@ contract Race is AccessControl {
             permitData.r,
             permitData.s
         );
-        assetData[assetId].totalDeposits += depositAmount;
-        assetData[assetId].totalRakeback += rakeback;
-        assetData[assetId].players.push(msg.sender);
-        assetData[assetId].depositIds.push(game.depositId);
+        assetData[feedNumbers].totalDeposits += depositAmount;
+        assetData[feedNumbers].totalRakeback += rakeback;
+        assetData[feedNumbers].players.push(msg.sender);
+        assetData[feedNumbers].depositIds.push(game.depositId);
 
         emit RaceNewPlayer(
             msg.sender,
             depositAmount,
             game.depositId,
             currentGameId,
-            assetId,
-            rakeback
+            feedNumbers,
+            rakeback,
+            ITreasury(treasury).gameToken(currentGameId)
         );
 
         packedData =
@@ -273,6 +298,9 @@ contract Race is AccessControl {
             unverifiedReports.length == assetFeedNumber.length,
             "Wrong reports length"
         );
+        uint32[] memory priceTimestamps = new uint32[](
+            unverifiedReports.length
+        );
         for (uint i; i < unverifiedReports.length; i++) {
             (int192 priceData, uint32 priceTimestamp) = IDataStreamsVerifier(
                 upkeep
@@ -281,7 +309,7 @@ contract Race is AccessControl {
                     assetFeedNumber[i]
                 );
             require(
-                block.timestamp - priceTimestamp <= 1 minutes,
+                priceTimestamp - game.stopPredictAt <= 1 minutes,
                 "Old chainlink report"
             );
             require(
@@ -290,8 +318,9 @@ contract Race is AccessControl {
             );
             assetData[assetFeedNumber[i]].startingPrice = priceData;
             assetPrices[i] = priceData;
+            priceTimestamps[i] = priceTimestamp;
         }
-        emit RaceStarted(assetPrices, currentGameId);
+        emit RaceStarted(assetPrices, priceTimestamps, currentGameId);
     }
 
     /**
@@ -305,32 +334,7 @@ contract Race is AccessControl {
         require(packedData != 0, "Start the game first");
         require(block.timestamp >= game.endTime, "Too early to finish");
         if (!hasEnoughPlayers()) {
-            for (uint i; i < assetFeedNumber.length; i++) {
-                for (
-                    uint k;
-                    k < assetData[assetFeedNumber[i]].players.length;
-                    k++
-                ) {
-                    ITreasury(treasury).refund(
-                        depositAmounts[assetFeedNumber[i]][
-                            assetData[assetFeedNumber[i]].players[k]
-                        ],
-                        assetData[assetFeedNumber[i]].players[k],
-                        currentGameId,
-                        assetData[assetFeedNumber[i]].depositIds[k]
-                    );
-                    delete depositAmounts[assetFeedNumber[i]][
-                        assetData[assetFeedNumber[i]].players[k]
-                    ];
-                }
-                delete assetData[assetFeedNumber[i]];
-            }
-            emit RaceCancelled(currentGameId);
-
-            packedData = 0;
-            currentGameId = bytes32(0);
-            delete assetFeedNumber;
-            // delete currentAssets;
+            closeGame();
             return;
         }
 
@@ -339,14 +343,16 @@ contract Race is AccessControl {
             unverifiedReports.length
         );
         int192[] memory finalPrices = new int192[](unverifiedReports.length);
-        int256 tipDiff = type(int256).min;
+        uint32[] memory finalTimestamps = new uint32[](
+            unverifiedReports.length
+        );
+        int256 topDiff = type(int256).min;
         uint256 topIndex = 0;
         require(
             unverifiedReports.length == assetFeedNumber.length,
             "Wrong reports length"
         );
         for (uint i; i < unverifiedReports.length; i++) {
-            //хватает ли проверки тех токенов с репорта что прислали и токенов
             (int192 priceData, uint32 priceTimestamp) = IDataStreamsVerifier(
                 upkeep
             ).verifyReportWithTimestamp(
@@ -354,9 +360,10 @@ contract Race is AccessControl {
                     assetFeedNumber[i]
                 );
             require(
-                block.timestamp - priceTimestamp <= 1 minutes,
+                priceTimestamp - game.endTime <= 1 minutes,
                 "Old chainlink report"
             );
+            finalTimestamps[i] = priceTimestamp;
             require(
                 assetData[assetFeedNumber[i]].startingPrice != 0,
                 "Starting price not set"
@@ -365,14 +372,16 @@ contract Race is AccessControl {
                 ((priceData - assetData[assetFeedNumber[i]].startingPrice) *
                     10000) /
                 assetData[assetFeedNumber[i]].startingPrice;
-            //что если процент будет равный
-            if (finalPricesDiff[i] > tipDiff) {
-                tipDiff = finalPricesDiff[i];
+            if (finalPricesDiff[i] > topDiff) {
+                topDiff = finalPricesDiff[i];
                 topIndex = i;
+            } else if (finalPricesDiff[i] == topDiff) {
+                emit RaceDraw(currentGameId);
+                closeGame();
             }
             finalPrices[i] = priceData;
         }
-        //distribute
+
         uint256 totalLostDeposits;
         uint256 totalLostRakeback;
         for (uint i; i < assetFeedNumber.length; i++) {
@@ -408,11 +417,20 @@ contract Race is AccessControl {
                 finalRate
             );
         }
+        emit RaceFinalized(
+            finalPrices,
+            finalPricesDiff,
+            finalTimestamps,
+            topIndex,
+            currentGameId
+        );
         ITreasury(treasury).setGameFinished(currentGameId);
+        for (uint i; i < assetFeedNumber.length; i++) {
+            delete assetData[assetFeedNumber[i]];
+        }
         packedData = 0;
         currentGameId = bytes32(0);
         delete assetFeedNumber;
-        // delete currentAssets;
     }
 
     /**
@@ -444,7 +462,6 @@ contract Race is AccessControl {
         packedData = 0;
         currentGameId = bytes32(0);
         delete assetFeedNumber;
-        // delete currentAssets;
     }
 
     /**
@@ -473,6 +490,16 @@ contract Race is AccessControl {
      */
     function setMaxPlayers(uint256 newMax) public onlyRole(DEFAULT_ADMIN_ROLE) {
         maxPlayers = newMax;
+        emit NewMaxPlayersAmount(newMax);
+    }
+
+    function setAssetAmount(
+        uint256 newMinAssetAmount,
+        uint256 newMaxAssetAmount
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        minAssetAmount = newMinAssetAmount;
+        maxAssetAmount = newMaxAssetAmount;
+        emit NewAssetCap(newMinAssetAmount, newMaxAssetAmount);
     }
 
     /**

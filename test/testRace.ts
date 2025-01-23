@@ -49,6 +49,8 @@ const finishPreviousGame = "Finish previous game first";
 const wrongStopTime = "Wrong stop time";
 const lowTimeframeGap = "Timeframe gap must be higher";
 const wrongFeedNumber = "Wrong feed number";
+const worngAseetAmount = "Wrong asset length";
+const wrongDepositAmount = "Wrong deposit amount";
 const alreadyParticipating = "Already participating";
 const maxPlayersReached = "Max player amount reached";
 const gameClosed = "Game is closed for new players";
@@ -221,10 +223,34 @@ describe("Meme coin racing", () => {
         )
       ).to.be.revertedWith(lowTimeframeGap);
     });
+
+    it("Should fail - wrong asset amount", async function () {
+      const endTime = (await time.latest()) + fortyFiveMinutes;
+      const stopPredictAt = (await time.latest()) + fifteenMinutes;
+      await expect(
+        Game.startGame(
+          endTime,
+          stopPredictAt,
+          usdtAmount,
+          await USDT.getAddress(),
+          [0, 1, 2, 3, 4, 5]
+        )
+      ).to.be.revertedWith(worngAseetAmount);
+
+      await expect(
+        Game.startGame(
+          endTime,
+          stopPredictAt,
+          usdtAmount,
+          await USDT.getAddress(),
+          [0]
+        )
+      ).to.be.revertedWith(worngAseetAmount);
+    });
   });
 
   describe("Play", async function () {
-    it("Should play game", async function () {
+    beforeEach(async () => {
       const endTime = (await time.latest()) + fortyFiveMinutes;
       const stopPredictAt = (await time.latest()) + fifteenMinutes;
       await Game.startGame(
@@ -234,7 +260,9 @@ describe("Meme coin racing", () => {
         await USDT.getAddress(),
         [0, 1, 2, 3]
       );
+    });
 
+    it("Should play game", async function () {
       await Game.play(usdtAmount, 0);
 
       const data = await Game.decodeData();
@@ -253,15 +281,6 @@ describe("Meme coin racing", () => {
     });
 
     it("Should play game with deposit", async function () {
-      const endTime = (await time.latest()) + fortyFiveMinutes;
-      const stopPredictAt = (await time.latest()) + fifteenMinutes;
-      await Game.startGame(
-        endTime,
-        stopPredictAt,
-        usdtAmount,
-        await USDT.getAddress(),
-        [0, 1, 2, 3]
-      );
       await Treasury["deposit(uint256,address)"](
         usdtAmount,
         await USDT.getAddress()
@@ -284,15 +303,6 @@ describe("Meme coin racing", () => {
     });
 
     it("Should play game with permit", async function () {
-      const endTime = (await time.latest()) + fortyFiveMinutes;
-      const stopPredictAt = (await time.latest()) + fifteenMinutes;
-      await Game.startGame(
-        endTime,
-        stopPredictAt,
-        usdtAmount,
-        await USDT.getAddress(),
-        [0, 1, 2, 3]
-      );
       const deadline = (await time.latest()) + fortyFiveMinutes;
       let result = await getPermitSignature(
         owner,
@@ -322,6 +332,93 @@ describe("Meme coin racing", () => {
       );
       expect(assetData[2]).to.be.equal(0);
     });
+
+    it("Should fail - wrong deposit amount", async function () {
+      await expect(Game.play(0, 0)).to.be.revertedWith(wrongDepositAmount);
+      await expect(Game.play(usdtAmount - BigInt(1), 0)).to.be.revertedWith(
+        wrongDepositAmount
+      );
+
+      await Treasury["deposit(uint256,address)"](
+        usdtAmount,
+        await USDT.getAddress()
+      );
+
+      await expect(Game.playWithDeposit(0, 0)).to.be.revertedWith(
+        wrongDepositAmount
+      );
+      await expect(
+        Game.playWithDeposit(usdtAmount - BigInt(1), 0)
+      ).to.be.revertedWith(wrongDepositAmount);
+
+      const deadline = (await time.latest()) + fortyFiveMinutes;
+      let result = await getPermitSignature(
+        owner,
+        USDT,
+        await Treasury.getAddress(),
+        usdtAmount - BigInt(1),
+        BigInt(deadline)
+      );
+      await expect(
+        Game.playWithPermit(usdtAmount - BigInt(1), 0, {
+          deadline: deadline,
+          v: result.v,
+          r: result.r,
+          s: result.s,
+        })
+      ).to.be.revertedWith(wrongDepositAmount);
+
+      await expect(
+        Game.playWithPermit(0, 0, {
+          deadline: deadline,
+          v: result.v,
+          r: result.r,
+          s: result.s,
+        })
+      ).to.be.revertedWith(wrongDepositAmount);
+    });
+
+    it("Should fail - try to participate in the same asset twice", async function () {
+      await Game.play(usdtAmount, 0);
+
+      await expect(Game.play(usdtAmount, 0)).to.be.revertedWith(
+        alreadyParticipating
+      );
+
+      await Treasury["deposit(uint256,address)"](
+        usdtAmount,
+        await USDT.getAddress()
+      );
+
+      await expect(Game.playWithDeposit(usdtAmount, 0)).to.be.revertedWith(
+        alreadyParticipating
+      );
+
+      const deadline = (await time.latest()) + fortyFiveMinutes;
+      let result = await getPermitSignature(
+        owner,
+        USDT,
+        await Treasury.getAddress(),
+        usdtAmount,
+        BigInt(deadline)
+      );
+      await expect(
+        Game.playWithPermit(usdtAmount, 0, {
+          deadline: deadline,
+          v: result.v,
+          r: result.r,
+          s: result.s,
+        })
+      ).to.be.revertedWith(alreadyParticipating);
+    });
+
+    it("Should fail - try to play when maximum players reached", async function () {
+      await Game.setMaxPlayers(2);
+      await Game.connect(alice).play(usdtAmount, 0);
+      await Game.connect(opponent).play(usdtAmount, 0);
+    });
+
+    it("Should fail - try to play after enterance time", async function () {});
   });
 
   describe("Set starting price", async function () {
@@ -343,13 +440,6 @@ describe("Meme coin racing", () => {
 
       await time.increase(fifteenMinutes);
       let reports: string[];
-      // for (let i = 0; i++; i < 4) {
-      //   reports[i] = abiEncodeInt192WithTimestamp(
-      //     startingPrices[i].toString(),
-      //     i,
-      //     await time.latest()
-      //   );
-      // }
 
       reports = [
         abiEncodeInt192WithTimestamp(
@@ -428,7 +518,7 @@ describe("Meme coin racing", () => {
       ];
       await Game.setStartingPrice(reports);
 
-      await time.increase(fortyFiveMinutes);
+      await time.increase(2 * fifteenMinutes);
       const finalReports = [
         abiEncodeInt192WithTimestamp(
           finalPriceFirst.toString(),
@@ -561,7 +651,7 @@ describe("Meme coin racing", () => {
       ];
       await Game.setStartingPrice(reports);
 
-      await time.increase(fortyFiveMinutes);
+      await time.increase(2 * fifteenMinutes);
       const finalReports = [
         abiEncodeInt192WithTimestamp(
           finalPriceFirst.toString(),

@@ -1294,7 +1294,6 @@ describe("Race", () => {
       await Game.setStartingPrice(reports);
 
       await time.increase(2 * fifteenMinutes + 10);
-      console.log(endTime, await time.latest());
       const finalReports = [
         abiEncodeInt192WithTimestamp(
           finalPriceFirst.toString(),
@@ -1317,7 +1316,6 @@ describe("Race", () => {
           await time.latest()
         ),
       ];
-
       await Game.finalizeGame(finalReports);
       expect(
         await Treasury.deposits(await USDT.getAddress(), owner.address)

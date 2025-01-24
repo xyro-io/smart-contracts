@@ -14,7 +14,7 @@ contract Race is AccessControl {
         uint256 startTime,
         uint32 stopPredictAt,
         uint32 endTime,
-        uint8[] feedNumber,
+        uint8[] feedNumbers,
         bytes32 gameId,
         address token,
         uint256 minDepositAmount
@@ -24,9 +24,9 @@ contract Race is AccessControl {
         uint256 depositAmount,
         uint256 depositId,
         bytes32 gameId,
-        uint8 feedNumbers,
+        uint8 feedNumber,
         uint256 rakeback,
-        address gameToken
+        address token
     );
     event RaceStarted(
         int192[] startingPrices,
@@ -37,6 +37,7 @@ contract Race is AccessControl {
         int192[] finalPrice,
         int256[] priceDiffs,
         uint32[] priceTimestamps,
+        uint8[] feedNumbers,
         uint256 wonFeedNumber,
         bytes32 gameId
     );
@@ -424,6 +425,7 @@ contract Race is AccessControl {
             finalPrices,
             finalPricesDiff,
             finalTimestamps,
+            assetFeedNumber,
             topIndex,
             currentGameId
         );
@@ -475,6 +477,18 @@ contract Race is AccessControl {
         data.stopPredictAt = uint256(uint32(packedData >> 32));
         data.endTime = uint256(uint32(packedData >> 64));
         data.depositId = uint256(uint160(packedData >> 96));
+    }
+
+    function retrieveGameData()
+        public
+        view
+        returns (GameInfo memory, bytes32, uint8[] memory, uint256[] memory)
+    {
+        uint256[] memory players = new uint256[](assetFeedNumber.length);
+        for (uint i; i < assetFeedNumber.length; i++) {
+            players[i] = assetData[assetFeedNumber[i]].players.length;
+        }
+        return (decodeData(), currentGameId, assetFeedNumber, players);
     }
 
     function hasEnoughPlayers() public view returns (bool) {

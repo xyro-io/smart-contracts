@@ -13,6 +13,8 @@ interface ITreasury {
 
     function grantRole(bytes32 role, address account) external;
 
+    function gameToken(bytes32 gameId) external view returns (address);
+
     function lockedRakeback(
         bytes32 gameId,
         address player,
@@ -111,6 +113,14 @@ interface ITreasury {
         address to,
         uint256 initialDeposit,
         bytes32 gameId,
+        uint256 rate
+    ) external;
+
+    function universalDistribute(
+        address to,
+        uint256 initialDeposit,
+        bytes32 gameId,
+        uint256 depositId,
         uint256 rate
     ) external;
 

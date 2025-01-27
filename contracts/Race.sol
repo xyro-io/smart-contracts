@@ -479,7 +479,7 @@ contract Race is AccessControl {
         data.depositId = uint256(uint160(packedData >> 96));
     }
 
-    function retrieveGameData()
+    function getGameData()
         public
         view
         returns (GameInfo memory, bytes32, uint8[] memory, uint256[] memory)

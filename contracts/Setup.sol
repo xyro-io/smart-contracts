@@ -8,7 +8,7 @@ import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
 contract Setup is AccessControl {
     event SetupToggle(bool isActive);
     event NewGameDuration(uint256 newMaxDuration, uint256 newMinDuration);
-    event NewFee(uint256 newFee);
+    event NewFee(uint256 newFee, address token);
     event NewInitiatorFee(uint256 newFee);
     event NewTreasury(address newTreasury);
     event SetupNewPlayer(
@@ -87,11 +87,11 @@ contract Setup is AccessControl {
     mapping(bytes32 => GameInfoPacked) public games;
     mapping(bytes32 => mapping(address => UserStatus)) public withdrawStatus;
     mapping(bytes32 => mapping(address => uint256)) public depositAmounts;
+    mapping(address => uint256) public fees;
     uint256 public constant FEE_DENOMINATOR = 10000;
     uint256 public minDuration = 30 minutes;
     uint256 public maxDuration = 24 weeks;
     uint256 public initiatorFee = 1000;
-    uint256 public fee = 1000;
     address public treasury;
     bool public isActive = true;
 
@@ -444,7 +444,7 @@ contract Setup is AccessControl {
             if (uint192(finalPrice) >= games[gameId].takeProfitPrice) {
                 ITreasury(treasury).withdrawGameFee(
                     games[gameId].totalDepositsSL,
-                    fee,
+                    fees[ITreasury(treasury).gameToken(gameId)],
                     gameId
                 );
                 withdrawnInitiatorFees = ITreasury(treasury)
@@ -473,7 +473,7 @@ contract Setup is AccessControl {
             } else if (uint192(finalPrice) <= games[gameId].stopLossPrice) {
                 ITreasury(treasury).withdrawGameFee(
                     games[gameId].totalDepositsTP,
-                    fee,
+                    fees[ITreasury(treasury).gameToken(gameId)],
                     gameId
                 );
                 withdrawnInitiatorFees = ITreasury(treasury)
@@ -511,7 +511,7 @@ contract Setup is AccessControl {
                 // sl team wins
                 ITreasury(treasury).withdrawGameFee(
                     games[gameId].totalDepositsTP,
-                    fee,
+                    fees[ITreasury(treasury).gameToken(gameId)],
                     gameId
                 );
                 withdrawnInitiatorFees = ITreasury(treasury)
@@ -541,7 +541,7 @@ contract Setup is AccessControl {
             } else if (uint192(finalPrice) <= games[gameId].takeProfitPrice) {
                 ITreasury(treasury).withdrawGameFee(
                     games[gameId].totalDepositsSL,
-                    fee,
+                    fees[ITreasury(treasury).gameToken(gameId)],
                     gameId
                 );
                 withdrawnInitiatorFees = ITreasury(treasury)
@@ -746,11 +746,15 @@ contract Setup is AccessControl {
     /**
      * Change fee
      * @param newFee new fee in bp
+     * @param token for wich fee will be set
      */
-    function setFee(uint256 newFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setFee(
+        address token,
+        uint256 newFee
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newFee <= 3000, "Fee exceeds the cap");
-        fee = newFee;
-        emit NewFee(newFee);
+        fees[token] = newFee;
+        emit NewFee(newFee, token);
     }
 
     /**

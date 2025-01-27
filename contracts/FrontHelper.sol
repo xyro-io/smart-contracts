@@ -20,6 +20,19 @@ interface IGame {
     function initiatorFee() external view returns (uint256);
 }
 
+interface IUniPool {
+    struct Slot0 {
+        uint160 sqrtPriceX96;
+        int24 tick;
+        uint16 observationIndex;
+        uint16 observationCardinality;
+        uint16 observationCardinalityNext;
+        uint8 feeProtocol;
+        bool unlocked;
+    }
+    function slot0() external view returns (Slot0 memory);
+}
+
 contract FrontHelper {
     struct Data {
         uint256 balance;
@@ -37,6 +50,7 @@ contract FrontHelper {
         uint256 xyroBalance;
         uint256 xyroAllowance;
         uint256 xyroDeposited;
+        uint160 sqrtPriceX96;
     }
 
     address public owner;
@@ -92,6 +106,8 @@ contract FrontHelper {
         address[] calldata targets
     ) public view returns (DataV2[] memory) {
         DataV2[] memory data = new DataV2[](targets.length);
+        IUniPool.Slot0 memory poolData;
+        poolData = IUniPool(0xcD3439B962b3FCF9163d6cE9B498949d7Ed1eF14).slot0();
         for (uint i; i < targets.length; i++) {
             data[i] = DataV2({
                 balance: IERC20(token).balanceOf(targets[i]),
@@ -107,7 +123,8 @@ contract FrontHelper {
                 xyroDeposited: ITreasury(treasury).deposits(
                     ITreasury(treasury).xyroToken(),
                     targets[i]
-                )
+                ),
+                sqrtPriceX96: poolData.sqrtPriceX96
             });
         }
         return data;
@@ -120,6 +137,8 @@ contract FrontHelper {
         address target
     ) public view returns (DataV2 memory) {
         DataV2 memory data;
+        IUniPool.Slot0 memory poolData;
+        poolData = IUniPool(0xcD3439B962b3FCF9163d6cE9B498949d7Ed1eF14).slot0();
         data = DataV2({
             balance: IERC20(token).balanceOf(target),
             depositedOld: IOldTreasury(oldTreasury).deposits(target),
@@ -136,7 +155,8 @@ contract FrontHelper {
             xyroDeposited: ITreasury(treasury).deposits(
                 ITreasury(treasury).xyroToken(),
                 target
-            )
+            ),
+            sqrtPriceX96: poolData.sqrtPriceX96
         });
         return data;
     }

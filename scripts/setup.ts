@@ -19,6 +19,7 @@ async function setupTreasury() {
   await wrapFnc([role, contracts.OneVsOne.address], contract.grantRole);
   await wrapFnc([role, contracts.UpDown.address], contract.grantRole);
   await wrapFnc([role, contracts.Setup.address], contract.grantRole);
+  await wrapFnc([role, contracts.Race.address], contract.grantRole);
 }
 
 async function setupBullseye() {
@@ -26,6 +27,16 @@ async function setupBullseye() {
     "Bullseye",
     contracts.Bullseye.address
   );
+  await wrapFnc([contracts.Treasury.address], contract.setTreasury);
+  const gameMasterRole = await contract.GAME_MASTER_ROLE();
+  await wrapFnc([gameMasterRole, GAME_MASTER], contract.grantRole);
+  await wrapFnc([gameMasterRole, GAME_MASTER_2], contract.grantRole);
+  await wrapFnc([gameMasterRole, GAME_MASTER_3], contract.grantRole);
+  await wrapFnc([gameMasterRole, GAME_MASTER_4], contract.grantRole);
+}
+
+async function setupRace() {
+  const contract = await ethers.getContractAt("Race", contracts.Race.address);
   await wrapFnc([contracts.Treasury.address], contract.setTreasury);
   const gameMasterRole = await contract.GAME_MASTER_ROLE();
   await wrapFnc([gameMasterRole, GAME_MASTER], contract.grantRole);

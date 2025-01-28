@@ -126,7 +126,9 @@ describe("Bullseye", () => {
         stopPredictAt,
         usdtAmount,
         feedNumber,
-        await USDT.getAddress()
+        await USDT.getAddress(),
+        0,
+        true
       );
       let game = await Game.decodeData();
       expect(game.endTime).to.be.equal(endTime);
@@ -145,7 +147,9 @@ describe("Bullseye", () => {
           stopPredictAt,
           usdtAmount,
           wrongFeedNumber,
-          await USDT.getAddress()
+          await USDT.getAddress(),
+          0,
+          true
         )
       ).to.be.revertedWith(requireApprovedFeedNumber);
     });
@@ -156,7 +160,9 @@ describe("Bullseye", () => {
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
         feedNumber,
-        await USDT.getAddress()
+        await USDT.getAddress(),
+        0,
+        true
       );
 
       await expect(
@@ -165,7 +171,9 @@ describe("Bullseye", () => {
           (await time.latest()) + fifteenMinutes,
           usdtAmount,
           feedNumber,
-          await USDT.getAddress()
+          await USDT.getAddress(),
+          0,
+          true
         )
       ).to.be.revertedWith(requireFinishedGame);
       await Game.closeGame();
@@ -178,7 +186,9 @@ describe("Bullseye", () => {
           (await time.latest()) + fifteenMinutes,
           1,
           feedNumber,
-          await USDT.getAddress()
+          await USDT.getAddress(),
+          0,
+          true
         )
       ).to.be.revertedWith(requireAboveMinDepositAmount);
     });
@@ -191,7 +201,9 @@ describe("Bullseye", () => {
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
         feedNumber,
-        await USDT.getAddress()
+        await USDT.getAddress(),
+        0,
+        true
       );
     });
     it("should play", async function () {
@@ -276,7 +288,9 @@ describe("Bullseye", () => {
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
         feedNumber,
-        await USDT.getAddress()
+        await USDT.getAddress(),
+        0,
+        true
       );
       await Game.connect(alice).play(guessPriceAlice);
       let oldBalance = await USDT.balanceOf(alice.getAddress());
@@ -299,7 +313,9 @@ describe("Bullseye", () => {
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
         feedNumber,
-        await USDT.getAddress()
+        await USDT.getAddress(),
+        0,
+        true
       );
     });
     it("should fail - game not started", async function () {
@@ -1421,7 +1437,9 @@ describe("Bullseye", () => {
           stopPredictAt,
           xyroAmount,
           feedNumber,
-          await XyroToken.getAddress()
+          await XyroToken.getAddress(),
+          0,
+          true
         )
       ).to.be.revertedWith(requireApprovedToken);
     });
@@ -1436,7 +1454,9 @@ describe("Bullseye", () => {
         stopPredictAt,
         xyroAmount,
         feedNumber,
-        await XyroToken.getAddress()
+        await XyroToken.getAddress(),
+        0,
+        true
       );
       let game = await Game.decodeData();
       expect(game.endTime).to.be.equal(endTime);
@@ -1452,7 +1472,9 @@ describe("Bullseye", () => {
         (await time.latest()) + fifteenMinutes,
         xyroAmount,
         feedNumber,
-        await XyroToken.getAddress()
+        await XyroToken.getAddress(),
+        0,
+        true
       );
       let tx = await Game.connect(opponent).play(guessPriceOpponent);
       let receipt = await tx.wait();
@@ -1481,7 +1503,9 @@ describe("Bullseye", () => {
         (await time.latest()) + fifteenMinutes,
         xyroAmount,
         feedNumber,
-        await XyroToken.getAddress()
+        await XyroToken.getAddress(),
+        0,
+        true
       );
       await Game.connect(bob).play(guessBobPrice);
       await Game.connect(opponent).play(guessPriceOpponent);
@@ -1550,7 +1574,9 @@ describe("Bullseye", () => {
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
         feedNumber,
-        await USDT.getAddress()
+        await USDT.getAddress(),
+        0,
+        true
       );
 
       const deadline = (await time.latest()) + fortyFiveMinutes;
@@ -1615,7 +1641,9 @@ describe("Bullseye", () => {
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
         feedNumber,
-        await USDT.getAddress()
+        await USDT.getAddress(),
+        0,
+        true
       );
       await Game.connect(alice).play(guessPriceAlice);
       await Game.connect(opponent).play(guessPriceOpponent);
@@ -1637,7 +1665,9 @@ describe("Bullseye", () => {
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
         feedNumber,
-        await USDT.getAddress()
+        await USDT.getAddress(),
+        0,
+        true
       );
       await time.increase(fortyFiveMinutes);
       //0 players
@@ -1656,7 +1686,9 @@ describe("Bullseye", () => {
         (await time.latest()) + fifteenMinutes,
         usdtAmount,
         feedNumber,
-        await USDT.getAddress()
+        await USDT.getAddress(),
+        0,
+        true
       );
       await Game.connect(alice).play(guessPriceAlice);
       await time.increase(fortyFiveMinutes);

@@ -81,6 +81,22 @@ async function verifyTreasury() {
   }
 }
 
+async function verifyRace() {
+  if (contracts.Race.address !== undefined) {
+    let targetAddress = contracts.Race.address;
+    try {
+      await hre.run("verify:verify", {
+        address: targetAddress,
+        constructorArguments: [],
+      });
+      contracts.Race.url = getVerifiedUrl(targetAddress);
+    } catch (e) {
+      if (isAlreadyVerified(e, targetAddress))
+        contracts.Race.url = getVerifiedUrl(targetAddress);
+    }
+  }
+}
+
 async function verifyBullseye() {
   if (contracts.Bullseye.address !== undefined) {
     let targetAddress = contracts.Bullseye.address;
@@ -287,6 +303,7 @@ async function verify() {
   await verifyMockUpkeep();
   await verifySetup();
   await verifyBank();
+  await verifyRace();
   const mainnetVerifierAdr = "0x478Aa2aC9F6D65F84e09D9185d126c3a17c2a93C";
   const testnetVerifierAdr = "0x2ff010DEbC1297f19579B4246cad07bd24F2488A";
   // await verifyVerifier(testnetVerifierAdr);

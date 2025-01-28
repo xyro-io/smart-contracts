@@ -66,6 +66,7 @@ contract Bullseye is AccessControl {
 
     GuessStruct[] public playerGuessData;
     uint256 packedData;
+    uint8 private pricePrecision;
     uint256 constant timeGap = 30 seconds;
     mapping(address => bool) public isParticipating;
     uint256 public depositAmount;
@@ -92,6 +93,7 @@ contract Bullseye is AccessControl {
         uint256 newDepositAmount,
         uint8 feedNumber,
         address token,
+        uint8 precision,
         bool isMultiParticipation
     ) public onlyRole(GAME_MASTER_ROLE) {
         require(packedData == 0, "Finish previous game first");
@@ -110,6 +112,7 @@ contract Bullseye is AccessControl {
             ) != bytes32(0),
             "Wrong feed number"
         );
+        pricePrecision = precision;
         packedData = (block.timestamp |
             (uint256(stopPredictAt) << 32) |
             (uint256(endTime) << 64) |
@@ -137,6 +140,9 @@ contract Bullseye is AccessControl {
      */
     function play(uint256 assetPrice) public {
         GameInfo memory game = decodeData();
+        if (pricePrecision != 0) {
+            assetPrice = assetPrice / (10 ^ pricePrecision);
+        }
         if (game.isMultiParticipationOn) {
             require(
                 isParticipating[msg.sender] == false,
@@ -183,6 +189,9 @@ contract Bullseye is AccessControl {
      */
     function playWithDeposit(uint256 assetPrice) public {
         GameInfo memory game = decodeData();
+        if (pricePrecision != 0) {
+            assetPrice = assetPrice / (10 ^ pricePrecision);
+        }
         if (game.isMultiParticipationOn) {
             require(
                 isParticipating[msg.sender] == false,
@@ -232,6 +241,9 @@ contract Bullseye is AccessControl {
         ITreasury.PermitData calldata permitData
     ) public {
         GameInfo memory game = decodeData();
+        if (pricePrecision != 0) {
+            assetPrice = assetPrice / (10 ^ pricePrecision);
+        }
         if (game.isMultiParticipationOn) {
             require(
                 isParticipating[msg.sender] == false,
@@ -308,6 +320,9 @@ contract Bullseye is AccessControl {
         (int192 finalPrice, uint32 priceTimestamp) = IDataStreamsVerifier(
             upkeep
         ).verifyReportWithTimestamp(unverifiedReport, game.feedNumber);
+        if (pricePrecision != 0) {
+            finalPrice = finalPrice / int8(10 ^ pricePrecision);
+        }
         require(
             priceTimestamp - game.endTime <= 1 minutes,
             "Old chainlink report"
@@ -327,6 +342,7 @@ contract Bullseye is AccessControl {
                 uint192(finalPrice)
                 ? currentGuessData.assetPrice - uint192(finalPrice)
                 : uint192(finalPrice) - currentGuessData.assetPrice;
+
             for (uint256 i = 0; i < 3; i++) {
                 if (currentDiff < closestDiff[i]) {
                     for (uint256 k = 2; k > i; k--) {

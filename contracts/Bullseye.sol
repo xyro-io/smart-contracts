@@ -140,9 +140,6 @@ contract Bullseye is AccessControl {
      */
     function play(uint256 assetPrice) public {
         GameInfo memory game = decodeData();
-        if (pricePrecision != 0) {
-            assetPrice = assetPrice / (10 ^ pricePrecision);
-        }
         if (game.isMultiParticipationOn) {
             require(
                 isParticipating[msg.sender] == false,
@@ -189,9 +186,6 @@ contract Bullseye is AccessControl {
      */
     function playWithDeposit(uint256 assetPrice) public {
         GameInfo memory game = decodeData();
-        if (pricePrecision != 0) {
-            assetPrice = assetPrice / (10 ^ pricePrecision);
-        }
         if (game.isMultiParticipationOn) {
             require(
                 isParticipating[msg.sender] == false,
@@ -241,9 +235,6 @@ contract Bullseye is AccessControl {
         ITreasury.PermitData calldata permitData
     ) public {
         GameInfo memory game = decodeData();
-        if (pricePrecision != 0) {
-            assetPrice = assetPrice / (10 ^ pricePrecision);
-        }
         if (game.isMultiParticipationOn) {
             require(
                 isParticipating[msg.sender] == false,
@@ -338,10 +329,24 @@ contract Bullseye is AccessControl {
         ];
         for (uint256 j = 0; j < playerGuessData.length; j++) {
             GuessStruct memory currentGuessData = playerGuessData[j];
-            uint256 currentDiff = currentGuessData.assetPrice >
-                uint192(finalPrice)
-                ? currentGuessData.assetPrice - uint192(finalPrice)
-                : uint192(finalPrice) - currentGuessData.assetPrice;
+            uint256 currentDiff;
+            if (pricePrecision != 0) {
+                currentDiff = currentGuessData.assetPrice /
+                    (10 ^ pricePrecision) >
+                    uint192(finalPrice) / (10 ^ pricePrecision)
+                    ? currentGuessData.assetPrice /
+                        (10 ^ pricePrecision) -
+                        uint192(finalPrice) /
+                        (10 ^ pricePrecision)
+                    : uint192(finalPrice) /
+                        (10 ^ pricePrecision) -
+                        currentGuessData.assetPrice /
+                        (10 ^ pricePrecision);
+            } else {
+                currentDiff = currentGuessData.assetPrice > uint192(finalPrice)
+                    ? currentGuessData.assetPrice - uint192(finalPrice)
+                    : uint192(finalPrice) - currentGuessData.assetPrice;
+            }
 
             for (uint256 i = 0; i < 3; i++) {
                 if (currentDiff < closestDiff[i]) {

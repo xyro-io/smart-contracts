@@ -11,8 +11,6 @@ interface ITreasury {
 
     function DISTRIBUTOR_ROLE() external view returns (bytes32);
 
-    function gameToken(bytes32 gameId) external view returns (address);
-
     function grantRole(bytes32 role, address account) external;
 
     function gameToken(bytes32 gameId) external view returns (address);

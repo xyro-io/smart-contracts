@@ -126,6 +126,9 @@ describe("Setup Game", () => {
       "0x00035e3ddda6345c3c8ce45639d4449451f1d5828d7a70845e446f04905937cd",
     ];
     await Upkeep.setfeedNumberBatch(feedIds);
+
+    await Game.setFee(await USDT.getAddress(), 1000);
+    await Game.setFee(await XyroToken.getAddress(), 1000);
   });
 
   describe("Create game", async function () {
@@ -909,7 +912,8 @@ describe("Setup Game", () => {
       const lostTeamTotalWithoutFee =
         data.totalDepositsSL -
         (data.totalDepositsSL * (await Game.initiatorFee())) / BigInt(10000) -
-        (data.totalDepositsSL * (await Game.fee())) / BigInt(10000) -
+        (data.totalDepositsSL * (await Game.fees(await USDT.getAddress()))) /
+          BigInt(10000) -
         data.totalRakebackSL;
       const finalRate = calculateRate(
         wonTeamTotalWithoutFee,
@@ -1019,7 +1023,8 @@ describe("Setup Game", () => {
       const lostTeamTotalWithoutFee =
         data.totalDepositsTP -
         (data.totalDepositsTP * (await Game.initiatorFee())) / BigInt(10000) -
-        (data.totalDepositsTP * (await Game.fee())) / BigInt(10000) -
+        (data.totalDepositsTP * (await Game.fees(await USDT.getAddress()))) /
+          BigInt(10000) -
         data.totalRakebackTP;
       const finalRate = calculateRate(
         wonTeamTotalWithoutFee,
@@ -1203,7 +1208,8 @@ describe("Setup Game", () => {
       const lostTeamTotalWithoutFee =
         data.totalDepositsSL -
         (data.totalDepositsSL * (await Game.initiatorFee())) / BigInt(10000) -
-        (data.totalDepositsSL * (await Game.fee())) / BigInt(10000) -
+        (data.totalDepositsSL * (await Game.fees(await USDT.getAddress()))) /
+          BigInt(10000) -
         data.totalRakebackSL;
       const finalRate = calculateRate(
         wonTeamTotalWithoutFee,
@@ -1312,7 +1318,8 @@ describe("Setup Game", () => {
       const lostTeamTotalWithoutFee =
         data.totalDepositsTP -
         (data.totalDepositsTP * (await Game.initiatorFee())) / BigInt(10000) -
-        (data.totalDepositsTP * (await Game.fee())) / BigInt(10000) -
+        (data.totalDepositsTP * (await Game.fees(await USDT.getAddress()))) /
+          BigInt(10000) -
         data.totalRakebackTP;
       const finalRate = calculateRate(
         wonTeamTotalWithoutFee,
@@ -1959,7 +1966,9 @@ describe("Setup Game", () => {
       const lostTeamTotalWithoutFee =
         data.totalDepositsSL -
         (data.totalDepositsSL * (await Game.initiatorFee())) / BigInt(10000) -
-        (data.totalDepositsSL * (await Game.fee())) / BigInt(10000) -
+        (data.totalDepositsSL *
+          (await Game.fees(await XyroToken.getAddress()))) /
+          BigInt(10000) -
         data.totalRakebackSL;
       const finalRate = calculateRate(
         wonTeamTotalWithoutFee,
@@ -2128,7 +2137,9 @@ describe("Setup Game", () => {
       const lostTeamTotalWithoutFee =
         data.totalDepositsSL -
         (data.totalDepositsSL * (await Game.initiatorFee())) / BigInt(10000) -
-        (data.totalDepositsSL * (await Game.fee())) / BigInt(10000) -
+        (data.totalDepositsSL *
+          (await Game.fees(await XyroToken.getAddress()))) /
+          BigInt(10000) -
         data.totalRakebackSL;
       const finalRate = calculateRate(
         wonTeamTotalWithoutFee,
@@ -2322,7 +2333,9 @@ describe("Setup Game", () => {
       const lostTeamTotalWithoutFee =
         data.totalDepositsSL -
         (data.totalDepositsSL * (await Game.initiatorFee())) / BigInt(10000) -
-        (data.totalDepositsSL * (await Game.fee())) / BigInt(10000) -
+        (data.totalDepositsSL *
+          (await Game.fees(await XyroToken.getAddress()))) /
+          BigInt(10000) -
         data.totalRakebackSL;
       const finalRate = calculateRate(
         wonTeamTotalWithoutFee,
@@ -2441,7 +2454,9 @@ describe("Setup Game", () => {
 
   describe("Other", async function () {
     it("should fail - change fee to 31%", async function () {
-      await expect(Game.setFee(3100)).to.be.revertedWith(requireLowerFee);
+      await expect(
+        Game.setFee(await XyroToken.getAddress(), 3100)
+      ).to.be.revertedWith(requireLowerFee);
     });
 
     it("should change treasury", async function () {

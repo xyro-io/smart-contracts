@@ -117,6 +117,9 @@ describe("OneVsOne", () => {
       "0x00035e3ddda6345c3c8ce45639d4449451f1d5828d7a70845e446f04905937cd",
     ];
     await Upkeep.setfeedNumberBatch(feedIds);
+
+    await Game.setFee(await USDT.getAddress(), 500);
+    await Game.setFee(await XyroToken.getAddress(), 500);
   });
 
   describe("Create game", async function () {
@@ -615,7 +618,8 @@ describe("OneVsOne", () => {
       let newBalance = await USDT.balanceOf(opponent.address);
       expect(newBalance - oldBalance).to.be.equal(
         usdtAmount * BigInt(2) -
-          (usdtAmount * (await Game.fee())) / BigInt(10000)
+          (usdtAmount * (await Game.fees(await USDT.getAddress()))) /
+            BigInt(10000)
       );
     });
 
@@ -727,7 +731,8 @@ describe("OneVsOne", () => {
       let newBalance = await USDT.balanceOf(opponent.address);
       expect(newBalance - oldBalance).to.be.equal(
         usdtAmount * BigInt(2) -
-          (usdtAmount * (await Game.fee())) / BigInt(10000)
+          (usdtAmount * (await Game.fees(await USDT.getAddress()))) /
+            BigInt(10000)
       );
     });
 
@@ -841,7 +846,8 @@ describe("OneVsOne", () => {
       let newBalance = await USDT.balanceOf(opponent.address);
       expect(newBalance - oldBalance).to.be.equal(
         usdtAmount * BigInt(2) -
-          (usdtAmount * (await Game.fee())) / BigInt(10000)
+          (usdtAmount * (await Game.fees(await USDT.getAddress()))) /
+            BigInt(10000)
       );
     });
 
@@ -879,7 +885,8 @@ describe("OneVsOne", () => {
       let newBalance = await USDT.balanceOf(owner.address);
       expect(newBalance - oldBalance).to.be.equal(
         usdtAmount * BigInt(2) -
-          (usdtAmount * (await Game.fee())) / BigInt(10000)
+          (usdtAmount * (await Game.fees(await USDT.getAddress()))) /
+            BigInt(10000)
       );
     });
 
@@ -1144,7 +1151,8 @@ describe("OneVsOne", () => {
       let newBalance = await XyroToken.balanceOf(opponent.address);
       expect(newBalance - oldBalance).to.be.equal(
         xyroAmount * BigInt(2) -
-          (xyroAmount * (await Game.fee())) / BigInt(10000)
+          (xyroAmount * (await Game.fees(await XyroToken.getAddress()))) /
+            BigInt(10000)
       );
     });
   });
@@ -1259,7 +1267,8 @@ describe("OneVsOne", () => {
       let newBalance = await USDT.balanceOf(opponent.address);
       expect(newBalance - oldBalance).to.be.equal(
         usdtAmount * BigInt(2) -
-          (usdtAmount * (await Game.fee())) / BigInt(10000)
+          (usdtAmount * (await Game.fees(await USDT.getAddress()))) /
+            BigInt(10000)
       );
     });
 
@@ -1671,6 +1680,8 @@ describe("OneVsOne", () => {
   });
 
   it("should fail - change fee to 31%", async function () {
-    await expect(Game.setFee(3100)).to.be.revertedWith(requireLowerFee);
+    await expect(Game.setFee(await USDT.getAddress(), 3100)).to.be.revertedWith(
+      requireLowerFee
+    );
   });
 });

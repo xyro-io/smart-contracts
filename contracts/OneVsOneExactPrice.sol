@@ -9,7 +9,7 @@ contract OneVsOneExactPrice is AccessControl {
     event OneVsOneToggle(bool isActive);
     event NewRefundFee(uint256 newRefundFee);
     event NewGameDuration(uint256 newMaxDuration, uint256 newMinDuration);
-    event NewFee(uint256 newFee);
+    event NewFee(uint256 newFee, address token);
     event NewTreasury(address newTreasury);
     event ExactPriceCreated(
         bytes32 gameId,
@@ -65,7 +65,7 @@ contract OneVsOneExactPrice is AccessControl {
     bytes32 public constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
     mapping(bytes32 => GameInfoPacked) public games;
     address public treasury;
-    uint256 public fee = 500;
+    mapping(address => uint256) public fees;
     uint256 public refundFee = 1000;
     uint256 public minDuration = 280;
     uint256 public maxDuration = 4 weeks;
@@ -516,7 +516,7 @@ contract OneVsOneExactPrice is AccessControl {
         if (diff1 != diff2) {
             ITreasury(treasury).withdrawGameFee(
                 games[gameId].depositAmount,
-                fee,
+                fees[ITreasury(treasury).gameToken(gameId)],
                 gameId
             );
             finalRate = ITreasury(treasury).calculateRate(
@@ -622,11 +622,15 @@ contract OneVsOneExactPrice is AccessControl {
     /**
      * Change fee
      * @param newFee new fee in bp
+     * @param token for wich fee will be set
      */
-    function setFee(uint256 newFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setFee(
+        address token,
+        uint256 newFee
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newFee <= 3000, "Fee exceeds the cap");
-        fee = newFee;
-        emit NewFee(newFee);
+        fees[token] = newFee;
+        emit NewFee(newFee, token);
     }
 
     /**

@@ -54,6 +54,7 @@ contract Bullseye is AccessControl {
         uint256 startTime;
         uint256 endTime;
         uint256 stopPredictAt;
+        bool isMultiParticipationOn;
     }
 
     struct GuessStruct {
@@ -65,7 +66,9 @@ contract Bullseye is AccessControl {
 
     GuessStruct[] public playerGuessData;
     uint256 packedData;
+    uint8 private pricePrecision;
     uint256 constant timeGap = 30 seconds;
+    mapping(address => bool) public isParticipating;
     uint256 public depositAmount;
     uint256 public totalRakeback;
     bytes32 public currentGameId;
@@ -82,13 +85,16 @@ contract Bullseye is AccessControl {
      * @param newDepositAmount amount to enter the game
      * @param feedNumber token position in array of Chainlink DataStreams feed IDs
      * @param token token for game deposits
+     * @param isMultiParticipation if it's true then players are able to participate in game multiple times
      */
     function startGame(
         uint32 endTime,
         uint32 stopPredictAt,
         uint256 newDepositAmount,
         uint8 feedNumber,
-        address token
+        address token,
+        uint8 precision,
+        bool isMultiParticipation
     ) public onlyRole(GAME_MASTER_ROLE) {
         require(packedData == 0, "Finish previous game first");
         require(stopPredictAt - block.timestamp >= timeGap, "Wrong stop time");
@@ -106,10 +112,12 @@ contract Bullseye is AccessControl {
             ) != bytes32(0),
             "Wrong feed number"
         );
+        pricePrecision = precision;
         packedData = (block.timestamp |
             (uint256(stopPredictAt) << 32) |
             (uint256(endTime) << 64) |
-            (uint256(feedNumber) << 96));
+            (uint256(feedNumber) << 96) |
+            (isMultiParticipation ? 1 : 0 << 104));
         currentGameId = keccak256(
             abi.encodePacked(endTime, block.timestamp, address(this))
         );
@@ -132,6 +140,18 @@ contract Bullseye is AccessControl {
      */
     function play(uint256 assetPrice) public {
         GameInfo memory game = decodeData();
+        if (pricePrecision != 0) {
+            assetPrice =
+                (assetPrice / (10 ^ pricePrecision)) *
+                (10 ^ pricePrecision);
+        }
+        if (game.isMultiParticipationOn) {
+            require(
+                isParticipating[msg.sender] == false,
+                "Already participating"
+            );
+            isParticipating[msg.sender] = true;
+        }
         require(
             playerGuessData.length + 1 <= maxPlayers,
             "Max player amount reached"
@@ -171,6 +191,18 @@ contract Bullseye is AccessControl {
      */
     function playWithDeposit(uint256 assetPrice) public {
         GameInfo memory game = decodeData();
+        if (pricePrecision != 0) {
+            assetPrice =
+                (assetPrice / (10 ^ pricePrecision)) *
+                (10 ^ pricePrecision);
+        }
+        if (game.isMultiParticipationOn) {
+            require(
+                isParticipating[msg.sender] == false,
+                "Already participating"
+            );
+            isParticipating[msg.sender] = true;
+        }
         require(
             playerGuessData.length + 1 <= maxPlayers,
             "Max player amount reached"
@@ -213,6 +245,18 @@ contract Bullseye is AccessControl {
         ITreasury.PermitData calldata permitData
     ) public {
         GameInfo memory game = decodeData();
+        if (pricePrecision != 0) {
+            assetPrice =
+                (assetPrice / (10 ^ pricePrecision)) *
+                (10 ^ pricePrecision);
+        }
+        if (game.isMultiParticipationOn) {
+            require(
+                isParticipating[msg.sender] == false,
+                "Already participating"
+            );
+            isParticipating[msg.sender] = true;
+        }
         require(
             playerGuessData.length + 1 <= maxPlayers,
             "Max player amount reached"
@@ -282,6 +326,9 @@ contract Bullseye is AccessControl {
         (int192 finalPrice, uint32 priceTimestamp) = IDataStreamsVerifier(
             upkeep
         ).verifyReportWithTimestamp(unverifiedReport, game.feedNumber);
+        if (pricePrecision != 0) {
+            finalPrice = finalPrice / int8(10 ^ pricePrecision);
+        }
         require(
             priceTimestamp - game.endTime <= 1 minutes,
             "Old chainlink report"
@@ -301,6 +348,7 @@ contract Bullseye is AccessControl {
                 uint192(finalPrice)
                 ? currentGuessData.assetPrice - uint192(finalPrice)
                 : uint192(finalPrice) - currentGuessData.assetPrice;
+
             for (uint256 i = 0; i < 3; i++) {
                 if (currentDiff < closestDiff[i]) {
                     for (uint256 k = 2; k > i; k--) {
@@ -428,6 +476,7 @@ contract Bullseye is AccessControl {
         data.stopPredictAt = uint256(uint32(packedData >> 32));
         data.endTime = uint256(uint32(packedData >> 64));
         data.feedNumber = uint8(packedData >> 96);
+        data.isMultiParticipationOn = packedData >> 104 == 1 ? true : false;
     }
 
     function getTotalPlayers() public view returns (uint256) {

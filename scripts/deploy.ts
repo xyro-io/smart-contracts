@@ -31,6 +31,7 @@ let contracts: {
   RealUpkeep,
   FrontHelper,
   RevenueBank,
+  Race,
   factory: any;
 let deployer: HardhatEthersSigner;
 if (fs.existsSync("./contracts.json")) {
@@ -152,6 +153,18 @@ async function deployBullseye() {
     console.log("Bullseye deployed");
   } else {
     console.log("Bullseye already deployed skipping...");
+  }
+}
+
+async function deployRace() {
+  factory = await ethers.getContractFactory("Race");
+  if (contracts.Race?.address == undefined || contracts.Race?.address == "") {
+    Race = await wrapFnc([], factory);
+    contracts.Race = { address: "", url: "" };
+    contracts.Race.address = Race.target;
+    console.log("Race deployed");
+  } else {
+    console.log("Race already deployed skipping...");
   }
 }
 
@@ -353,6 +366,7 @@ async function main() {
     await deployUpDown();
     await deployUpDownFee15();
     await deployBank();
+    await deployRace();
     const mainnetVerifierAdr = "0x478Aa2aC9F6D65F84e09D9185d126c3a17c2a93C";
     const testnetVerifierAdr = "0x2ff010DEbC1297f19579B4246cad07bd24F2488A";
     // await deployVerifier(testnetVerifierAdr);

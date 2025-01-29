@@ -40,7 +40,7 @@ async function main() {
 
   await wrapFnc([ADMIN_ROLE, contracts.OneVsOne.address], contract.grantRole);
   await wrapFnc([ADMIN_ROLE, contracts.Setup.address], contract.grantRole);
-
+  await wrapFnc([ADMIN_ROLE, contracts.Race.address], contract.grantRole);
   await wrapFnc([ADMIN_ROLE, contracts.Bullseye.address], contract.grantRole);
   await wrapFnc(
     [ADMIN_ROLE, contracts.BullseyeFee75.address],

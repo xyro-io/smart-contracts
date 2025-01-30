@@ -314,6 +314,7 @@ contract Bullseye is AccessControl {
                     currentGuessData.player,
                     currentGameId
                 );
+                isParticipating[currentGuessData.player] = false;
                 delete playerGuessData;
             }
             totalRakeback = 0;
@@ -342,20 +343,11 @@ contract Bullseye is AccessControl {
         ];
         for (uint256 j = 0; j < playerGuessData.length; j++) {
             GuessStruct memory currentGuessData = playerGuessData[j];
-            uint256 currentDiff;
-            if (pricePrecision != 0) {
-                currentDiff = currentGuessData.assetPrice >
-                    uint192(finalPrice) ** pricePrecision
-                    ? currentGuessData.assetPrice -
-                        uint192(finalPrice) ** pricePrecision
-                    : uint192(finalPrice) ** pricePrecision -
-                        currentGuessData.assetPrice;
-            } else {
-                currentDiff = currentGuessData.assetPrice > uint192(finalPrice)
-                    ? currentGuessData.assetPrice - uint192(finalPrice)
-                    : uint192(finalPrice) - currentGuessData.assetPrice;
-            }
-
+            uint256 currentDiff = currentGuessData.assetPrice >
+                uint192(finalPrice)
+                ? currentGuessData.assetPrice - uint192(finalPrice)
+                : uint192(finalPrice) - currentGuessData.assetPrice;
+            isParticipating[currentGuessData.player] = false;
             for (uint256 i = 0; i < 3; i++) {
                 if (currentDiff < closestDiff[i]) {
                     for (uint256 k = 2; k > i; k--) {
@@ -467,6 +459,7 @@ contract Bullseye is AccessControl {
                 currentGameId,
                 i
             );
+            isParticipating[currentGuessData.player] = false;
         }
         emit BullseyeCancelled(currentGameId);
         totalRakeback = 0;

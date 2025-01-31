@@ -22,12 +22,14 @@ let contracts: {
   OneVsOne,
   Bullseye,
   BullseyeFee75,
+  BullseyeFee5,
   GovernanceToken,
   TimeLock,
   MockVerifier,
   DAO,
   UpDown,
   UpDownFee15,
+  UpDownFee5,
   RealUpkeep,
   FrontHelper,
   RevenueBank,
@@ -141,6 +143,18 @@ async function deployStaking() {
   }
 }
 
+async function deployRace() {
+  factory = await ethers.getContractFactory("Race");
+  if (contracts.Race?.address == undefined || contracts.Race?.address == "") {
+    Race = await wrapFnc([], factory);
+    contracts.Race = { address: "", url: "" };
+    contracts.Race.address = Race.target;
+    console.log("Race deployed");
+  } else {
+    console.log("Race already deployed skipping...");
+  }
+}
+
 async function deployBullseye() {
   factory = await ethers.getContractFactory("Bullseye");
   if (
@@ -156,18 +170,6 @@ async function deployBullseye() {
   }
 }
 
-async function deployRace() {
-  factory = await ethers.getContractFactory("Race");
-  if (contracts.Race?.address == undefined || contracts.Race?.address == "") {
-    Race = await wrapFnc([], factory);
-    contracts.Race = { address: "", url: "" };
-    contracts.Race.address = Race.target;
-    console.log("Race deployed");
-  } else {
-    console.log("Race already deployed skipping...");
-  }
-}
-
 async function deployBullseyeFee75() {
   factory = await ethers.getContractFactory("Bullseye");
   if (
@@ -180,6 +182,21 @@ async function deployBullseyeFee75() {
     console.log("BullseyeFee75 deployed");
   } else {
     console.log("BullseyeFee75 already deployed skipping...");
+  }
+}
+
+async function deployBullseyeFee5() {
+  factory = await ethers.getContractFactory("Bullseye");
+  if (
+    contracts.BullseyeFee5?.address == undefined ||
+    contracts.BullseyeFee5?.address == ""
+  ) {
+    BullseyeFee5 = await wrapFnc([], factory);
+    contracts.BullseyeFee5 = { address: "", url: "" };
+    contracts.BullseyeFee5.address = BullseyeFee5.target;
+    console.log("BullseyeFee5 deployed");
+  } else {
+    console.log("BullseyeFee5 already deployed skipping...");
   }
 }
 
@@ -212,6 +229,7 @@ async function deployUpDown() {
     console.log("UpDown already deployed skipping...");
   }
 }
+
 async function deployUpDownFee15() {
   factory = await ethers.getContractFactory("UpDown");
   if (
@@ -224,6 +242,21 @@ async function deployUpDownFee15() {
     console.log("UpDownFee15 deployed");
   } else {
     console.log("UpDownFee15 already deployed skipping...");
+  }
+}
+
+async function deployUpDownFee5() {
+  factory = await ethers.getContractFactory("UpDown");
+  if (
+    contracts.UpDownFee5?.address == undefined ||
+    contracts.UpDownFee5?.address == ""
+  ) {
+    UpDownFee5 = await wrapFnc([], factory);
+    contracts.UpDownFee5 = { address: "", url: "" };
+    contracts.UpDownFee5.address = UpDownFee5.target;
+    console.log("UpDownFee5 deployed");
+  } else {
+    console.log("UpDownFee5 already deployed skipping...");
   }
 }
 
@@ -355,18 +388,22 @@ async function main() {
     await deployDAO();
     await deployUSDC();
     await deployXyroToken();
-    await deployTreasury();
     await deployStaking();
+
+    await deployTreasury();
+    await deployMockVerifier();
+    await deployFrontHelper();
+    await deployBank();
+
+    await deployRace();
     await deployOneVsOneExactPrice();
     await deploySetup();
     await deployBullseye();
     await deployBullseyeFee75();
-    await deployMockVerifier();
-    await deployFrontHelper();
+    await deployBullseyeFee5();
     await deployUpDown();
     await deployUpDownFee15();
-    await deployBank();
-    await deployRace();
+    await deployUpDownFee5();
     const mainnetVerifierAdr = "0x478Aa2aC9F6D65F84e09D9185d126c3a17c2a93C";
     const testnetVerifierAdr = "0x2ff010DEbC1297f19579B4246cad07bd24F2488A";
     // await deployVerifier(testnetVerifierAdr);

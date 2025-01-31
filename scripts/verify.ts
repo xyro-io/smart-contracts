@@ -22,7 +22,7 @@ function isAlreadyVerified(error: any, verifiedAddress: string) {
     error.toString().includes("already verified")
   ) {
     console.log("Already verified");
-    console.log(`https://sepolia.arbiscan.io/address/${verifiedAddress}#code`);
+    console.log(`https://arbiscan.io/address/${verifiedAddress}#code`);
     return true;
   } else {
     console.log(error);
@@ -30,7 +30,7 @@ function isAlreadyVerified(error: any, verifiedAddress: string) {
 }
 
 function getVerifiedUrl(verifiedAddress: string) {
-  return `https://sepolia.arbiscan.io/address/${verifiedAddress}#code`;
+  return `https://arbiscan.io/address/${verifiedAddress}#code`;
 }
 
 async function verifyMockUSDC() {
@@ -123,6 +123,19 @@ async function verifyBullseye() {
       if (isAlreadyVerified(e, targetAddress))
         contracts.BullseyeFee75.url = getVerifiedUrl(targetAddress);
     }
+
+    // BullseyeFee5
+    targetAddress = contracts.BullseyeFee5.address;
+    try {
+      await hre.run("verify:verify", {
+        address: targetAddress,
+        constructorArguments: [],
+      });
+      contracts.BullseyeFee5.url = getVerifiedUrl(targetAddress);
+    } catch (e) {
+      if (isAlreadyVerified(e, targetAddress))
+        contracts.BullseyeFee5.url = getVerifiedUrl(targetAddress);
+    }
   }
 }
 
@@ -151,6 +164,19 @@ async function verifyUpDown() {
     } catch (e) {
       if (isAlreadyVerified(e, targetAddress))
         contracts.UpDownFee15.url = getVerifiedUrl(targetAddress);
+    }
+
+    // UpDownFee5
+    targetAddress = contracts.UpDownFee5.address;
+    try {
+      await hre.run("verify:verify", {
+        address: targetAddress,
+        constructorArguments: [],
+      });
+      contracts.UpDownFee5.url = getVerifiedUrl(targetAddress);
+    } catch (e) {
+      if (isAlreadyVerified(e, targetAddress))
+        contracts.UpDownFee5.url = getVerifiedUrl(targetAddress);
     }
   }
 }

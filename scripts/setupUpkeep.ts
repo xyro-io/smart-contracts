@@ -38,12 +38,16 @@ async function main() {
 
   await wrapFnc([feedIds], contract.setfeedNumberBatch);
 
+  await wrapFnc([ADMIN_ROLE, contracts.Race.address], contract.grantRole);
   await wrapFnc([ADMIN_ROLE, contracts.OneVsOne.address], contract.grantRole);
   await wrapFnc([ADMIN_ROLE, contracts.Setup.address], contract.grantRole);
-  await wrapFnc([ADMIN_ROLE, contracts.Race.address], contract.grantRole);
   await wrapFnc([ADMIN_ROLE, contracts.Bullseye.address], contract.grantRole);
   await wrapFnc(
     [ADMIN_ROLE, contracts.BullseyeFee75.address],
+    contract.grantRole
+  );
+  await wrapFnc(
+    [ADMIN_ROLE, contracts.BullseyeFee5.address],
     contract.grantRole
   );
 
@@ -52,5 +56,6 @@ async function main() {
     [ADMIN_ROLE, contracts.UpDownFee15.address],
     contract.grantRole
   );
+  await wrapFnc([ADMIN_ROLE, contracts.UpDownFee5.address], contract.grantRole);
 }
 main();

@@ -20,16 +20,29 @@ async function setupTreasury(deployer: HardhatEthersSigner) {
     "Treasury",
     contracts.Treasury.address
   );
-  const role = await contract.DISTRIBUTOR_ROLE();
+
   await wrapFnc([contracts.DataStreamsVerifier.address], contract.setUpkeep);
-  await wrapFnc([role, contracts.Bullseye.address], contract.grantRole);
-  await wrapFnc([role, contracts.BullseyeFee75.address], contract.grantRole);
-  await wrapFnc([role, contracts.OneVsOne.address], contract.grantRole);
-  await wrapFnc([role, contracts.UpDown.address], contract.grantRole);
-  await wrapFnc([role, contracts.UpDownFee15.address], contract.grantRole);
-  await wrapFnc([role, contracts.Setup.address], contract.grantRole);
   await wrapFnc([ADMIN_ROLE, ADMIN], contract.grantRole);
   await wrapFnc([ADMIN_ROLE, deployer.address], contract.renounceRole);
+}
+
+async function setGameToTreasury(deployer: HardhatEthersSigner) {
+  const contract = await ethers.getContractAt(
+    "Treasury",
+    contracts.Treasury.address
+  );
+  const role = await contract.DISTRIBUTOR_ROLE();
+
+  await wrapFnc([role, contracts.Bullseye.address], contract.grantRole);
+  await wrapFnc([role, contracts.BullseyeFee75.address], contract.grantRole);
+  await wrapFnc([role, contracts.BullseyeFee5.address], contract.grantRole);
+
+  await wrapFnc([role, contracts.UpDown.address], contract.grantRole);
+  await wrapFnc([role, contracts.UpDownFee15.address], contract.grantRole);
+  await wrapFnc([role, contracts.UpDownFee5.address], contract.grantRole);
+
+  await wrapFnc([role, contracts.OneVsOne.address], contract.grantRole);
+  await wrapFnc([role, contracts.Setup.address], contract.grantRole);
 }
 
 async function setupBullseye(deployer: HardhatEthersSigner) {
@@ -57,6 +70,21 @@ async function setupBullseye75(deployer: HardhatEthersSigner) {
   await wrapFnc([gameMasterRole, GAME_MASTER], contract.grantRole);
   await wrapFnc([gameMasterRole, GAME_MASTER_2], contract.grantRole);
   await wrapFnc([750], contract.setFee);
+
+  await wrapFnc([ADMIN_ROLE, ADMIN], contract.grantRole);
+  await wrapFnc([ADMIN_ROLE, deployer.address], contract.renounceRole);
+}
+
+async function setupBullseye5(deployer: HardhatEthersSigner) {
+  const contract = await ethers.getContractAt(
+    "Bullseye",
+    contracts.BullseyeFee5.address
+  );
+  await wrapFnc([contracts.Treasury.address], contract.setTreasury);
+  const gameMasterRole = await contract.GAME_MASTER_ROLE();
+  await wrapFnc([gameMasterRole, GAME_MASTER], contract.grantRole);
+  await wrapFnc([gameMasterRole, GAME_MASTER_2], contract.grantRole);
+  await wrapFnc([500], contract.setFee);
 
   await wrapFnc([ADMIN_ROLE, ADMIN], contract.grantRole);
   await wrapFnc([ADMIN_ROLE, deployer.address], contract.renounceRole);
@@ -92,6 +120,21 @@ async function setupUpDownFee15(deployer: HardhatEthersSigner) {
   await wrapFnc([ADMIN_ROLE, deployer.address], contract.renounceRole);
 }
 
+async function setupUpDownFee5(deployer: HardhatEthersSigner) {
+  const contract = await ethers.getContractAt(
+    "UpDown",
+    contracts.UpDownFee5.address
+  );
+  await wrapFnc([contracts.Treasury.address], contract.setTreasury);
+  const gameMasterRole = await contract.GAME_MASTER_ROLE();
+  await wrapFnc([gameMasterRole, GAME_MASTER], contract.grantRole);
+  await wrapFnc([gameMasterRole, GAME_MASTER_2], contract.grantRole);
+  await wrapFnc([500], contract.setFee);
+
+  await wrapFnc([ADMIN_ROLE, ADMIN], contract.grantRole);
+  await wrapFnc([ADMIN_ROLE, deployer.address], contract.renounceRole);
+}
+
 async function setupExactPriceOneVsOne(deployer: HardhatEthersSigner) {
   const contract = await ethers.getContractAt(
     "OneVsOneExactPrice",
@@ -121,11 +164,17 @@ async function main() {
   console.log("Deployer = ", deployer.address);
 
   await setupTreasury(deployer);
+
   await setupSetup(deployer);
   await setupExactPriceOneVsOne(deployer);
   await setupBullseye(deployer);
   await setupBullseye75(deployer);
+  await setupBullseye5(deployer);
+
   await setupUpDown(deployer);
   await setupUpDownFee15(deployer);
+  await setupUpDownFee5(deployer);
+
+  await setGameToTreasury(deployer);
 }
 main();

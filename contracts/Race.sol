@@ -93,6 +93,10 @@ contract Race is AccessControl {
         uint8[] memory feedNumbers
     ) public onlyRole(GAME_MASTER_ROLE) {
         require(
+            depositAmount >= ITreasury(treasury).minDepositAmount(token),
+            "Wrong deposit amount"
+        );
+        require(
             feedNumbers.length >= minAssetAmount &&
                 feedNumbers.length <= maxAssetAmount,
             "Wrong asset length"

@@ -523,6 +523,7 @@ contract Race is AccessControl {
         uint256 newMinAssetAmount,
         uint256 newMaxAssetAmount
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newMinAssetAmount <= newMaxAssetAmount, "Wrong new amounts");
         minAssetAmount = newMinAssetAmount;
         maxAssetAmount = newMaxAssetAmount;
         emit NewAssetCap(newMinAssetAmount, newMaxAssetAmount);

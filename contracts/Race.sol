@@ -388,7 +388,10 @@ contract Race is AccessControl {
                 ((priceData - assetData[assetFeedNumber[i]].startingPrice) *
                     10000) /
                 assetData[assetFeedNumber[i]].startingPrice;
-            if (finalPricesDiff[i] > topDiff) {
+            if (
+                finalPricesDiff[i] > topDiff &&
+                assetData[assetFeedNumber[i]].players.length != 0
+            ) {
                 topDiff = finalPricesDiff[i];
                 topIndex = i;
             }

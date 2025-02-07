@@ -378,12 +378,20 @@ contract Race is AccessControl {
             if (finalPricesDiff[i] > topDiff) {
                 topDiff = finalPricesDiff[i];
                 topIndex = i;
-            } else if (finalPricesDiff[i] == topDiff) {
-                emit RaceDraw(currentGameId);
-                closeGame();
-                return;
             }
+
             finalPrices[i] = priceData;
+        }
+        uint256 counter;
+        for (uint i; i < unverifiedReports.length; i++) {
+            if (finalPricesDiff[i] == topDiff) {
+                counter++;
+                if (counter == 2) {
+                    emit RaceDraw(currentGameId);
+                    closeGame();
+                    return;
+                }
+            }
         }
 
         uint256 totalLostDeposits;

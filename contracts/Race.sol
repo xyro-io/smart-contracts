@@ -453,6 +453,15 @@ contract Race is AccessControl {
         ITreasury(treasury).setGameFinished(currentGameId);
         for (uint i; i < assetFeedNumber.length; i++) {
             delete assetData[assetFeedNumber[i]];
+            for (
+                uint k;
+                k < assetData[assetFeedNumber[i]].players.length;
+                k++
+            ) {
+                delete depositAmounts[assetFeedNumber[i]][
+                    assetData[assetFeedNumber[i]].players[k]
+                ];
+            }
         }
         packedData = 0;
         currentGameId = bytes32(0);

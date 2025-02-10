@@ -401,7 +401,9 @@ contract Race is AccessControl {
         uint256 counter;
         for (uint i; i < unverifiedReports.length; i++) {
             if (finalPricesDiff[i] == topDiff) {
-                counter++;
+                if (assetData[assetFeedNumber[i]].players.length != 0) {
+                    counter++;
+                }
                 if (counter == 2) {
                     emit RaceDraw(currentGameId);
                     closeGame();

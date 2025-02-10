@@ -251,10 +251,7 @@ contract Race is AccessControl {
         ITreasury.PermitData calldata permitData
     ) public {
         require(depositAmount >= minDepositAmount, "Wrong deposit amount");
-        require(
-            feedNumberIndex <= assetFeedNumber.length,
-            "Wrong asset number"
-        );
+        require(feedNumberIndex < assetFeedNumber.length, "Wrong asset number");
         uint8 assetNumber = assetFeedNumber[feedNumberIndex];
         require(
             depositAmounts[assetNumber][msg.sender] == 0,

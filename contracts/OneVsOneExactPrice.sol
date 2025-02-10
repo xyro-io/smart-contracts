@@ -108,6 +108,7 @@ contract OneVsOneExactPrice is AccessControl {
             endTime - block.timestamp <= maxDuration,
             "Max game duration must be lower"
         );
+        require(fees[token] != 0, "No fee set");
         bytes32 gameId = keccak256(
             abi.encodePacked(
                 endTime,
@@ -181,6 +182,7 @@ contract OneVsOneExactPrice is AccessControl {
             endTime - block.timestamp <= maxDuration,
             "Max game duration must be lower"
         );
+        require(fees[token] != 0, "No fee set");
         bytes32 gameId = keccak256(
             abi.encodePacked(
                 endTime,
@@ -250,7 +252,7 @@ contract OneVsOneExactPrice is AccessControl {
             endTime - block.timestamp <= maxDuration,
             "Max game duration must be lower"
         );
-
+        require(fees[token] != 0, "No fee set");
         bytes32 gameId = keccak256(
             abi.encodePacked(
                 endTime,

@@ -94,6 +94,7 @@ contract Bullseye is AccessControl {
         uint8 feedNumber,
         address token,
         uint8 precision,
+        uint256 range,
         bool isMultiParticipation
     ) public onlyRole(GAME_MASTER_ROLE) {
         require(packedData == 0, "Finish previous game first");
@@ -112,6 +113,7 @@ contract Bullseye is AccessControl {
             ) != bytes32(0),
             "Wrong feed number"
         );
+        exactRange = range;
         pricePrecision = precision;
         packedData = (block.timestamp |
             (uint256(stopPredictAt) << 32) |

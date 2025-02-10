@@ -128,6 +128,7 @@ describe("Bullseye", () => {
         feedNumber,
         await USDT.getAddress(),
         0,
+        parse18("5"),
         true
       );
       let game = await Game.decodeData();
@@ -149,6 +150,7 @@ describe("Bullseye", () => {
           wrongFeedNumber,
           await USDT.getAddress(),
           0,
+          parse18("5"),
           true
         )
       ).to.be.revertedWith(requireApprovedFeedNumber);
@@ -162,6 +164,7 @@ describe("Bullseye", () => {
         feedNumber,
         await USDT.getAddress(),
         0,
+        parse18("5"),
         true
       );
 
@@ -173,6 +176,7 @@ describe("Bullseye", () => {
           feedNumber,
           await USDT.getAddress(),
           0,
+          parse18("5"),
           true
         )
       ).to.be.revertedWith(requireFinishedGame);
@@ -188,6 +192,7 @@ describe("Bullseye", () => {
           feedNumber,
           await USDT.getAddress(),
           0,
+          parse18("5"),
           true
         )
       ).to.be.revertedWith(requireAboveMinDepositAmount);
@@ -203,6 +208,7 @@ describe("Bullseye", () => {
         feedNumber,
         await USDT.getAddress(),
         0,
+        parse18("5"),
         true
       );
     });
@@ -290,6 +296,7 @@ describe("Bullseye", () => {
         feedNumber,
         await USDT.getAddress(),
         0,
+        parse18("5"),
         true
       );
       await Game.connect(alice).play(guessPriceAlice);
@@ -315,6 +322,7 @@ describe("Bullseye", () => {
         feedNumber,
         await USDT.getAddress(),
         0,
+        parse18("5"),
         true
       );
     });
@@ -1439,6 +1447,7 @@ describe("Bullseye", () => {
           feedNumber,
           await XyroToken.getAddress(),
           0,
+          parse18("5"),
           true
         )
       ).to.be.revertedWith(requireApprovedToken);
@@ -1456,6 +1465,7 @@ describe("Bullseye", () => {
         feedNumber,
         await XyroToken.getAddress(),
         0,
+        parse18("5"),
         true
       );
       let game = await Game.decodeData();
@@ -1474,6 +1484,7 @@ describe("Bullseye", () => {
         feedNumber,
         await XyroToken.getAddress(),
         0,
+        parse18("5"),
         true
       );
       let tx = await Game.connect(opponent).play(guessPriceOpponent);
@@ -1505,6 +1516,7 @@ describe("Bullseye", () => {
         feedNumber,
         await XyroToken.getAddress(),
         0,
+        parse18("5"),
         true
       );
       await Game.connect(bob).play(guessBobPrice);
@@ -1576,6 +1588,7 @@ describe("Bullseye", () => {
         feedNumber,
         await USDT.getAddress(),
         0,
+        parse18("5"),
         true
       );
 
@@ -1643,6 +1656,7 @@ describe("Bullseye", () => {
         feedNumber,
         await USDT.getAddress(),
         0,
+        parse18("5"),
         true
       );
       await Game.connect(alice).play(guessPriceAlice);
@@ -1667,6 +1681,7 @@ describe("Bullseye", () => {
         feedNumber,
         await USDT.getAddress(),
         0,
+        parse18("5"),
         true
       );
       await time.increase(fortyFiveMinutes);
@@ -1688,6 +1703,7 @@ describe("Bullseye", () => {
         feedNumber,
         await USDT.getAddress(),
         0,
+        parse18("5"),
         true
       );
       await Game.connect(alice).play(guessPriceAlice);

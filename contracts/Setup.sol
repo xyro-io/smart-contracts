@@ -129,6 +129,7 @@ contract Setup is AccessControl {
             endTime - block.timestamp <= maxDuration,
             "Max game duration must be lower"
         );
+        require(fees[token] != 0, "No fee set");
         require(
             IDataStreamsVerifier(ITreasury(treasury).upkeep()).assetId(
                 feedNumber

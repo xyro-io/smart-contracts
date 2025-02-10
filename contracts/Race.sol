@@ -454,7 +454,6 @@ contract Race is AccessControl {
         );
         ITreasury(treasury).setGameFinished(currentGameId);
         for (uint i; i < assetFeedNumber.length; i++) {
-            delete assetData[assetFeedNumber[i]];
             for (
                 uint k;
                 k < assetData[assetFeedNumber[i]].players.length;
@@ -464,6 +463,7 @@ contract Race is AccessControl {
                     assetData[assetFeedNumber[i]].players[k]
                 ];
             }
+            delete assetData[assetFeedNumber[i]];
         }
         packedData = 0;
         currentGameId = bytes32(0);

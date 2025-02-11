@@ -322,7 +322,7 @@ contract Race is AccessControl {
                     assetFeedNumber[i]
                 );
             require(
-                priceTimestamp - game.stopPredictAt <= 1 minutes,
+                priceTimestamp - game.stopPredictAt <= 10 seconds,
                 "Old chainlink report"
             );
             require(

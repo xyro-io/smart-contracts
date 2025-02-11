@@ -331,7 +331,7 @@ contract Bullseye is AccessControl {
         ).verifyReportWithTimestamp(unverifiedReport, game.feedNumber);
 
         require(
-            priceTimestamp - game.endTime <= 1 minutes,
+            priceTimestamp - game.endTime <= 10 seconds,
             "Old chainlink report"
         );
         uint256[3] memory topIndexes;

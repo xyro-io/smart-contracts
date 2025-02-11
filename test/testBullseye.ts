@@ -1103,7 +1103,7 @@ describe("Bullseye", () => {
         await USDT.getAddress(),
         owner.address
       );
-      await time.increase(fortyFiveMinutes);
+      await time.increase(fortyFiveMinutes - 10);
       const oldTreasuryFeeBalance = await Treasury.collectedFee(
         await USDT.getAddress()
       );
@@ -1206,7 +1206,7 @@ describe("Bullseye", () => {
         await USDT.getAddress(),
         max.address
       );
-      await time.increase(fortyFiveMinutes);
+      await time.increase(fortyFiveMinutes - 15);
       const oldTreasuryFeeBalance = await Treasury.collectedFee(
         await USDT.getAddress()
       );
@@ -1333,7 +1333,7 @@ describe("Bullseye", () => {
         await USDT.getAddress(),
         max.address
       );
-      await time.increase(fortyFiveMinutes);
+      await time.increase(fortyFiveMinutes - 15);
       const oldTreasuryFeeBalance = await Treasury.collectedFee(
         await USDT.getAddress()
       );

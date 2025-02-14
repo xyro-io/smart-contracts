@@ -113,6 +113,7 @@ contract Bullseye is AccessControl {
             ) != bytes32(0),
             "Wrong feed number"
         );
+        require(range >= 10 ** pricePrecision, "Invalid exact range");
         exactRange = range;
         pricePrecision = precision;
         packedData = (block.timestamp |
@@ -513,6 +514,7 @@ contract Bullseye is AccessControl {
     function setExactRange(
         uint256 newRange
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(exactRange * 2 >= 10 ** pricePrecision, "Invalid exact range");
         exactRange = newRange;
         emit NewExactRange(newRange);
     }
@@ -548,8 +550,4 @@ contract Bullseye is AccessControl {
         rates[getRateIndex(playersCount, isExact)] = rate;
         emit NewBullseyeRates(rate, playersCount, isExact);
     }
-}
-
-interface IERC20 {
-    function decimals() external view returns (uint256);
 }

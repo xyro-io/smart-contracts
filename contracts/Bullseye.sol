@@ -113,7 +113,7 @@ contract Bullseye is AccessControl {
             ) != bytes32(0),
             "Wrong feed number"
         );
-        require(exactRange * 2 >= 10 ** pricePrecision, "Invalid exact range");
+        require(range >= 10 ** pricePrecision, "Invalid exact range");
         exactRange = range;
         pricePrecision = precision;
         packedData = (block.timestamp |

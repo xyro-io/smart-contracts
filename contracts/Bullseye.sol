@@ -4,8 +4,12 @@ pragma solidity ^0.8.24;
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ITreasury} from "./interfaces/ITreasury.sol";
 import {IDataStreamsVerifier} from "./interfaces/IDataStreamsVerifier.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import {Nonces} from "@openzeppelin/contracts/utils/Nonces.sol";
 
-contract Bullseye is AccessControl {
+contract Bullseye is AccessControl, EIP712, Nonces {
+    using ECDSA for bytes32;
     bytes32 public constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
     uint256 constant DENOMINATOR = 10000;
     uint256 public exactRange = 5 * 1e18;
@@ -34,7 +38,7 @@ contract Bullseye is AccessControl {
     );
     event BullseyeNewPlayer(
         address player,
-        uint256 assetPrice,
+        bytes32 assetPriceHash,
         uint256 depositAmount,
         bytes32 gameId,
         uint256 index,
@@ -48,6 +52,14 @@ contract Bullseye is AccessControl {
         bytes32 gameId
     );
     event BullseyeCancelled(bytes32 gameId);
+    event BullseyeReveal(uint256[] prices);
+
+    struct SignedPriceHash {
+        bytes32 assetPriceHash;
+        address from;
+        uint256 nonce;
+        uint256 deadline;
+    }
 
     struct GameInfo {
         uint8 feedNumber;
@@ -59,9 +71,10 @@ contract Bullseye is AccessControl {
 
     struct GuessStruct {
         address player;
-        uint256 assetPrice;
+        bytes32 assetPriceHash;
         uint256 timestamp;
         uint256 rakeback;
+        uint256 assetPrice;
     }
 
     GuessStruct[] public playerGuessData;
@@ -73,8 +86,9 @@ contract Bullseye is AccessControl {
     uint256 public totalRakeback;
     bytes32 public currentGameId;
     address public treasury;
+    address public signer;
 
-    constructor() {
+    constructor() EIP712("XYRO", "1") {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
@@ -138,15 +152,29 @@ contract Bullseye is AccessControl {
 
     /**
      * Participate in bullseye game and deposit funds
-     * @param assetPrice player's picked asset price
+     * @param data signed data with hashed price
+     * @param signature for checking if this data is valid and ensure that backend has the salt for hashed price
      */
-    function play(uint256 assetPrice) public {
+    function play(SignedPriceHash memory data, bytes memory signature) public {
+        require(block.timestamp < data.deadline, "Deadline expired");
         GameInfo memory game = decodeData();
-        if (pricePrecision != 0) {
-            assetPrice =
-                (assetPrice / (10 ** pricePrecision)) *
-                (10 ** pricePrecision);
-        }
+        //verify price hash
+        bytes32 hash = _hashTypedDataV4(
+            keccak256(
+                abi.encode(
+                    keccak256(
+                        "SignedPriceHash(bytes32 assetPriceHash,address from,uint256 nonce,uint256 deadline)"
+                    ),
+                    data.assetPriceHash,
+                    data.from,
+                    _useNonce(signer),
+                    data.deadline
+                )
+            )
+        );
+        address recoveredSigner = ECDSA.recover(hash, signature);
+        require(data.from == msg.sender, "Wrong sender");
+        require(recoveredSigner == signer, "Invalid signature");
         if (!game.isMultiParticipationOn) {
             require(
                 isParticipating[msg.sender] == false,
@@ -171,15 +199,16 @@ contract Bullseye is AccessControl {
         playerGuessData.push(
             GuessStruct({
                 player: msg.sender,
-                assetPrice: assetPrice,
+                assetPriceHash: data.assetPriceHash,
                 timestamp: block.timestamp,
-                rakeback: rakeback
+                rakeback: rakeback,
+                assetPrice: 0
             })
         );
         totalRakeback += rakeback;
         emit BullseyeNewPlayer(
             msg.sender,
-            assetPrice,
+            data.assetPriceHash,
             depositAmount,
             currentGameId,
             playerGuessData.length - 1,
@@ -189,15 +218,32 @@ contract Bullseye is AccessControl {
 
     /**
      * Participate in bullseye game with deposited funds
-     * @param assetPrice player's picked asset price
+     * @param data signed data with hashed price
+     * @param signature for checking if this data is valid and ensure that backend has the salt for hashed price
      */
-    function playWithDeposit(uint256 assetPrice) public {
+    function playWithDeposit(
+        SignedPriceHash memory data,
+        bytes memory signature
+    ) public {
+        require(block.timestamp < data.deadline, "Deadline expired");
         GameInfo memory game = decodeData();
-        if (pricePrecision != 0) {
-            assetPrice =
-                (assetPrice / (10 ** pricePrecision)) *
-                (10 ** pricePrecision);
-        }
+        //verify price hash
+        bytes32 hash = _hashTypedDataV4(
+            keccak256(
+                abi.encode(
+                    keccak256(
+                        "SignedPriceHash(bytes32 assetPriceHash,address from,uint256 nonce,uint256 deadline)"
+                    ),
+                    data.assetPriceHash,
+                    data.from,
+                    _useNonce(signer),
+                    data.deadline
+                )
+            )
+        );
+        address recoveredSigner = ECDSA.recover(hash, signature);
+        require(data.from == msg.sender, "Wrong sender");
+        require(recoveredSigner == signer, "Invalid signature");
         if (!game.isMultiParticipationOn) {
             require(
                 isParticipating[msg.sender] == false,
@@ -222,15 +268,16 @@ contract Bullseye is AccessControl {
         playerGuessData.push(
             GuessStruct({
                 player: msg.sender,
-                assetPrice: assetPrice,
+                assetPriceHash: data.assetPriceHash,
                 timestamp: block.timestamp,
-                rakeback: rakeback
+                rakeback: rakeback,
+                assetPrice: 0
             })
         );
         totalRakeback += rakeback;
         emit BullseyeNewPlayer(
             msg.sender,
-            assetPrice,
+            data.assetPriceHash,
             depositAmount,
             currentGameId,
             playerGuessData.length - 1,
@@ -240,18 +287,33 @@ contract Bullseye is AccessControl {
 
     /**
      * Participate in bullseye game and deposit funds with permit
-     * @param assetPrice player's picked asset price
+     * @param data signed data with hashed price
+     * @param signature for checking if this data is valid and ensure that backend has the salt for hashed price
      */
     function playWithPermit(
-        uint256 assetPrice,
+        SignedPriceHash memory data,
+        bytes memory signature,
         ITreasury.PermitData calldata permitData
     ) public {
+        require(block.timestamp < data.deadline, "Deadline expired");
         GameInfo memory game = decodeData();
-        if (pricePrecision != 0) {
-            assetPrice =
-                (assetPrice / (10 ** pricePrecision)) *
-                (10 ** pricePrecision);
-        }
+        //verify price hash
+        bytes32 hash = _hashTypedDataV4(
+            keccak256(
+                abi.encode(
+                    keccak256(
+                        "SignedPriceHash(bytes32 assetPriceHash,address from,uint256 nonce,uint256 deadline)"
+                    ),
+                    data.assetPriceHash,
+                    data.from,
+                    _useNonce(signer),
+                    data.deadline
+                )
+            )
+        );
+        address recoveredSigner = ECDSA.recover(hash, signature);
+        require(data.from == msg.sender, "Wrong sender");
+        require(recoveredSigner == signer, "Invalid signature");
         if (!game.isMultiParticipationOn) {
             require(
                 isParticipating[msg.sender] == false,
@@ -281,20 +343,41 @@ contract Bullseye is AccessControl {
         playerGuessData.push(
             GuessStruct({
                 player: msg.sender,
-                assetPrice: assetPrice,
+                assetPriceHash: data.assetPriceHash,
                 timestamp: block.timestamp,
-                rakeback: rakeback
+                rakeback: rakeback,
+                assetPrice: 0
             })
         );
         totalRakeback += rakeback;
         emit BullseyeNewPlayer(
             msg.sender,
-            assetPrice,
+            data.assetPriceHash,
             depositAmount,
             currentGameId,
             playerGuessData.length - 1,
             rakeback
         );
+    }
+
+    function revealPrices(
+        uint256[] memory salt,
+        uint256[] memory prices
+    ) public onlyRole(GAME_MASTER_ROLE) {
+        require(
+            salt.length == playerGuessData.length &&
+                prices.length == playerGuessData.length,
+            "Wrong array length"
+        );
+        for (uint i; i < playerGuessData.length; i++) {
+            require(
+                keccak256(abi.encodePacked(prices[i], salt[i])) ==
+                    playerGuessData[i].assetPriceHash,
+                "Invalid price data"
+            );
+            playerGuessData[i].assetPrice = prices[i];
+        }
+        emit BullseyeReveal(prices);
     }
 
     /**
@@ -345,6 +428,7 @@ contract Bullseye is AccessControl {
         ];
         for (uint256 j = 0; j < playerGuessData.length; j++) {
             GuessStruct memory currentGuessData = playerGuessData[j];
+            require(currentGuessData.assetPrice != 0, "Zero price");
             uint256 currentDiff = currentGuessData.assetPrice >
                 uint192(finalPrice)
                 ? currentGuessData.assetPrice - uint192(finalPrice)
@@ -548,8 +632,15 @@ contract Bullseye is AccessControl {
         rates[getRateIndex(playersCount, isExact)] = rate;
         emit NewBullseyeRates(rate, playersCount, isExact);
     }
-}
 
-interface IERC20 {
-    function decimals() external view returns (uint256);
+    function setSigner(address newSigner) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newSigner != address(0), "Zero address");
+        signer = newSigner;
+    }
+
+    function nonces(
+        address owner
+    ) public view virtual override(Nonces) returns (uint256) {
+        return super.nonces(owner);
+    }
 }

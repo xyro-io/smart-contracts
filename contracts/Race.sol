@@ -24,7 +24,7 @@ contract Race is AccessControl {
         uint256 depositAmount,
         uint256 depositId,
         bytes32 gameId,
-        uint8 feedNumber,
+        uint8 feedNumberIndex,
         uint256 rakeback,
         address token
     );
@@ -93,6 +93,10 @@ contract Race is AccessControl {
         uint8[] memory feedNumbers
     ) public onlyRole(GAME_MASTER_ROLE) {
         require(
+            depositAmount >= ITreasury(treasury).minDepositAmount(token),
+            "Wrong deposit amount"
+        );
+        require(
             feedNumbers.length >= minAssetAmount &&
                 feedNumbers.length <= maxAssetAmount,
             "Wrong asset length"
@@ -140,13 +144,14 @@ contract Race is AccessControl {
     /**
      * Take a participation in coin race game and deposit funds
      * @param depositAmount amount to deposit
-     * @param feedNumbers coind id of choise
+     * @param feedNumberIndex coind id of choise
      */
-    function play(uint256 depositAmount, uint8 feedNumbers) public {
+    function play(uint256 depositAmount, uint8 feedNumberIndex) public {
         require(depositAmount >= minDepositAmount, "Wrong deposit amount");
-        require(feedNumbers <= assetFeedNumber.length, "Wrong asset number");
+        require(feedNumberIndex < assetFeedNumber.length, "Wrong asset number");
+        uint8 assetNumber = assetFeedNumber[feedNumberIndex];
         require(
-            depositAmounts[feedNumbers][msg.sender] == 0,
+            depositAmounts[assetNumber][msg.sender] == 0,
             "Already participating"
         );
         //проверять ассет айди на валидный
@@ -157,24 +162,24 @@ contract Race is AccessControl {
             "Game is closed for new players"
         );
 
-        depositAmounts[feedNumbers][msg.sender] = depositAmount;
+        depositAmounts[assetNumber][msg.sender] = depositAmount;
         uint256 rakeback = ITreasury(treasury).depositAndLock(
             depositAmount,
             msg.sender,
             currentGameId,
             game.depositId
         );
-        assetData[feedNumbers].totalDeposits += depositAmount;
-        assetData[feedNumbers].totalRakeback += rakeback;
-        assetData[feedNumbers].players.push(msg.sender);
-        assetData[feedNumbers].depositIds.push(game.depositId);
+        assetData[assetNumber].totalDeposits += depositAmount;
+        assetData[assetNumber].totalRakeback += rakeback;
+        assetData[assetNumber].players.push(msg.sender);
+        assetData[assetNumber].depositIds.push(game.depositId);
 
         emit RaceNewPlayer(
             msg.sender,
             depositAmount,
             game.depositId,
             currentGameId,
-            feedNumbers,
+            assetNumber,
             rakeback,
             ITreasury(treasury).gameToken(currentGameId)
         );
@@ -187,13 +192,17 @@ contract Race is AccessControl {
     /**
      * Take a participation in coin race game and deposit funds
      * @param depositAmount amount to deposit
-     * @param feedNumbers coind id of choise
+     * @param feedNumberIndex coind id of choise
      */
-    function playWithDeposit(uint256 depositAmount, uint8 feedNumbers) public {
+    function playWithDeposit(
+        uint256 depositAmount,
+        uint8 feedNumberIndex
+    ) public {
         require(depositAmount >= minDepositAmount, "Wrong deposit amount");
-        require(feedNumbers <= assetFeedNumber.length, "Wrong asset number");
+        require(feedNumberIndex < assetFeedNumber.length, "Wrong asset number");
+        uint8 assetNumber = assetFeedNumber[feedNumberIndex];
         require(
-            depositAmounts[feedNumbers][msg.sender] == 0,
+            depositAmounts[assetNumber][msg.sender] == 0,
             "Already participating"
         );
         //проверять ассет айди на валидный
@@ -204,24 +213,24 @@ contract Race is AccessControl {
             "Game is closed for new players"
         );
 
-        depositAmounts[feedNumbers][msg.sender] = depositAmount;
+        depositAmounts[assetNumber][msg.sender] = depositAmount;
         uint256 rakeback = ITreasury(treasury).lock(
             depositAmount,
             msg.sender,
             game.depositId,
             currentGameId
         );
-        assetData[feedNumbers].totalDeposits += depositAmount;
-        assetData[feedNumbers].totalRakeback += rakeback;
-        assetData[feedNumbers].players.push(msg.sender);
-        assetData[feedNumbers].depositIds.push(game.depositId);
+        assetData[assetNumber].totalDeposits += depositAmount;
+        assetData[assetNumber].totalRakeback += rakeback;
+        assetData[assetNumber].players.push(msg.sender);
+        assetData[assetNumber].depositIds.push(game.depositId);
 
         emit RaceNewPlayer(
             msg.sender,
             depositAmount,
             game.depositId,
             currentGameId,
-            feedNumbers,
+            assetNumber,
             rakeback,
             ITreasury(treasury).gameToken(currentGameId)
         );
@@ -234,17 +243,18 @@ contract Race is AccessControl {
     /**
      * Take a participation in coin race game and deposit funds
      * @param depositAmount amount to deposit
-     * @param feedNumbers coind id of choise
+     * @param feedNumberIndex coind id of choise
      */
     function playWithPermit(
         uint256 depositAmount,
-        uint8 feedNumbers,
+        uint8 feedNumberIndex,
         ITreasury.PermitData calldata permitData
     ) public {
         require(depositAmount >= minDepositAmount, "Wrong deposit amount");
-        require(feedNumbers <= assetFeedNumber.length, "Wrong asset number");
+        require(feedNumberIndex < assetFeedNumber.length, "Wrong asset number");
+        uint8 assetNumber = assetFeedNumber[feedNumberIndex];
         require(
-            depositAmounts[feedNumbers][msg.sender] == 0,
+            depositAmounts[assetNumber][msg.sender] == 0,
             "Already participating"
         );
         GameInfo memory game = decodeData();
@@ -254,7 +264,7 @@ contract Race is AccessControl {
             "Game is closed for new players"
         );
 
-        depositAmounts[feedNumbers][msg.sender] = depositAmount;
+        depositAmounts[assetNumber][msg.sender] = depositAmount;
         uint256 rakeback = ITreasury(treasury).depositAndLockWithPermit(
             depositAmount,
             msg.sender,
@@ -265,17 +275,17 @@ contract Race is AccessControl {
             permitData.r,
             permitData.s
         );
-        assetData[feedNumbers].totalDeposits += depositAmount;
-        assetData[feedNumbers].totalRakeback += rakeback;
-        assetData[feedNumbers].players.push(msg.sender);
-        assetData[feedNumbers].depositIds.push(game.depositId);
+        assetData[assetNumber].totalDeposits += depositAmount;
+        assetData[assetNumber].totalRakeback += rakeback;
+        assetData[assetNumber].players.push(msg.sender);
+        assetData[assetNumber].depositIds.push(game.depositId);
 
         emit RaceNewPlayer(
             msg.sender,
             depositAmount,
             game.depositId,
             currentGameId,
-            feedNumbers,
+            assetNumber,
             rakeback,
             ITreasury(treasury).gameToken(currentGameId)
         );
@@ -312,7 +322,7 @@ contract Race is AccessControl {
                     assetFeedNumber[i]
                 );
             require(
-                priceTimestamp - game.stopPredictAt <= 1 minutes,
+                priceTimestamp - game.stopPredictAt <= 10 seconds,
                 "Old chainlink report"
             );
             require(
@@ -363,7 +373,7 @@ contract Race is AccessControl {
                     assetFeedNumber[i]
                 );
             require(
-                priceTimestamp - game.endTime <= 1 minutes,
+                priceTimestamp - game.endTime <= 10 seconds,
                 "Old chainlink report"
             );
             finalTimestamps[i] = priceTimestamp;
@@ -375,15 +385,28 @@ contract Race is AccessControl {
                 ((priceData - assetData[assetFeedNumber[i]].startingPrice) *
                     10000) /
                 assetData[assetFeedNumber[i]].startingPrice;
-            if (finalPricesDiff[i] > topDiff) {
+            if (
+                finalPricesDiff[i] > topDiff &&
+                assetData[assetFeedNumber[i]].players.length != 0
+            ) {
                 topDiff = finalPricesDiff[i];
                 topIndex = i;
-            } else if (finalPricesDiff[i] == topDiff) {
-                emit RaceDraw(currentGameId);
-                closeGame();
-                return;
             }
+
             finalPrices[i] = priceData;
+        }
+        uint256 counter;
+        for (uint i; i < unverifiedReports.length; i++) {
+            if (finalPricesDiff[i] == topDiff) {
+                if (assetData[assetFeedNumber[i]].players.length != 0) {
+                    counter++;
+                }
+                if (counter == 2) {
+                    emit RaceDraw(currentGameId);
+                    closeGame();
+                    return;
+                }
+            }
         }
 
         uint256 totalLostDeposits;
@@ -431,6 +454,15 @@ contract Race is AccessControl {
         );
         ITreasury(treasury).setGameFinished(currentGameId);
         for (uint i; i < assetFeedNumber.length; i++) {
+            for (
+                uint k;
+                k < assetData[assetFeedNumber[i]].players.length;
+                k++
+            ) {
+                delete depositAmounts[assetFeedNumber[i]][
+                    assetData[assetFeedNumber[i]].players[k]
+                ];
+            }
             delete assetData[assetFeedNumber[i]];
         }
         packedData = 0;
@@ -519,6 +551,7 @@ contract Race is AccessControl {
         uint256 newMinAssetAmount,
         uint256 newMaxAssetAmount
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newMinAssetAmount <= newMaxAssetAmount, "Wrong new amounts");
         minAssetAmount = newMinAssetAmount;
         maxAssetAmount = newMaxAssetAmount;
         emit NewAssetCap(newMinAssetAmount, newMaxAssetAmount);
@@ -541,6 +574,7 @@ contract Race is AccessControl {
      * @param newFee new fee in bp
      */
     function setFee(uint256 newFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newFee <= 3000, "Fee exceeds the cap");
         fee = newFee;
         emit NewFee(newFee);
     }

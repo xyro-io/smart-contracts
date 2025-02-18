@@ -514,7 +514,7 @@ contract Bullseye is AccessControl {
     function setExactRange(
         uint256 newRange
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(exactRange * 2 >= 10 ** pricePrecision, "Invalid exact range");
+        require(newRange >= 10 ** pricePrecision, "Invalid exact range");
         exactRange = newRange;
         emit NewExactRange(newRange);
     }

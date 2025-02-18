@@ -52,7 +52,7 @@ contract Bullseye is AccessControl, EIP712, Nonces {
         bytes32 gameId
     );
     event BullseyeCancelled(bytes32 gameId);
-    event BullseyeReveal(uint256[] prices);
+    event BullseyeReveal(uint256[] prices, bytes32[] priceHashes);
 
     struct SignedPriceHash {
         bytes32 assetPriceHash;
@@ -167,7 +167,7 @@ contract Bullseye is AccessControl, EIP712, Nonces {
                     ),
                     data.assetPriceHash,
                     data.from,
-                    _useNonce(signer),
+                    _useNonce(msg.sender),
                     data.deadline
                 )
             )
@@ -236,7 +236,7 @@ contract Bullseye is AccessControl, EIP712, Nonces {
                     ),
                     data.assetPriceHash,
                     data.from,
-                    _useNonce(signer),
+                    _useNonce(msg.sender),
                     data.deadline
                 )
             )
@@ -306,7 +306,7 @@ contract Bullseye is AccessControl, EIP712, Nonces {
                     ),
                     data.assetPriceHash,
                     data.from,
-                    _useNonce(signer),
+                    _useNonce(msg.sender),
                     data.deadline
                 )
             )
@@ -369,15 +369,17 @@ contract Bullseye is AccessControl, EIP712, Nonces {
                 prices.length == playerGuessData.length,
             "Wrong array length"
         );
+        bytes32[] memory priceHashes = new bytes32[](playerGuessData.length);
         for (uint i; i < playerGuessData.length; i++) {
             require(
                 keccak256(abi.encodePacked(prices[i], salt[i])) ==
                     playerGuessData[i].assetPriceHash,
                 "Invalid price data"
             );
+            priceHashes[i] = playerGuessData[i].assetPriceHash;
             playerGuessData[i].assetPrice = prices[i];
         }
-        emit BullseyeReveal(prices);
+        emit BullseyeReveal(prices, priceHashes);
     }
 
     /**

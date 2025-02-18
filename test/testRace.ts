@@ -1293,7 +1293,7 @@ describe("Race", () => {
       ];
       await Game.setStartingPrice(reports);
 
-      await time.increase(2 * fifteenMinutes + 10);
+      await time.increase(2 * fifteenMinutes);
       const finalReports = [
         abiEncodeInt192WithTimestamp(
           finalPriceFirst.toString(),

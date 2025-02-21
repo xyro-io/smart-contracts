@@ -291,6 +291,19 @@ async function verifyTimeLock() {
   }
 }
 
+async function verifyStakingHelper(contractAddress: string) {
+  try {
+    await hre.run("verify:verify", {
+      address: contractAddress,
+      constructorArguments: [],
+    });
+    console.log(getVerifiedUrl(contractAddress));
+  } catch (e) {
+    if (isAlreadyVerified(e, contractAddress))
+      console.log(getVerifiedUrl(contractAddress));
+  }
+}
+
 async function verify() {
   await verifyTimeLock();
   await verifyXyroToken();
@@ -304,6 +317,7 @@ async function verify() {
   await verifySetup();
   await verifyBank();
   await verifyRace();
+  await verifyStakingHelper("");
   const mainnetVerifierAdr = "0x478Aa2aC9F6D65F84e09D9185d126c3a17c2a93C";
   const testnetVerifierAdr = "0x2ff010DEbC1297f19579B4246cad07bd24F2488A";
   // await verifyVerifier(testnetVerifierAdr);

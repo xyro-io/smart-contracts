@@ -345,6 +345,12 @@ async function deployTokenOwner() {
   console.log(`Token owner deployed ${TokenOwner.target}`);
 }
 
+async function deployStakingHelper() {
+  factory = await ethers.getContractFactory("StakingHelper");
+  let StakingHelper = await wrapFnc([""], factory);
+  console.log(`StakingHelper deployed ${StakingHelper.target}`);
+}
+
 async function main() {
   [deployer] = await ethers.getSigners();
   console.log("Deployer = ", deployer.address);
@@ -367,6 +373,7 @@ async function main() {
     await deployUpDownFee15();
     await deployBank();
     await deployRace();
+    await deployStakingHelper();
     const mainnetVerifierAdr = "0x478Aa2aC9F6D65F84e09D9185d126c3a17c2a93C";
     const testnetVerifierAdr = "0x2ff010DEbC1297f19579B4246cad07bd24F2488A";
     // await deployVerifier(testnetVerifierAdr);

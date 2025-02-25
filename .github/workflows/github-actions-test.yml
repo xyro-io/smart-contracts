@@ -48,4 +48,4 @@ jobs:
           git checkout bage-test || git checkout -b bage-test
           git add badge.json
           git commit -m "Update coverage badge"
-          git push origin bage-test
+          git remote set-url --push origin https://BlackCheshire:${{ secrets.GIT_KEY }}@github.com/xyro-io/smart-contracts

@@ -31,17 +31,16 @@ jobs:
         with:
           name: coverage-badge
           path: badge.json
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: coverage-badge
-        run: unzip coverage-badge.zip
+      # - name: Download artifact
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: coverage-badge
+      #   run: unzip coverage-badge.zip
 
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-          git checkout bage-test
-          git add badge.json
-          git commit -m "Update coverage badge"
-          git push origin bage-test
-
+      #   run: |
+      #     git config --global user.name "github-actions"
+      #     git config --global user.email "github-actions@github.com"
+      #     git checkout bage-test
+      #     git add badge.json
+      #     git commit -m "Update coverage badge"
+      #     git push origin bage-test

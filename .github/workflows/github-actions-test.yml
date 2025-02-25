@@ -27,15 +27,17 @@ jobs:
         run: npm run coverage
 
       - name: save badge.json
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-badge
-          path: badge.json
-      # - name: Download artifact
-      #   uses: actions/download-artifact@v4
-      #   with:
-      #     name: coverage-badge
-      #   run: unzip coverage-badge.zip
+        steps:
+          - name: First
+            uses: actions/upload-artifact@v4
+            with:
+              name: coverage-badge
+              path: badge.json
+          - name: Download artifact
+            uses: actions/download-artifact@v4
+            with:
+              name: coverage-badge
+            run: unzip coverage-badge.zip
 
       #   run: |
       #     git config --global user.name "github-actions"

@@ -4,7 +4,7 @@
     "build": "hardhat compile",
     "clean": "hardhat clean",
     "test": "hardhat test",
-    "coverage": "hardhat coverage && node coverage-badge.js"
+    "coverage": "hardhat coverage && node scripts/createBadge.js"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",

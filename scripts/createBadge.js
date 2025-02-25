@@ -9,10 +9,8 @@ if (!fs.existsSync(path)) {
 
 const coverageSummary = fs.readFileSync(path, "utf8");
 
-// console.log(coverageSummary);
 // Extract the first percentage found in the file
 const match = coverageSummary.match(/<span class="strong">\s*([\d.]+)%\s*<\/span>/);
-console.log(match)
 if (match && match[1]) {
     const coverage = match[1];
     console.log(`Coverage: ${coverage}%`);
@@ -25,7 +23,6 @@ if (match && match[1]) {
         color: coverage >= 80 ? "green" : coverage >= 50 ? "yellow" : "red"
     };
 
-    console.log(JSON.stringify(badgeData, null, 2))
     fs.writeFileSync("badge.json", JSON.stringify(badgeData, null, 2));
     console.log("badge.json created successfully");
 }

@@ -31,15 +31,12 @@ jobs:
         with:
           name: coverage-badge
           path: badge.json
-         - name: Download artifact
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: coverage-badge
-
-      - name: Extract artifact
         run: unzip coverage-badge.zip
 
-      - name: Commit and Push Coverage Badge
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"

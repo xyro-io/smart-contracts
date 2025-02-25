@@ -363,6 +363,7 @@ contract Bullseye is AccessControl {
                     topRakeback[i] = currentGuessData.rakeback;
                     break;
                 } else if (
+                    //test pipeline
                     //write top timestamps
                     currentDiff == closestDiff[i] &&
                     currentGuessData.timestamp < topTimestamps[i]

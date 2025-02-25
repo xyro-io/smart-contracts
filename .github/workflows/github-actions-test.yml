@@ -21,28 +21,31 @@ jobs:
           node-version: "20.x"
           registry-url: "https://npm.pkg.github.com"
           scope: "@xyro-io"
+
       - run: npm install
       - run: npm run test
-      - name: coverage tests
+
+      - name: Run coverage tests
         run: npm run coverage
 
-      - name: save badge.json
-        steps:
-          - name: First
-            uses: actions/upload-artifact@v4
-            with:
-              name: coverage-badge
-              path: badge.json
-          - name: Download artifact
-            uses: actions/download-artifact@v4
-            with:
-              name: coverage-badge
-            run: unzip coverage-badge.zip
+      - name: Save badge.json
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-badge
+          path: badge.json # Uploading the single file
 
-      #   run: |
-      #     git config --global user.name "github-actions"
-      #     git config --global user.email "github-actions@github.com"
-      #     git checkout bage-test
-      #     git add badge.json
-      #     git commit -m "Update coverage badge"
-      #     git push origin bage-test
+      - name: Download badge.json
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-badge
+          path: . # Download to root
+
+      - name: Commit and Push Coverage Badge
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git fetch origin bage-test || echo "Branch bage-test does not exist"
+          git checkout bage-test || git checkout -b bage-test
+          git add badge.json
+          git commit -m "Update coverage badge"
+          git push origin bage-test

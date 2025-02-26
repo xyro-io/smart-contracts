@@ -20,7 +20,60 @@ interface IGame {
     function initiatorFee() external view returns (uint256);
 }
 
+interface IUpDown {
+    struct UpDownDecodedInfo {
+        uint256 startTime;
+        uint256 endTime;
+        uint256 stopPredictAt;
+        uint8 feedNumber;
+    }
+    function currentGameId() external view returns (bytes32);
+    function startingPrice() external view returns (uint256);
+    function totalDepositsUp() external view returns (uint256);
+    function totalDepositsDown() external view returns (uint256);
+    function decodeData() external view returns (UpDownDecodedInfo memory data);
+}
+
+interface IBullseye {
+    struct BullseyeDecodedInfo {
+        uint8 feedNumber;
+        uint256 startTime;
+        uint256 endTime;
+        uint256 stopPredictAt;
+        bool isMultiParticipationOn;
+    }
+    function currentGameId() external view returns (bytes32);
+    function depositAmount() external view returns (uint256);
+    function getTotalPlayers() external view returns (uint256);
+    function decodeData()
+        external
+        view
+        returns (BullseyeDecodedInfo memory data);
+}
+
 contract FrontHelper {
+    struct UpDownData {
+        uint256 startTime;
+        uint256 endTime;
+        uint256 stopPredictAt;
+        uint8 feedNumber;
+        bytes32 currentGameId;
+        uint256 startingPrice;
+        uint256 totalDepositsUp;
+        uint256 totalDepositsDown;
+    }
+
+    struct BullseyeData {
+        uint8 feedNumber;
+        uint256 startTime;
+        uint256 endTime;
+        uint256 stopPredictAt;
+        bool isMultiParticipationOn;
+        bytes32 currentGameId;
+        uint256 depositAmount;
+        uint256 totalPlayers;
+    }
+
     struct Data {
         uint256 balance;
         uint256 deposited;
@@ -156,5 +209,39 @@ contract FrontHelper {
             });
         }
         return data;
+    }
+
+    function getUpDownData(
+        address updown
+    ) public view returns (UpDownData memory) {
+        IUpDown.UpDownDecodedInfo memory data;
+        return
+            UpDownData({
+                startTime: data.startTime,
+                endTime: data.endTime,
+                stopPredictAt: data.stopPredictAt,
+                feedNumber: data.feedNumber,
+                currentGameId: IUpDown(updown).currentGameId(),
+                startingPrice: IUpDown(updown).startingPrice(),
+                totalDepositsUp: IUpDown(updown).totalDepositsUp(),
+                totalDepositsDown: IUpDown(updown).totalDepositsDown()
+            });
+    }
+
+    function getBullseyeData(
+        address bullseye
+    ) public view returns (BullseyeData memory) {
+        IBullseye.BullseyeDecodedInfo memory data;
+        return
+            BullseyeData({
+                feedNumber: data.feedNumber,
+                startTime: data.startTime,
+                endTime: data.endTime,
+                stopPredictAt: data.stopPredictAt,
+                isMultiParticipationOn: data.isMultiParticipationOn,
+                currentGameId: IBullseye(bullseye).currentGameId(),
+                depositAmount: IBullseye(bullseye).depositAmount(),
+                totalPlayers: IBullseye(bullseye).getTotalPlayers()
+            });
     }
 }

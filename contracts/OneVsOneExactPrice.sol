@@ -108,6 +108,7 @@ contract OneVsOneExactPrice is AccessControl {
             endTime - block.timestamp <= maxDuration,
             "Max game duration must be lower"
         );
+        require(fees[token] != 0, "No fee set");
         bytes32 gameId = keccak256(
             abi.encodePacked(
                 endTime,
@@ -181,6 +182,7 @@ contract OneVsOneExactPrice is AccessControl {
             endTime - block.timestamp <= maxDuration,
             "Max game duration must be lower"
         );
+        require(fees[token] != 0, "No fee set");
         bytes32 gameId = keccak256(
             abi.encodePacked(
                 endTime,
@@ -250,7 +252,7 @@ contract OneVsOneExactPrice is AccessControl {
             endTime - block.timestamp <= maxDuration,
             "Max game duration must be lower"
         );
-
+        require(fees[token] != 0, "No fee set");
         bytes32 gameId = keccak256(
             abi.encodePacked(
                 endTime,
@@ -514,6 +516,10 @@ contract OneVsOneExactPrice is AccessControl {
             : uint192(finalPrice) - games[gameId].opponentPrice;
         uint256 finalRate;
         if (diff1 != diff2) {
+            //set a default fee 10% if fee was 0
+            if (fees[ITreasury(treasury).gameToken(gameId)] == 0) {
+                fees[ITreasury(treasury).gameToken(gameId)] = 1000;
+            }
             ITreasury(treasury).withdrawGameFee(
                 games[gameId].depositAmount,
                 fees[ITreasury(treasury).gameToken(gameId)],

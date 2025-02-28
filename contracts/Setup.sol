@@ -129,6 +129,7 @@ contract Setup is AccessControl {
             endTime - block.timestamp <= maxDuration,
             "Max game duration must be lower"
         );
+        require(fees[token] != 0, "No fee set");
         require(
             IDataStreamsVerifier(ITreasury(treasury).upkeep()).assetId(
                 feedNumber
@@ -435,6 +436,10 @@ contract Setup is AccessControl {
 
         uint256 finalRate;
         uint256 withdrawnInitiatorFees;
+        //set a default fee 10% if fee was 0
+        if (fees[ITreasury(treasury).gameToken(gameId)] == 0) {
+            fees[ITreasury(treasury).gameToken(gameId)] = 1000;
+        }
         if (data.isLong) {
             require(
                 uint192(finalPrice) <= games[gameId].stopLossPrice ||

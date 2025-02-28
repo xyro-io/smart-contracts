@@ -2,11 +2,25 @@ import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { ethers } from "hardhat";
 import { XyroToken } from "../typechain-types/contracts/XyroToken";
 import { MockToken } from "../typechain-types/contracts/mock/MockERC20.sol/MockToken";
+import { Bullseye } from "../typechain-types/contracts/Bullseye";
 
 interface VRS {
   r: string;
   s: string;
   v: number;
+}
+
+interface HashData {
+  assetPriceHash: string;
+  from: string;
+  nonce: bigint;
+  deadline: bigint;
+}
+
+interface BullseyePriceData {
+  salts: bigint[];
+  priceHashArr: HashData[];
+  signatures: string[];
 }
 
 export async function wrapFnc(params: any, fnc: any) {
@@ -288,4 +302,50 @@ export function calculateWonAmount(
 ): bigint {
   const won = (initialDeposit * rate) / BigInt(1000000000);
   return initialDeposit + won;
+}
+
+const types = {
+  SignedPriceHash: [
+    { name: "assetPriceHash", type: "bytes32" },
+    { name: "from", type: "address" },
+    { name: "nonce", type: "uint256" },
+    { name: "deadline", type: "uint256" },
+  ],
+};
+
+export async function createBullseyePriceData(
+  signer: HardhatEthersSigner,
+  players: string[],
+  guessPrices: bigint[],
+  bullseye: Bullseye
+): Promise<BullseyePriceData> {
+  const domain = {
+    name: "XYRO",
+    version: "1",
+    chainId: 1337,
+    verifyingContract: await bullseye.getAddress(),
+  };
+
+  let salts: bigint[] = [];
+  let priceHashArr: HashData[] = [];
+  let signatures: string[] = [];
+  for (let i = 0; i < players.length; i++) {
+    const salt = ethers.toBigInt(ethers.randomBytes(32));
+    const priceHash = ethers.solidityPackedKeccak256(
+      ["uint256", "uint256"],
+      [guessPrices[i], salt]
+    );
+    const priceHashData = {
+      assetPriceHash: priceHash,
+      from: players[i],
+      nonce: await bullseye.nonces(players[i]),
+      deadline: ethers.MaxUint256,
+    };
+    const signature = await signer.signTypedData(domain, types, priceHashData);
+    salts.push(salt);
+    priceHashArr.push(priceHashData);
+    signatures.push(signature);
+  }
+
+  return { salts, priceHashArr, signatures };
 }

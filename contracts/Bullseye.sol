@@ -127,6 +127,7 @@ contract Bullseye is AccessControl, EIP712, Nonces {
             ) != bytes32(0),
             "Wrong feed number"
         );
+        require(range >= 10 ** precision, "Invalid exact range");
         exactRange = range;
         pricePrecision = precision;
         packedData = (block.timestamp |
@@ -599,6 +600,7 @@ contract Bullseye is AccessControl, EIP712, Nonces {
     function setExactRange(
         uint256 newRange
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newRange >= 10 ** pricePrecision, "Invalid exact range");
         exactRange = newRange;
         emit NewExactRange(newRange);
     }
